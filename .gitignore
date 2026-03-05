@@ -1,0 +1,9 @@
+# Binaries
+logsum
+*.exe
+
+# Logs
+*.log
+
+# OS stuff
+.DS_Store
