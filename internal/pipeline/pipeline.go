@@ -8,7 +8,7 @@ import (
 	"github.com/nelfander/losu/internal/parser"
 )
 
-// Process now accepts ANY Parser interface. This is "Dependency Injection."
+// Process accepts ANY Parser interface
 func Process(ctx context.Context, wg *sync.WaitGroup, numWorkers int, p parser.Parser, input <-chan model.RawLog, output chan<- model.LogEvent) {
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1) // Tell the WaitGroup a new worker started
@@ -18,12 +18,12 @@ func Process(ctx context.Context, wg *sync.WaitGroup, numWorkers int, p parser.P
 				select {
 				case <-ctx.Done():
 					return
-				case raw, ok := <-input:
+				case rawLine, ok := <-input:
 					if !ok {
 						return
 					}
 					// Use the interface method
-					output <- p.Parse(raw)
+					output <- p.Parse(rawLine)
 				}
 			}
 		}()

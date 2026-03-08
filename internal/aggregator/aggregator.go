@@ -23,6 +23,11 @@ func (a *Aggregator) Update(event model.LogEvent) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Skip the ghost lines
+	if event.Level == "IGNORE" {
+		return
+	}
+
 	a.totalLines++
 	a.errorCounts[event.Level]++
 }

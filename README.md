@@ -1,5 +1,7 @@
 # LogSum: High-Performance Log Streamer
 
+A high-performance, concurrent log tailing and analytics engine built in Go.
+
 ## Architecture
 [File] -> (fsnotify) -> [Tailer] -> (chan RawLog) -> [Parser] -> (chan LogEvent) -> [Aggregator] -> [UI]
 
@@ -10,6 +12,22 @@
 
 ## Backpressure Strategy
 We use **blocking sends** on bounded channels. If the Parser is slow, the Tailer waits. This ensures we never process more than the CPU can handle.
+
+
+## 🛠 Features (Phase 1 Complete)
+- **Concurrent Pipeline**: Multi-worker architecture using Go channels and sync primitives.
+- **FS-Watcher**: Real-time file system monitoring for zero-latency log detection.
+- **Resilient Parsing**: Custom-built logic to handle Windows UTF-16, BOM (Byte Order Marks), and Null-bytes.
+- **Live Dashboard**: ANSI-powered terminal UI for real-time error/info aggregation.
+
+## 🚀 Quick Start
+```bash
+# Run with default INFO filter
+go run cmd/logsum/main.go
+
+# Run with custom filter level
+go run cmd/logsum/main.go --level=ERROR
+```
 
 
 ## 🛠 <b>Development History</b>

@@ -23,19 +23,19 @@ func NewTailer(path string, results chan<- model.RawLog) *Tailer {
 
 func (t *Tailer) Run(ctx context.Context, changes <-chan struct{}) error {
 	//  Open the file
-	f, err := os.Open(t.path)
+	file, err := os.Open(t.path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer file.Close()
 
 	// Seek to the end (don't read the whole past history)
-	_, err = f.Seek(0, io.SeekEnd)
+	_, err = file.Seek(0, io.SeekEnd)
 	if err != nil {
 		return err
 	}
 
-	reader := bufio.NewReader(f)
+	reader := bufio.NewReader(file)
 
 	for {
 		select {
