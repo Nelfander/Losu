@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -13,14 +12,20 @@ var patterns = []struct {
 	name  string
 	regex *regexp.Regexp
 }{
-	//  Logfmt (Real app: time=... level=... msg=...)
-	{name: "logfmt", regex: regexp.MustCompile(`time=([^\s]+)\s+level=([a-zA-Z]+)\s+msg="?([^"|^\n]+)"?(.*)`)},
+	//  Flexible Logfmt: Looks for level= and msg= ANYWHERE in the line.
+	// This catches "playingfield-app | time=... level=DEBUG msg=..."
+	{name: "logfmt-flexible", regex: regexp.MustCompile(`level=([a-zA-Z]+).*?msg="?([^"\n]*)"?`)},
+	//{name: "logfmt", regex: regexp.MustCompile(`time=([^\s]+)\s+level=([a-zA-Z]+)\s+msg="?([^"|^\n]+)"?(.*)`)},
 
 	//  Brackets (Test logs: 2026-03-08 [INFO] Message)
 	{name: "brackets", regex: regexp.MustCompile(`.*?(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}).*?\[([a-zA-Z]+)\]\s+(.*)`)},
 
 	//  Simple Space (Legacy: 2026-03-08 15:00:00 ERROR Message)
-	{name: "brackets", regex: regexp.MustCompile(`(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)\s+\[([a-zA-Z]+)\]\s+(.*)`)},
+	{name: "simple", regex: regexp.MustCompile(`(\d{4}-\d{2}-\d{2}.*?)\s+([a-zA-Z]+)\s+(.*)`)},
+
+	// If nothing else matches, grab the whole line and
+	// treat the whole line as the message and label it "UNKNOWN".
+	{name: "catch-all", regex: regexp.MustCompile(`^(.*)$`)},
 }
 
 type RegexParser struct{}
@@ -40,7 +45,7 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 
 	line := strings.TrimSpace(cleanLine)
 
-	// 2. Immediate Exit for empty "Ghost" lines
+	// Immediate Exit for empty "Ghost" lines
 	if line == "" {
 		return model.LogEvent{Level: "IGNORE", Message: ""}
 	}
@@ -48,34 +53,28 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 	for _, probe := range patterns {
 		matches := probe.regex.FindStringSubmatch(line)
 
-		if len(matches) >= 4 {
-			// matches[1] = time
-			// matches[2] = level
-			// matches[3] = message
-			// matches[4] = extra metadata (for logfmt)
-			// SUCCESS! Found a match
-			fmt.Printf("DEBUG: Matched using %s pattern\n", probe.name)
+		if len(matches) >= 3 {
+			// Assume the last two are always Level and Message
+			level := strings.ToUpper(matches[len(matches)-2])
+			message := matches[len(matches)-1]
 
-			// Logfmt specific: grab the extra key-values after the message
-			msg := matches[3]
-			if len(matches) > 4 {
-				msg += " " + matches[4]
+			// If the pattern has a timestamp (group 1), parse it, else use Now()
+			timestamp := time.Now()
+			if len(matches) >= 4 {
+				timestamp = parseFlexibleTime(matches[1])
 			}
 
 			return model.LogEvent{
-				Timestamp: parseFlexibleTime(matches[1]),
-				Level:     strings.ToUpper(matches[2]),
-				Message:   strings.TrimSpace(msg),
+				Timestamp: timestamp,
+				Level:     level,
+				Message:   strings.TrimSpace(message),
 				Source:    rawLine.Source,
 			}
 		}
 	}
 
-	if !strings.Contains(line, "level=") && !strings.Contains(line, "[") {
-		return model.LogEvent{Level: "IGNORE", Message: ""}
-	}
-
-	// No patterns matched
+	// If we are here, it means no pattern matched, but it's NOT a ghost line.
+	// Return it as UNKNOWN so we see EVERYTHING.
 	return model.LogEvent{
 		Timestamp: time.Now(),
 		Level:     "UNKNOWN",

@@ -47,6 +47,7 @@ func (f *FSWatcher) Watch(ctx context.Context, path string) (<-chan struct{}, er
 				if !ok {
 					return
 				}
+
 				// Only care if the file was WRITTEN to.
 				if event.Has(fsnotify.Write) {
 					// Non-blocking send: if the channel is full,
@@ -54,6 +55,7 @@ func (f *FSWatcher) Watch(ctx context.Context, path string) (<-chan struct{}, er
 					select {
 					case notify <- struct{}{}:
 					default:
+						// Tailer is already busy, which is fine
 					}
 				}
 			case err, ok := <-f.watcher.Errors:

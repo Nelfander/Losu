@@ -1,0 +1,9 @@
+{
+  "total_lines": 21061,
+  "error_counts": {
+    "DEBUG": 5256,
+    "ERROR": 5238,
+    "INFO": 5300,
+    "WARN": 5267
+  }
+}

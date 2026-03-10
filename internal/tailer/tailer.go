@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/nelfander/losu/internal/model"
 )
@@ -43,25 +44,29 @@ func (t *Tailer) Run(ctx context.Context, changes <-chan struct{}) error {
 			return ctx.Err()
 		case _, ok := <-changes:
 			if !ok {
-				return nil // Watcher closed the channel
+				return nil
 			}
 
-			// Somethign has changed, read until the end of the new data
+			// GREEDY READ: Don't stop at 100. Read until the file is empty (EOF).
 			for {
 				line, err := reader.ReadString('\n')
+
+				// Check for content immediately
+				cleanLine := strings.TrimSpace(line)
+				if cleanLine != "" {
+					t.results <- model.RawLog{
+						Source: t.path,
+						Line:   cleanLine,
+					}
+				}
+
 				if err != nil {
 					if err == io.EOF {
-						// Reached the end of the current data,
-						// break this inner loop and wait for the next signal
+						// We finally caught up to the generator.
+						// Now we can go back to sleep and wait for the next signal.
 						break
 					}
 					return err
-				}
-
-				// Send the line to the pipeline
-				t.results <- model.RawLog{
-					Source: t.path,
-					Line:   line,
 				}
 			}
 		}

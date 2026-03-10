@@ -21,4 +21,5 @@ type Snapshot struct {
 	TotalLines  int
 	ErrorCounts map[string]int
 	BacklogSize int
+	History     []LogEvent
 }
