@@ -3,6 +3,7 @@ package aggregator
 import (
 	"encoding/json"
 	"os"
+	"sort"
 	"sync"
 
 	"github.com/nelfander/losu/internal/model"
@@ -11,16 +12,21 @@ import (
 const maxHistory = 25 // keep 25 last logs for now its enough
 
 type Aggregator struct {
-	mu          sync.RWMutex
-	TotalLines  int            `json:"total_lines"`
-	ErrorCounts map[string]int `json:"error_counts"`
-	history     []model.LogEvent
+	mu              sync.RWMutex
+	TotalLines      int                          `json:"total_lines"`
+	ErrorCounts     map[string]int               `json:"error_counts"`
+	MessageCounts   map[string]model.MessageStat `json:"message_counts"` // Message frequency
+	history         []model.LogEvent
+	CurrentSecCount int   // Tracks logs in the CURRENT 1-second window
+	TrendHistory    []int // Stores the last 50 snapshots of CurrentSecCount
 }
 
 func NewAggregator() *Aggregator {
 	return &Aggregator{
-		ErrorCounts: make(map[string]int),
-		history:     make([]model.LogEvent, 0, maxHistory),
+		ErrorCounts:   make(map[string]int),
+		MessageCounts: make(map[string]model.MessageStat),
+		history:       make([]model.LogEvent, 0, maxHistory),
+		TrendHistory:  make([]int, 0, 50), // Initialize with space for 50 second
 	}
 }
 
@@ -33,9 +39,18 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 		return
 	}
 
-	// ALWAYS update counts - we want the numbers to be accurate
+	// ALWAYS update counts -  numbers must be accurate
 	a.TotalLines++
 	a.ErrorCounts[event.Level]++
+
+	// Cluster unique messages (focusing on ERROR/WARN)
+	if event.Level == "ERROR" || event.Level == "WARN" {
+		stat := a.MessageCounts[event.Message]
+		stat.Count++
+		stat.Level = event.Level // Store the actual level from the log
+		a.MessageCounts[event.Message] = stat
+		a.CurrentSecCount++
+	}
 
 	// ONLY add to history if it passes the weight check
 	if weights[event.Level] >= minWeight {
@@ -44,6 +59,7 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 		}
 		a.history = append(a.history, event)
 	}
+
 }
 
 // Snapshot returns a read-only copy of the current state
@@ -57,6 +73,9 @@ func (a *Aggregator) Snapshot() model.Snapshot {
 		counts[k] = v
 	}
 
+	trendCopy := make([]int, len(a.TrendHistory))
+	copy(trendCopy, a.TrendHistory)
+
 	// Again copy cause if a.history Ui can read the same memory that
 	// a worker might be writing on
 	historyCopy := make([]model.LogEvent, len(a.history))
@@ -66,6 +85,8 @@ func (a *Aggregator) Snapshot() model.Snapshot {
 		TotalLines:  a.TotalLines,
 		ErrorCounts: counts,
 		History:     historyCopy,
+		TopMessages: a.getTopMessages(10),
+		Trend:       trendCopy,
 	}
 }
 
@@ -101,4 +122,42 @@ func (a *Aggregator) Load(filepath string) error {
 	}
 
 	return json.Unmarshal(file, a)
+}
+
+// Gets the top N most frequent messages
+func (a *Aggregator) getTopMessages(n int) map[string]model.MessageStat {
+	type kv struct {
+		Key  string
+		Stat model.MessageStat
+	}
+	var ss []kv
+	for k, v := range a.MessageCounts {
+		ss = append(ss, kv{k, v})
+	}
+
+	sort.Slice(ss, func(i, j int) bool {
+		return ss[i].Stat.Count > ss[j].Stat.Count
+	})
+
+	top := make(map[string]model.MessageStat)
+	for i := 0; i < n && i < len(ss); i++ {
+		top[ss[i].Key] = ss[i].Stat
+	}
+	return top
+}
+
+func (a *Aggregator) PushTrend() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	// Move the current second's count into history
+	a.TrendHistory = append(a.TrendHistory, a.CurrentSecCount)
+
+	// Keep only the last 50 seconds so the graph doesn't grow forever
+	if len(a.TrendHistory) > 50 {
+		a.TrendHistory = a.TrendHistory[1:]
+	}
+
+	// Reset the counter for the next second
+	a.CurrentSecCount = 0
 }

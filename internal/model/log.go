@@ -2,6 +2,11 @@ package model
 
 import "time"
 
+type MessageStat struct {
+	Count int
+	Level string
+}
+
 // RawLog is what the Tailer sends to the Parser
 type RawLog struct {
 	Source string
@@ -22,4 +27,6 @@ type Snapshot struct {
 	ErrorCounts map[string]int
 	BacklogSize int
 	History     []LogEvent
+	TopMessages map[string]MessageStat
+	Trend       []int
 }
