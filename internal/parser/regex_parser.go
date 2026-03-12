@@ -45,7 +45,7 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 
 	line := strings.TrimSpace(cleanLine)
 
-	// Immediate Exit for empty "Ghost" lines
+	// Immediate Exit for empty lines
 	if line == "" {
 		return model.LogEvent{Level: "IGNORE", Message: ""}
 	}
