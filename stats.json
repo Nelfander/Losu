@@ -1,415 +1,40 @@
 {
-  "total_lines": 5130,
+  "total_lines": 10,
   "error_counts": {
-    "DEBUG": 1264,
-    "ERROR": 1265,
-    "INFO": 1303,
-    "WARN": 1298
+    "DEBUG": 2,
+    "ERROR": 3,
+    "INFO": 3,
+    "WARN": 2
   },
   "message_counts": {
-    "Connection failed to database_0": {
-      "Count": 10,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_1": {
-      "Count": 16,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_10": {
-      "Count": 17,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_11": {
-      "Count": 17,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_12": {
-      "Count": 18,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_13": {
-      "Count": 6,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_14": {
-      "Count": 11,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_15": {
-      "Count": 15,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_16": {
-      "Count": 17,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_17": {
-      "Count": 15,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_18": {
-      "Count": 11,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_19": {
-      "Count": 13,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_2": {
-      "Count": 19,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_20": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_21": {
-      "Count": 5,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_22": {
-      "Count": 15,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_23": {
-      "Count": 15,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_24": {
-      "Count": 12,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_25": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_26": {
-      "Count": 11,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_27": {
-      "Count": 17,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_28": {
-      "Count": 10,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_29": {
-      "Count": 9,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_3": {
-      "Count": 17,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_30": {
-      "Count": 9,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_31": {
-      "Count": 18,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_32": {
-      "Count": 13,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_33": {
-      "Count": 11,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_34": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_35": {
-      "Count": 17,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_36": {
-      "Count": 8,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_37": {
-      "Count": 18,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_38": {
-      "Count": 7,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_39": {
-      "Count": 22,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_4": {
-      "Count": 17,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_40": {
-      "Count": 19,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_41": {
-      "Count": 7,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_42": {
-      "Count": 12,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_43": {
-      "Count": 8,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_44": {
-      "Count": 15,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_45": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_46": {
-      "Count": 13,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_47": {
-      "Count": 9,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_48": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_49": {
-      "Count": 15,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_5": {
-      "Count": 16,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_50": {
-      "Count": 18,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_51": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_52": {
-      "Count": 8,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_53": {
-      "Count": 13,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_54": {
-      "Count": 23,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_55": {
-      "Count": 13,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_56": {
-      "Count": 4,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_57": {
-      "Count": 11,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_58": {
-      "Count": 7,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_59": {
-      "Count": 15,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_6": {
-      "Count": 16,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_60": {
-      "Count": 7,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_61": {
-      "Count": 17,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_62": {
-      "Count": 12,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_63": {
-      "Count": 12,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_64": {
-      "Count": 10,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_65": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_66": {
-      "Count": 9,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_67": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_68": {
-      "Count": 18,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_69": {
-      "Count": 12,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_7": {
-      "Count": 13,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_70": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_71": {
-      "Count": 6,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_72": {
-      "Count": 9,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_73": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_74": {
-      "Count": 13,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_75": {
-      "Count": 15,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_76": {
-      "Count": 13,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_77": {
-      "Count": 16,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_78": {
-      "Count": 15,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_79": {
-      "Count": 18,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_8": {
-      "Count": 9,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_80": {
-      "Count": 12,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_81": {
-      "Count": 17,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_82": {
-      "Count": 8,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_83": {
-      "Count": 16,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_84": {
-      "Count": 15,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_85": {
-      "Count": 12,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_86": {
-      "Count": 10,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_87": {
-      "Count": 11,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_88": {
-      "Count": 7,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_89": {
-      "Count": 5,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_9": {
-      "Count": 8,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_90": {
-      "Count": 16,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_91": {
-      "Count": 8,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_92": {
-      "Count": 8,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_93": {
-      "Count": 10,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_94": {
-      "Count": 6,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_95": {
-      "Count": 13,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_96": {
-      "Count": 9,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_97": {
-      "Count": 14,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_98": {
-      "Count": 9,
-      "Level": "ERROR"
-    },
-    "Connection failed to database_99": {
-      "Count": 9,
-      "Level": "ERROR"
-    },
-    "High memory usage": {
-      "Count": 1298,
-      "Level": "WARN"
+    "Connection failed to database_": {
+      "Count": 2,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Connection failed to database_32": 1,
+        "Connection failed to database_60": 1
+      }
+    },
+    "Failed login attempt": {
+      "Count": 1,
+      "Level": "WARN",
+      "VariantCounts": {
+        "Failed login attempt": 1
+      }
+    },
+    "S upload failed": {
+      "Count": 1,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "S3 upload failed": 1
+      }
+    },
+    "Unrecognized file change": {
+      "Count": 1,
+      "Level": "WARN",
+      "VariantCounts": {
+        "Unrecognized file change": 1
+      }
     }
   },
   "CurrentSecCount": 0,
@@ -464,5 +89,6 @@
     0,
     0,
     0
-  ]
+  ],
+  "RecentMessages": {}
 }

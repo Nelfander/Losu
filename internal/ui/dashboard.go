@@ -15,6 +15,7 @@ type Dashboard struct {
 	TopErrorsView *tview.TextView
 	LogView       *tview.TextView
 	GraphView     *tview.TextView
+	AIView        *tview.TextView
 	Pages         *tview.Flex
 }
 
@@ -26,29 +27,37 @@ func NewDashboard() *Dashboard {
 	topErrors := tview.NewTextView()
 	logs := tview.NewTextView()
 	graph := tview.NewTextView()
+	ai := tview.NewTextView()
 
-	// Configure them separately
+	// Configure Stats
 	stats.SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
 		SetBorder(true).
 		SetTitle(" [yellow]Stats Breakdown ")
 
-	// Configure Top Errors
+	// Configure Top Errors/Warns
 	topErrors.SetDynamicColors(true).
 		SetBorder(true).
 		SetTitle(" [red]Top 10 Error/Warn Messages ")
 
-	// Configure Logs
+	// Configure Latest Logs
 	logs.SetDynamicColors(true).
 		SetRegions(true).
 		SetWordWrap(true).
 		SetBorder(true).
 		SetTitle(" [green]Latest Logs (Real-time) ")
 
+	// Configure AI View
+	ai.SetDynamicColors(true).
+		SetWordWrap(true).
+		SetBorder(true).
+		SetTitle(" [purple]AI Observer Insights ")
+	ai.SetText("[gray]Gathering data for initial analysis...")
+
 	// Configure Graph
 	graph.SetDynamicColors(true).
 		SetBorder(true).
-		SetTitle(" [cyan]Activity (60s) ")
+		SetTitle(" [cyan]Error Graph (60s) ")
 
 	// Layout:
 	// A horizontal flex for the top row
@@ -56,10 +65,17 @@ func NewDashboard() *Dashboard {
 		AddItem(stats, 0, 1, false).    // Stats takes 1/3
 		AddItem(topErrors, 0, 2, false) // TopErrors takes 2/3 space for longer text
 
+	// ---Split the bottom left into Logs (Top) and AI (Bottom) ---
+	logContainer := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(logs, 15, 1, false). // Logs takes 50%
+		AddItem(ai, 0, 1, false)     // AI takes bottom half
+
 	// Split the bottom area into Logs (left) and Graph (right)
+
 	body := tview.NewFlex().
-		AddItem(logs, 0, 2, false).  // Logs takes 2/3
-		AddItem(graph, 55, 1, false) // Graph takes a fixed width of 25
+		AddItem(logContainer, 0, 2, false). // Logs takes 2/3
+		AddItem(graph, 55, 1, false)        // Graph takes a fixed width of 25
 
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
@@ -71,7 +87,8 @@ func NewDashboard() *Dashboard {
 		StatsView:     stats,
 		TopErrorsView: topErrors,
 		LogView:       logs,
-		GraphView:     graph, // Assigned here
+		GraphView:     graph,
+		AIView:        ai,
 		Pages:         flex,
 	}
 }
@@ -101,6 +118,7 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 
 	d.StatsView.SetText(statsStr.String())
 
+	//  Build Graph
 	maxVal := 0
 	for _, v := range snap.Trend {
 		if v > maxVal {
@@ -108,12 +126,12 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 		}
 	}
 
-	// We generate a 10-line high graph now
+	// Generate a 10-line high graph now
 	spark := getSparkline(snap.Trend, 10)
 
 	var graphBody strings.Builder
 	graphBody.WriteString(fmt.Sprintf("\n [white]Current Status: %s\n", getStatusLabel(maxVal)))
-	graphBody.WriteString(fmt.Sprintf(" [white]Peak: [red]%d eps\n", maxVal))
+	graphBody.WriteString(fmt.Sprintf(" [white]Peak: [red]%d Errors per Second\n", maxVal))
 	graphBody.WriteString("\n" + spark + "\n")
 	graphBody.WriteString(" [white]" + strings.Repeat("▔", 25)) // Bottom axis line
 
@@ -142,16 +160,29 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 	for i := 0; i < 5; i++ {
 		getRow := func(idx int) string {
 			if idx >= len(sortedTop) {
-				return strings.Repeat(" ", 50) // Empty space for alignment
+				return strings.Repeat(" ", 45) // Empty space for alignment
 			}
 			item := sortedTop[idx]
+
+			// Most frequent version of this pattern
+			bestMsg := ""
+			maxSubCount := -1
+
+			//
+			for msg, count := range item.Stat.VariantCounts {
+				if count > maxSubCount {
+					maxSubCount = count
+					bestMsg = msg
+				}
+			}
+
 			color := "red"
 			if item.Stat.Level == "WARN" {
 				color = "yellow"
 			}
 
 			// Truncate message to 35 chars to ensure it fits in the column
-			msg := truncate(item.Key, 35)
+			msg := truncate(bestMsg, 35)
 			return fmt.Sprintf("[%s]%5d [white]| %-35s", color, item.Stat.Count, msg)
 		}
 
@@ -238,4 +269,48 @@ func getStatusLabel(eps int) string {
 		return "[yellow]HIGH LOAD"
 	}
 	return "[green]NORMAL"
+}
+
+// Gathers the top 3 Errors and top 3 Warns into a single string for the AI to analyze
+func (d *Dashboard) GetSummaryForAI(snap model.Snapshot) (errors string, warns string) {
+	type kv struct {
+		Key  string
+		Stat model.MessageStat
+	}
+
+	// This ensures the AI only sees what happened since the last check.
+	var sorted []kv
+	for k, v := range snap.RecentMessages {
+		sorted = append(sorted, kv{k, v})
+	}
+
+	// If there's literally no new data, give the AI a clear signal
+	if len(sorted) == 0 {
+		return "No new errors reported in this window.", "No new warnings."
+	}
+
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Stat.Count > sorted[j].Stat.Count })
+
+	var errB, warnB strings.Builder
+	eCount, wCount := 0, 0
+
+	for _, item := range sorted {
+		bestMsg := ""
+		max := -1
+		for msg, count := range item.Stat.VariantCounts {
+			if count > max {
+				max = count
+				bestMsg = msg
+			}
+		}
+
+		if item.Stat.Level == "ERROR" && eCount < 3 {
+			errB.WriteString(fmt.Sprintf("- %s (%d hits)\n", bestMsg, item.Stat.Count))
+			eCount++
+		} else if item.Stat.Level == "WARN" && wCount < 3 {
+			warnB.WriteString(fmt.Sprintf("- %s (%d hits)\n", bestMsg, item.Stat.Count))
+			wCount++
+		}
+	}
+	return errB.String(), warnB.String()
 }

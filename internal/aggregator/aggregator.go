@@ -3,13 +3,14 @@ package aggregator
 import (
 	"encoding/json"
 	"os"
+	"regexp"
 	"sort"
 	"sync"
 
 	"github.com/nelfander/losu/internal/model"
 )
 
-const maxHistory = 25 // keep 25 last logs for now its enough
+const maxHistory = 15 // keep 15 last logs for now its enough
 
 type Aggregator struct {
 	mu              sync.RWMutex
@@ -17,16 +18,18 @@ type Aggregator struct {
 	ErrorCounts     map[string]int               `json:"error_counts"`
 	MessageCounts   map[string]model.MessageStat `json:"message_counts"` // Message frequency
 	history         []model.LogEvent
-	CurrentSecCount int   // Tracks logs in the CURRENT 1-second window
-	TrendHistory    []int // Stores the last 50 snapshots of CurrentSecCount
+	CurrentSecCount int                           // Tracks logs in the CURRENT 1-second window
+	TrendHistory    []int                         // Stores the last 50 snapshots of CurrentSecCount
+	RecentMessages  map[string]*model.MessageStat // clears everytime AI succesfully reads it
 }
 
 func NewAggregator() *Aggregator {
 	return &Aggregator{
-		ErrorCounts:   make(map[string]int),
-		MessageCounts: make(map[string]model.MessageStat),
-		history:       make([]model.LogEvent, 0, maxHistory),
-		TrendHistory:  make([]int, 0, 50), // Initialize with space for 50 second
+		ErrorCounts:    make(map[string]int),
+		MessageCounts:  make(map[string]model.MessageStat),
+		history:        make([]model.LogEvent, 0, maxHistory),
+		TrendHistory:   make([]int, 0, 50), // Initialize with space for 50 second
+		RecentMessages: make(map[string]*model.MessageStat),
 	}
 }
 
@@ -39,16 +42,39 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 		return
 	}
 
-	// ALWAYS update counts -  numbers must be accurate
+	// ALWAYS update counts - numbers must be accurate
 	a.TotalLines++
 	a.ErrorCounts[event.Level]++
 
 	// Cluster unique messages (focusing on ERROR/WARN)
 	if event.Level == "ERROR" || event.Level == "WARN" {
-		stat := a.MessageCounts[event.Message]
+		pattern := fingerprint(event.Message)
+
+		//  Update Global MessageCounts (For the UI Top 10)
+		stat, exists := a.MessageCounts[pattern]
+		if !exists {
+			stat = model.MessageStat{
+				Level:         event.Level,
+				VariantCounts: make(map[string]int),
+			}
+		}
 		stat.Count++
-		stat.Level = event.Level // Store the actual level from the log
-		a.MessageCounts[event.Message] = stat
+		stat.VariantCounts[event.Message]++
+		a.MessageCounts[pattern] = stat
+
+		//  Update RecentMessages (AI short memory)
+		recentStat, recentExists := a.RecentMessages[pattern]
+		if !recentExists {
+			recentStat = &model.MessageStat{
+				Level:         event.Level,
+				VariantCounts: make(map[string]int),
+			}
+			a.RecentMessages[pattern] = recentStat
+		}
+		recentStat.Count++
+		recentStat.VariantCounts[event.Message]++
+
+		// Increment the counter for the Sparkline graph
 		a.CurrentSecCount++
 	}
 
@@ -59,7 +85,6 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 		}
 		a.history = append(a.history, event)
 	}
-
 }
 
 // Snapshot returns a read-only copy of the current state
@@ -160,4 +185,33 @@ func (a *Aggregator) PushTrend() {
 
 	// Reset the counter for the next second
 	a.CurrentSecCount = 0
+}
+
+// fingerprint simplifies a message by replacing variable data (numbers, hex) with '*'
+func fingerprint(msg string) string {
+	// Match digits (IDs, database numbers, etc.)
+	reDigits := regexp.MustCompile(`\d+`)
+	// Match hex sequences (Memory addresses like 0x7ffd...)
+	reHex := regexp.MustCompile(`0x[0-9a-fA-F]+`)
+
+	msg = reHex.ReplaceAllString(msg, "0x*")
+	msg = reDigits.ReplaceAllString(msg, "")
+
+	return msg
+}
+
+func (a *Aggregator) GetRecentSnapshot() map[string]model.MessageStat {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	// Clone the current recent stats to send to AI
+	recent := make(map[string]model.MessageStat)
+	for k, v := range a.RecentMessages {
+		recent[k] = *v
+	}
+
+	// Clear the buffer so the next AI call starts fresh!
+	a.RecentMessages = make(map[string]*model.MessageStat)
+
+	return recent
 }

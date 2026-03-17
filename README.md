@@ -1,37 +1,89 @@
-# LogSum: High-Performance Log Streamer
+# 🐺 LOSU (Log Observer & Summary Unit)
 
-A high-performance, concurrent log tailing and analytics engine built in Go.
+**LOSU** is a high-performance, AI-native observability tool designed to turn chaotic log streams into actionable engineering insights. It doesn't just tail logs; it understands the "why" behind the "what."
 
-## Architecture
-[File] -> (fsnotify) -> [Tailer] -> (chan RawLog) -> [Parser] -> (chan LogEvent) -> [Aggregator] -> [UI]
+---
 
-## Core Guarantees
-1. **Zero Leaks**: Every goroutine is tracked with a `context.Context`.
-2. **Memory Bounded**: All channels have a buffer limit of 100. If the UI freezes, the whole pipeline pauses rather than exploding RAM.
-3. **Graceful Exit**: On `Ctrl+C`, the program flushes the remaining logs and closes files before exiting.
+## 🧠 The Intelligence Layer
+Unlike standard tailing tools, LOSU uses a **three-tier analysis engine**:
 
-## Backpressure Strategy
-We use **blocking sends** on bounded channels. If the Parser is slow, the Tailer waits. This ensures we never process more than the CPU can handle.
+1.  **Pattern Fingerprinting**: Dynamically groups millions of unique log lines (e.g., `db_1`, `db_2`) into logical "Winner" patterns using fuzzy grouping logic.
+2.  **Visual Delta**: A real-time 60-second "Sparkline" graph that tracks Error-Per-Second (EPS) spikes to detect anomalies instantly.
+3.  **AI Observer (Ollama/Llama 3)**: A background "SRE" entity that analyzes top patterns and provides human-readable root-cause analysis and suggested mitigation steps.
 
+## 🚀 Key Features
+* **AI-Driven Root Cause**: Local LLM integration (Llama 3/Phi-3) for private, zero-cost, and offline log interpretation.
+* **Multi-Channel Alerting**:
+    * **Desktop**: Native OS notifications via `beeep`.
+    * **Mobile**: Instant push notifications to your phone via `ntfy.sh` (zero-account setup required).
+    * **Smart Rate Limiting**: Intelligent 20-second cooldown per error pattern to prevent "Alert Fatigue."
+* **High-Concurrency Pipeline**: 
+    * **Non-Blocking UI**: Dedicated goroutines for Data Processing, UI Rendering, and AI Analysis.
+    * **Memory Bounded**: Fixed-buffer channels and backpressure strategies prevent RAM spikes during massive log storms.
+* **Developer Dashboard**: ANSI-powered TUI featuring real-time stats, error distributions, and a dedicated "AI Wisdom" panel.
 
-## 🛠 Features (Phase 1 Complete)
-- **Concurrent Pipeline**: Multi-worker architecture using Go channels and sync primitives.
-- **FS-Watcher**: Real-time file system monitoring for zero-latency log detection.
-- **Resilient Parsing**: Custom-built logic to handle Windows UTF-16, BOM (Byte Order Marks), and Null-bytes.
-- **Live Dashboard**: ANSI-powered terminal UI for real-time error/info aggregation.
+## 🛠 Tech Stack
+* **Language**: Go (Golang)
+* **TUI Framework**: `tview` & `tcell`
+* **AI Engine**: Ollama (Local API)
+* **Alerting**: `beeep` (Desktop) & `ntfy` (Mobile/HTTP)
+* **Concurrency**: Context-aware Worker Pools, Mutex-protected Snapshots, and Atomic Counters.
 
-## 🚀 Quick Start
+## 📦 Installation & Setup
+
+### 1. Prerequisites
+Install [Ollama](https://ollama.com) and pull the high-performance Llama 3 model:
 ```bash
-# Run with default INFO filter
-go run cmd/logsum/main.go
-
-# Run with custom filter level
-go run cmd/logsum/main.go --level=ERROR
+ollama pull llama3
 ```
 
+## Run the app 
+# Clone the repository
+git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
+cd losu
+
+# Run with default INFO filter
+go run main.go
+
+# Run and wipe previous session stats
+go run main.go -reset
+
+### Mobile Alerts Setup
+1. Download the **ntfy** app (iOS/Android).
+2. Click **"Subscribe to topic"** and enter a unique, private name (e.g., `losu-monitor-7722`).
+3. In `main.go`, ensure the `NtfyTopic` matches your chosen name:
+   ```go
+   notifier.NtfyTopic = "losu-monitor-7722"
+4. Instant push notifications will now bypass your desktop and hit your pocket for all ERROR level events.
+
+##🧪 Testing with Chaos
+LOSU includes a built-in Chaos Generator to simulate production-grade failures, including high-memory spikes, database timeouts, and security anomalies:
+
+# In a separate terminal (Change time.Sleep depending on how chaotic you want it! It can handle 1k logs/sec)
+go run internal/generator/generator.go
 
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
+
+<details>
+<summary><b>March 17, 2026: AI-Native Observability & Distributed Alerting Systems</b> (Click to expand)</summary>
+
+#### Phase 1: Cognitive Analysis Layer (Ollama Integration)
+* **Local LLM Orchestration**: Integrated a dedicated `explainer` package to interface with the Ollama API, utilizing the Llama 3 (4.7 GB) model for zero-latency, private log interpretation.
+* **Contextual Prompt Engineering**: Developed a specialized "SRE Role" prompt that forces the AI to output structured "Situation Reports" focused on Root Cause and Actionable Mitigation.
+* **Short-Term Memory (Sliding Window)**: Engineered a "Destructive Read" buffer (`RecentMessages`) in the Aggregator. This ensures the AI analyzes only the "Delta" (the last 30 seconds of activity) rather than repeating historical session data.
+
+#### Phase 2: Distributed Notification Architecture
+* **Cross-Platform Alerting**: Implemented a multi-channel notification engine using `beeep` for local desktop OS alerts and `ntfy.sh` for remote mobile push notifications.
+* **Intelligent Rate Limiting**: Developed a per-pattern "Cooldown" mechanism (20-second limiter) using a Mutex-protected map of timestamps. This prevents alert fatigue and desktop "spam" during high-frequency error spikes.
+* **Thread-Safe Snapshotting**: Optimized the handoff between the high-speed log ingestion and the slower AI analysis loop using dedicated `Snapshot` clones to prevent memory racing.
+
+#### Phase 3: UI/UX Structural Optimization
+* **Flexible Layout Refinement**: Re-engineered the TUI Flex layout to prioritize AI insights, expanding the `AIView` real estate while maintaining a focused 15-line "Rolling History" for real-time logs.
+* **Asynchronous State Updates**: Leveraged `App.QueueUpdateDraw` to ensure the AI "Thinking" states and final reports render smoothly without locking the main terminal UI thread.
+* **Real-Time Insight Synchronization**: Aligned the AI analysis window with the Sparkline peaks, providing a direct visual link between throughput spikes and the AI's "Situation Report."
+
+</details>
 
 <details>
 <summary><b>March 11, 2026: Architectural Refinement & Real-Time Throughput Visualization</b> (Click to expand)</summary>
@@ -93,3 +145,17 @@ go run cmd/logsum/main.go --level=ERROR
 
 </details>
 </details>
+
+## 📜 License
+This project is licensed under the MIT License. Feel free to use, modify, and distribute it in your own projects or as a base for your own observability tools!
+
+---
+
+## 🏗 Development Roadmap
+- [x] **Phase 1**: High-Concurrency Pipeline & FS-Watcher
+- [x] **Phase 2**: Pattern Recognition & Fuzzy Message Grouping
+- [x] **Phase 3**: AI Observer Integration (Ollama/Llama 3)
+- [x] **Phase 4**: Multi-Channel Alerting (Desktop & Mobile)
+- [ ] **Phase 5**: Support for JSON-structured logs & Custom Regex
+- [ ] **Phase 6**: Prometheus Metrics Export & Grafana Integration
+- [ ] **Phase 7**: Historical Log Searching & Persistence
