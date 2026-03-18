@@ -66,6 +66,26 @@ go run internal/generator/generator.go
 <details><summary>(Click to expand)</summary>
 
 <details>
+<summary><b>March 18, 2026: Interactive UX Framework & State-Driven Focus Management</b> (Click to expand)</summary>
+
+#### Phase 1: Interactive Input & Focus Engine
+* **Thread-Safe Event Interception**: Implemented a global `SetInputCapture` layer using `tcell` to manage system-level shortcuts (Ctrl+C) while preventing input "swallowing" during high-frequency log updates.
+* **Mouse-Driven Navigation**: Enabled `EnableMouse(true)` and reconfigured primitive selectability, allowing users to transition from "Passive Monitoring" to "Active Investigation" via direct UI clicks.
+* **Low-Latency Search Filtering**: Engineered a real-time `SearchFilter` mechanism that dynamically masks the `LogView` buffer. This allows for instant "Grep-like" functionality directly within the TUI without interrupting background ingestion.
+
+#### Phase 2: Observability Metadata & Heartbeat Tracking
+* **Temporal State Tracking**: Augmented the `Aggregator` and `Snapshot` models to track `LastErrorTime` and `LastWarnTime`. This provides a high-fidelity "Heartbeat" for system health regardless of current throughput.
+* **Dynamic Header Injection**: Developed a real-time metadata header in the `AIView` and `TopErrors` panels, providing instant visual confirmation of the last critical event timestamp using Go's `time.IsZero` validation.
+* **Input Quality of Life (QoL)**: Integrated a "Clear-on-Escape" `SetDoneFunc` for the search panel, allowing for rapid reset of the visual state and filter parameters.
+
+#### Phase 3: UI Stability & Deadlock Prevention
+* **Concurrency Guardrails**: Resolved a "Spider-Man" deadlock condition by decoupling manual `App.Draw()` calls from input change events, leaning on the main ticker loop to handle screen paints safely.
+* **Layout Hierarchy Refinement**: Restructured the `rightSide` Flex row to prioritize the search interface, ensuring the input field remains visible and accessible during high-load error spikes.
+* **Type-Aware Filtering**: Optimized the search logic to target a composite string of `Level + Message`, enabling users to filter by severity (e.g., typing "Warn") or specific error keywords interchangeably.
+
+</details>
+
+<details>
 <summary><b>March 17, 2026: AI-Native Observability & Distributed Alerting Systems</b> (Click to expand)</summary>
 
 #### Phase 1: Cognitive Analysis Layer (Ollama Integration)

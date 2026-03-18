@@ -89,6 +89,6 @@ func main() {
 
 		// 10ms = 100 logs per second.
 		// 1ms  = 1,000 logs per second.
-		time.Sleep(10000 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 }

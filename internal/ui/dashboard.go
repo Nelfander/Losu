@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/nelfander/losu/internal/model"
 	"github.com/rivo/tview"
 )
@@ -16,6 +17,8 @@ type Dashboard struct {
 	LogView       *tview.TextView
 	GraphView     *tview.TextView
 	AIView        *tview.TextView
+	SearchInput   *tview.InputField
+	SearchFilter  string
 	Pages         *tview.Flex
 }
 
@@ -42,6 +45,7 @@ func NewDashboard() *Dashboard {
 
 	// Configure Latest Logs
 	logs.SetDynamicColors(true).
+		SetScrollable(true).
 		SetRegions(true).
 		SetWordWrap(true).
 		SetBorder(true).
@@ -59,38 +63,90 @@ func NewDashboard() *Dashboard {
 		SetBorder(true).
 		SetTitle(" [cyan]Error Graph (60s) ")
 
-	// Layout:
-	// A horizontal flex for the top row
-	header := tview.NewFlex().
-		AddItem(stats, 0, 1, false).    // Stats takes 1/3
-		AddItem(topErrors, 0, 2, false) // TopErrors takes 2/3 space for longer text
+	// Configure Search Box
+	searchInput := tview.NewInputField().
+		SetLabel(" 🔍 Search: ").
+		SetPlaceholder(" Click to type filters for Latest Logs box...").
+		SetFieldBackgroundColor(tcell.ColorBlack).
+		SetFieldTextColor(tcell.ColorWhite)
 
-	// ---Split the bottom left into Logs (Top) and AI (Bottom) ---
-	logContainer := tview.NewFlex().
-		SetDirection(tview.FlexRow).
-		AddItem(logs, 15, 1, false). // Logs takes 50%
-		AddItem(ai, 0, 1, false)     // AI takes bottom half
+	searchInput.SetBorder(true).
+		SetTitle(" [white][ Filter Panel ] ").
+		SetTitleAlign(tview.AlignLeft)
 
-	// Split the bottom area into Logs (left) and Graph (right)
-
-	body := tview.NewFlex().
-		AddItem(logContainer, 0, 2, false). // Logs takes 2/3
-		AddItem(graph, 55, 1, false)        // Graph takes a fixed width of 25
-
-	flex := tview.NewFlex().
-		SetDirection(tview.FlexRow).
-		AddItem(header, 8, 1, false).
-		AddItem(body, 0, 1, false) // Stack the split body below the header
-
-	return &Dashboard{
+	dashboard := &Dashboard{
 		App:           app,
 		StatsView:     stats,
 		TopErrorsView: topErrors,
 		LogView:       logs,
 		GraphView:     graph,
 		AIView:        ai,
-		Pages:         flex,
+		SearchInput:   searchInput,
+		SearchFilter:  "", // Start with an empty filter string
+		Pages:         nil,
 	}
+
+	searchInput.SetChangedFunc(func(text string) {
+		dashboard.SearchFilter = text
+	})
+
+	dashboard.SearchInput = searchInput
+
+	// Layout:
+	// A horizontal flex for the top row
+	header := tview.NewFlex().
+		AddItem(stats, 0, 1, false).    // Stats takes 1/3
+		AddItem(topErrors, 0, 2, false) // TopErrors takes 2/3 space for longer text
+
+	// Split the bottom area into Logs/AI (left) and Graph (right)
+
+	// ---Split the bottom left into Logs (Top) and AI (Bottom) ---
+	logContainer := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(logs, 15, 1, false). // Latest Logs
+		AddItem(ai, 0, 1, false)     // AI Box
+
+	rightSide := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(graph, 0, 1, false).      // Graph takes all available top space
+		AddItem(searchInput, 5, 1, false) // Search bar takes 3 lines at the bottom
+
+	body := tview.NewFlex().
+		AddItem(logContainer, 0, 2, false). // Latest Logs takes 2/3
+		AddItem(rightSide, 55, 1, false)    // Graph takes a fixed width of 25
+
+	flex := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(header, 8, 1, false).
+		AddItem(body, 0, 1, false) // Stack the split body below the header
+
+	dashboard.Pages = flex
+	// Enable Mouse support so clicking works
+	app.EnableMouse(true)
+
+	//  Set initial focus to the app itself, not a specific box
+	// This keeps Ctrl+C working and prevents the search box from
+	// "stealing" all the keys until you actually click it.
+	app.SetFocus(flex)
+
+	//  Simple Input Capture ONLY for the Emergency Exit
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlC {
+			app.Stop()
+			return nil
+		}
+		return event // This is crucial: it sends all other keys back to the app!
+	})
+
+	searchInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEscape {
+			searchInput.SetText("")     // Clears the UI box
+			dashboard.SearchFilter = "" // Clears the logic filter
+		}
+	})
+
+	return dashboard
+
 }
 
 // Helper func
@@ -192,10 +248,20 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 	}
 
 	d.TopErrorsView.SetText(topStr.String())
+	d.TopErrorsView.SetTitle(fmt.Sprintf(" [red]Top %d Error/Warn Patterns ", len(snap.TopMessages)))
 
 	// Build the Logs String
 	var logStr strings.Builder
 	for _, event := range snap.History {
+
+		searchTarget := strings.ToLower(event.Level + " " + event.Message)
+		filterText := strings.ToLower(d.SearchFilter)
+
+		// Check if the filter matches either the Level or the Message
+		if d.SearchFilter != "" && !strings.Contains(searchTarget, filterText) {
+			continue
+		}
+
 		color := "white"
 		switch event.Level {
 		case "ERROR":
@@ -206,6 +272,7 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 			color = "green"
 		case "DEBUG":
 			color = "cyan"
+
 		}
 
 		// tview tag format here too
@@ -215,8 +282,26 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 			event.Level,
 			event.Message,
 		))
+
 	}
 	d.LogView.SetText(logStr.String())
+
+	// --- Update AI View Header with Timestamps ---
+	lastError := "None"
+	if !snap.LastErrorTime.IsZero() {
+		lastError = snap.LastErrorTime.Format("15:04:05")
+	}
+
+	lastWarn := "None"
+	if !snap.LastWarnTime.IsZero() {
+		lastWarn = snap.LastWarnTime.Format("15:04:05")
+	}
+
+	// Update the border title to show the "Heartbeat"
+	d.AIView.SetTitle(fmt.Sprintf(" [purple]AI Insights | [red]Last Err: %s [yellow]Last Warn: %s ",
+		lastError,
+		lastWarn,
+	))
 }
 
 // Helper visual func!

@@ -31,4 +31,6 @@ type Snapshot struct {
 	TopMessages    map[string]MessageStat
 	RecentMessages map[string]MessageStat
 	Trend          []int
+	LastErrorTime  time.Time
+	LastWarnTime   time.Time
 }

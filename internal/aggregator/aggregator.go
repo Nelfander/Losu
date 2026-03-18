@@ -6,11 +6,12 @@ import (
 	"regexp"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/nelfander/losu/internal/model"
 )
 
-const maxHistory = 15 // keep 15 last logs for now its enough
+const maxHistory = 50 // keep 50 last logs for now its enough
 
 type Aggregator struct {
 	mu              sync.RWMutex
@@ -21,6 +22,8 @@ type Aggregator struct {
 	CurrentSecCount int                           // Tracks logs in the CURRENT 1-second window
 	TrendHistory    []int                         // Stores the last 50 snapshots of CurrentSecCount
 	RecentMessages  map[string]*model.MessageStat // clears everytime AI succesfully reads it
+	LastErrorTime   time.Time
+	LastWarnTime    time.Time
 }
 
 func NewAggregator() *Aggregator {
@@ -45,6 +48,13 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 	// ALWAYS update counts - numbers must be accurate
 	a.TotalLines++
 	a.ErrorCounts[event.Level]++
+
+	// Track the last time we saw a specific severity
+	if event.Level == "ERROR" {
+		a.LastErrorTime = event.Timestamp
+	} else if event.Level == "WARN" {
+		a.LastWarnTime = event.Timestamp
+	}
 
 	// Cluster unique messages (focusing on ERROR/WARN)
 	if event.Level == "ERROR" || event.Level == "WARN" {
@@ -107,11 +117,13 @@ func (a *Aggregator) Snapshot() model.Snapshot {
 	copy(historyCopy, a.history)
 
 	return model.Snapshot{
-		TotalLines:  a.TotalLines,
-		ErrorCounts: counts,
-		History:     historyCopy,
-		TopMessages: a.getTopMessages(10),
-		Trend:       trendCopy,
+		TotalLines:    a.TotalLines,
+		ErrorCounts:   counts,
+		History:       historyCopy,
+		TopMessages:   a.getTopMessages(10),
+		Trend:         trendCopy,
+		LastErrorTime: a.LastErrorTime,
+		LastWarnTime:  a.LastWarnTime,
 	}
 }
 

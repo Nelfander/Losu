@@ -1,39 +1,150 @@
 {
-  "total_lines": 10,
+  "total_lines": 71,
   "error_counts": {
-    "DEBUG": 2,
-    "ERROR": 3,
-    "INFO": 3,
-    "WARN": 2
+    "DEBUG": 11,
+    "ERROR": 23,
+    "INFO": 20,
+    "WARN": 17
   },
   "message_counts": {
-    "Connection failed to database_": {
-      "Count": 2,
+    "Buffer overflow prevented": {
+      "Count": 4,
       "Level": "ERROR",
       "VariantCounts": {
-        "Connection failed to database_32": 1,
-        "Connection failed to database_60": 1
+        "Buffer overflow prevented": 4
+      }
+    },
+    "Connection failed to database_": {
+      "Count": 1,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Connection failed to database_5": 1
+      }
+    },
+    "Context deadline exceeded": {
+      "Count": 1,
+      "Level": "WARN",
+      "VariantCounts": {
+        "Context deadline exceeded": 1
+      }
+    },
+    "Disk space critical": {
+      "Count": 1,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Disk space critical": 1
       }
     },
     "Failed login attempt": {
-      "Count": 1,
+      "Count": 2,
       "Level": "WARN",
       "VariantCounts": {
-        "Failed login attempt": 1
+        "Failed login attempt": 2
       }
     },
-    "S upload failed": {
+    "HTTP request failed": {
+      "Count": 2,
+      "Level": "WARN",
+      "VariantCounts": {
+        "HTTP request failed": 2
+      }
+    },
+    "High memory usage": {
+      "Count": 2,
+      "Level": "WARN",
+      "VariantCounts": {
+        "High memory usage": 2
+      }
+    },
+    "Invalid TLS handshake": {
+      "Count": 3,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Invalid TLS handshake": 3
+      }
+    },
+    "Inventory low for SKU": {
+      "Count": 4,
+      "Level": "WARN",
+      "VariantCounts": {
+        "Inventory low for SKU": 4
+      }
+    },
+    "Job retrying": {
+      "Count": 2,
+      "Level": "WARN",
+      "VariantCounts": {
+        "Job retrying": 2
+      }
+    },
+    "Panic recovered": {
+      "Count": 2,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Panic recovered": 2
+      }
+    },
+    "Query timeout": {
       "Count": 1,
       "Level": "ERROR",
       "VariantCounts": {
-        "S3 upload failed": 1
+        "Query timeout": 1
       }
     },
-    "Unrecognized file change": {
+    "Redis connection refused": {
+      "Count": 1,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Redis connection refused": 1
+      }
+    },
+    "S upload failed": {
+      "Count": 2,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "S3 upload failed": 2
+      }
+    },
+    "SQL Injection attempt blocked": {
+      "Count": 1,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "SQL Injection attempt blocked": 1
+      }
+    },
+    "Session fixation attempt detected": {
+      "Count": 1,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Session fixation attempt detected": 1
+      }
+    },
+    "Slow query detected": {
       "Count": 1,
       "Level": "WARN",
       "VariantCounts": {
-        "Unrecognized file change": 1
+        "Slow query detected": 1
+      }
+    },
+    "Unrecognized file change": {
+      "Count": 3,
+      "Level": "WARN",
+      "VariantCounts": {
+        "Unrecognized file change": 3
+      }
+    },
+    "Upstream service unavailable": {
+      "Count": 2,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Upstream service unavailable": 2
+      }
+    },
+    "Worker crashed": {
+      "Count": 4,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Worker crashed": 4
       }
     }
   },
@@ -90,5 +201,7 @@
     0,
     0
   ],
-  "RecentMessages": {}
+  "RecentMessages": {},
+  "LastErrorTime": "2026-03-18T17:11:46.2502703+01:00",
+  "LastWarnTime": "2026-03-18T17:11:51.2597533+01:00"
 }
