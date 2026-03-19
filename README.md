@@ -29,6 +29,15 @@ Unlike standard tailing tools, LOSU uses a **three-tier analysis engine**:
 * **Alerting**: `beeep` (Desktop) & `ntfy` (Mobile/HTTP)
 * **Concurrency**: Context-aware Worker Pools, Mutex-protected Snapshots, and Atomic Counters.
 
+## ⚙️ How It Works
+
+Losu operates as a high-throughput pipeline designed to bridge the gap between "noisy" raw logs and "actionable" AI insights.
+
+1. **Structured Ingestion**: The `Tailer` package utilizes OS-level signals to follow log files, passing data to a `Regex Parser` that extracts Timestamps, Levels, and Messages.
+2. **State Aggregation**: The `Aggregator` maintains a thread-safe global state, calculating Errors Per Second (EPS) and clustering similar log patterns via cryptographic-style fingerprinting.
+3. **Asynchronous Analysis**: A dedicated `Observer` routine periodically snapshots the aggregator state and prompts a local **Ollama** instance to perform root-cause analysis without blocking the UI.
+4. **Reactive TUI**: Built with `tview`, the interface provides a real-time dashboard with interactive search filtering, mouse support, and a dynamic sparkline graph for throughput visualization.
+
 ## 📦 Installation & Setup
 
 ### 1. Prerequisites
