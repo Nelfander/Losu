@@ -11,15 +11,18 @@ import (
 )
 
 type Dashboard struct {
-	App           *tview.Application
-	StatsView     *tview.TextView
-	TopErrorsView *tview.TextView
-	LogView       *tview.TextView
-	GraphView     *tview.TextView
-	AIView        *tview.TextView
-	SearchInput   *tview.InputField
-	SearchFilter  string
-	Pages         *tview.Flex
+	App              *tview.Application
+	StatsView        *tview.TextView
+	TopErrorsView    *tview.TextView
+	LogView          *tview.TextView
+	GraphView        *tview.TextView
+	AIView           *tview.TextView
+	SearchInput      *tview.InputField
+	SearchFilter     string
+	Pages            *tview.Flex
+	LastHistoryLen   int
+	LastSearchFilter string
+	FilteredLogs     []string // Cache of logs that matched the current filter
 }
 
 func NewDashboard() *Dashboard {
@@ -47,7 +50,7 @@ func NewDashboard() *Dashboard {
 	logs.SetDynamicColors(true).
 		SetScrollable(true).
 		SetRegions(true).
-		SetWordWrap(true).
+		SetWordWrap(false).
 		SetBorder(true).
 		SetTitle(" [green]Latest Logs (Real-time) ")
 
@@ -61,7 +64,7 @@ func NewDashboard() *Dashboard {
 	// Configure Graph
 	graph.SetDynamicColors(true).
 		SetBorder(true).
-		SetTitle(" [cyan]Error Graph (60s) ")
+		SetTitle(" [cyan]Error/Warn Graph (60s) ")
 
 	// Configure Search Box
 	searchInput := tview.NewInputField().
@@ -75,22 +78,74 @@ func NewDashboard() *Dashboard {
 		SetTitleAlign(tview.AlignLeft)
 
 	dashboard := &Dashboard{
-		App:           app,
-		StatsView:     stats,
-		TopErrorsView: topErrors,
-		LogView:       logs,
-		GraphView:     graph,
-		AIView:        ai,
-		SearchInput:   searchInput,
-		SearchFilter:  "", // Start with an empty filter string
-		Pages:         nil,
+		App:              app,
+		StatsView:        stats,
+		TopErrorsView:    topErrors,
+		LogView:          logs,
+		GraphView:        graph,
+		AIView:           ai,
+		SearchInput:      searchInput,
+		SearchFilter:     "", // Start with an empty filter string
+		Pages:            nil,
+		LastHistoryLen:   0,          // Start at 0
+		LastSearchFilter: "",         // Start empty
+		FilteredLogs:     []string{}, // Initialize the slice
 	}
 
+	// Fix the SetChangedFunc to update the dashboard's filter
 	searchInput.SetChangedFunc(func(text string) {
 		dashboard.SearchFilter = text
 	})
 
 	dashboard.SearchInput = searchInput
+
+	// --- THE UNIVERSAL DRAGGABLE LOGIC ---
+	var isDragging bool
+
+	logs.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+		x, y := event.Position()
+		rectX, rectY, rectWidth, rectHeight := logs.GetInnerRect()
+
+		// The scrollbar hit area (far right edge)
+		scrollbarX := rectX + rectWidth - 1
+
+		// Check if the LEFT MOUSE BUTTON is currently pressed
+		// tcell.Button1 is the standard constant for Left Click
+		leftPressed := event.Buttons()&tcell.Button1 != 0
+
+		if leftPressed {
+			// If they just clicked the scrollbar OR they are already dragging
+			if x >= scrollbarX-1 || isDragging {
+				isDragging = true
+
+				// Calculate percentage (0.0 at top, 1.0 at bottom)
+				relativeY := float64(y - rectY)
+				percentage := relativeY / float64(rectHeight)
+
+				if percentage < 0 {
+					percentage = 0
+				}
+				if percentage > 1 {
+					percentage = 1
+				}
+
+				// Get total lines and jump
+				totalLines := strings.Count(logs.GetText(false), "\n")
+				targetLine := int(percentage * float64(totalLines))
+
+				logs.ScrollTo(targetLine, 0)
+
+				// Return nil for the event so tview doesn't try to
+				// highlight text while dragging the bar
+				return action, nil
+			}
+		} else {
+			// Button is released
+			isDragging = false
+		}
+
+		return action, event
+	})
 
 	// Layout:
 	// A horizontal flex for the top row
@@ -144,7 +199,27 @@ func NewDashboard() *Dashboard {
 			dashboard.SearchFilter = "" // Clears the logic filter
 		}
 	})
-
+	/*
+		// Keys for scrolling latest logs
+		logs.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+			row, col := logs.GetScrollOffset()
+			switch event.Key() {
+			case tcell.KeyPgUp:
+				logs.ScrollTo(row-10, col) // Scrolls 10 up
+				return nil
+			case tcell.KeyPgDn:
+				logs.ScrollTo(row+10, col) // Scrolls 10 down
+				return nil
+			case tcell.KeyHome:
+				logs.ScrollToBeginning() // Scrolls to beginning of latest logs
+				return nil
+			case tcell.KeyEnd:
+				logs.ScrollToEnd() // Scrolls to the end of latest logs
+				return nil
+			}
+			return event
+		})
+	*/
 	return dashboard
 
 }
@@ -158,43 +233,33 @@ func truncate(s string, l int) string {
 }
 
 func (d *Dashboard) Update(snap model.Snapshot) {
-	//  Build the Stats String
+	//  --- Build the Stats String ---
 	var statsStr strings.Builder
 	statsStr.WriteString(fmt.Sprintf("\n[white]Total Logs Processed: [blue]%d\n\n", snap.TotalLines))
 
-	// Row 1: ERROR and WARN
 	statsStr.WriteString(fmt.Sprintf(" [red]ERROR : [white]%-6d    [yellow]WARN  : [white]%-6d\n",
 		snap.ErrorCounts["ERROR"],
 		snap.ErrorCounts["WARN"]))
 
-	// Row 2: INFO and DEBUG
 	statsStr.WriteString(fmt.Sprintf(" [green]INFO  : [white]%-6d    [cyan]DEBUG : [white]%-6d\n",
 		snap.ErrorCounts["INFO"],
 		snap.ErrorCounts["DEBUG"]))
 
 	d.StatsView.SetText(statsStr.String())
 
-	//  Build Graph
-	maxVal := 0
-	for _, v := range snap.Trend {
-		if v > maxVal {
-			maxVal = v
-		}
-	}
-
-	// Generate a 10-line high graph now
+	//  --- GRAPH VIEW ---
+	avgEPS := snap.AverageEPS
 	spark := getSparkline(snap.Trend, 10)
 
 	var graphBody strings.Builder
-	graphBody.WriteString(fmt.Sprintf("\n [white]Current Status: %s\n", getStatusLabel(maxVal)))
-	graphBody.WriteString(fmt.Sprintf(" [white]Peak: [red]%d Errors per Second\n", maxVal))
+	graphBody.WriteString(fmt.Sprintf("\n [white]Current Status: %s\n", getStatusLabel(avgEPS)))
+	graphBody.WriteString(fmt.Sprintf(" [white]Peak: [red]%.1f [white]Err+Warn/s | Avg: [cyan]%.2f [white]Err+Warn/s\n", snap.PeakEPS, avgEPS))
 	graphBody.WriteString("\n" + spark + "\n")
-	graphBody.WriteString(" [white]" + strings.Repeat("▔", 25)) // Bottom axis line
+	graphBody.WriteString(" [white]" + strings.Repeat("▔", 25))
 
 	d.GraphView.SetText(graphBody.String())
-	// --- Top 10 Errors/Warns (Two-Column Layout) ---
-	var topStr strings.Builder
 
+	//  --- Top 10 Errors/Warns ---
 	type kv struct {
 		Key  string
 		Stat model.MessageStat
@@ -203,31 +268,29 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 	for k, v := range snap.TopMessages {
 		sortedTop = append(sortedTop, kv{k, v})
 	}
-	// Sort by Count, then by Message String
+
 	sort.Slice(sortedTop, func(i, j int) bool {
-		if sortedTop[i].Stat.Count == sortedTop[j].Stat.Count {
-			return sortedTop[i].Key < sortedTop[j].Key
+		if sortedTop[i].Stat.Count != sortedTop[j].Stat.Count {
+			return sortedTop[i].Stat.Count > sortedTop[j].Stat.Count
 		}
-		return sortedTop[i].Stat.Count > sortedTop[j].Stat.Count
+		return sortedTop[i].Key < sortedTop[j].Key
 	})
 
+	var topStr strings.Builder
 	topStr.WriteString("\n")
-
 	for i := 0; i < 5; i++ {
 		getRow := func(idx int) string {
 			if idx >= len(sortedTop) {
-				return strings.Repeat(" ", 45) // Empty space for alignment
+				return strings.Repeat(" ", 45)
 			}
 			item := sortedTop[idx]
-
-			// Most frequent version of this pattern
 			bestMsg := ""
 			maxSubCount := -1
-
-			//
 			for msg, count := range item.Stat.VariantCounts {
 				if count > maxSubCount {
 					maxSubCount = count
+					bestMsg = msg
+				} else if count == maxSubCount && msg < bestMsg {
 					bestMsg = msg
 				}
 			}
@@ -236,72 +299,94 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 			if item.Stat.Level == "WARN" {
 				color = "yellow"
 			}
-
-			// Truncate message to 35 chars to ensure it fits in the column
-			msg := truncate(bestMsg, 35)
-			return fmt.Sprintf("[%s]%5d [white]| %-35s", color, item.Stat.Count, msg)
+			return fmt.Sprintf("[%s]%5d [white]| %-35s", color, item.Stat.Count, truncate(bestMsg, 35))
 		}
-
-		left := getRow(i)
-		right := getRow(i + 5)
-		topStr.WriteString(fmt.Sprintf(" %s   %s\n", left, right))
+		topStr.WriteString(fmt.Sprintf(" %s   %s\n", getRow(i), getRow(i+5)))
 	}
-
 	d.TopErrorsView.SetText(topStr.String())
-	d.TopErrorsView.SetTitle(fmt.Sprintf(" [red]Top %d Error/Warn Patterns ", len(snap.TopMessages)))
 
-	// Build the Logs String
-	var logStr strings.Builder
-	for _, event := range snap.History {
+	//  --- HIGH PERFORMANCE LOG CACHING ---
+	// If filter changed OR the history was truncated (reached max capacity), rebuild
+	filterChanged := d.SearchFilter != d.LastSearchFilter
+	historyFull := len(snap.History) >= 50000 // Assuming maxHistory is 50k
 
-		searchTarget := strings.ToLower(event.Level + " " + event.Message)
-		filterText := strings.ToLower(d.SearchFilter)
-
-		// Check if the filter matches either the Level or the Message
-		if d.SearchFilter != "" && !strings.Contains(searchTarget, filterText) {
-			continue
-		}
-
-		color := "white"
-		switch event.Level {
-		case "ERROR":
-			color = "red"
-		case "WARN":
-			color = "yellow"
-		case "INFO":
-			color = "green"
-		case "DEBUG":
-			color = "cyan"
-
-		}
-
-		// tview tag format here too
-		logStr.WriteString(fmt.Sprintf("[%s][%s] %-5s -> %-s\n",
-			color,
-			event.Timestamp.Format("15:04:05"),
-			event.Level,
-			event.Message,
-		))
-
+	if filterChanged || historyFull {
+		// At 50k, we rebuild to ensure the "sliding window" stays accurate
+		d.FilteredLogs = []string{}
+		d.LastHistoryLen = 0
+		d.LastSearchFilter = d.SearchFilter
 	}
-	d.LogView.SetText(logStr.String())
 
-	// --- Update AI View Header with Timestamps ---
+	// Only process logs that have arrived since last update
+	if len(snap.History) > d.LastHistoryLen {
+		filterLower := strings.ToLower(d.SearchFilter)
+
+		for i := d.LastHistoryLen; i < len(snap.History); i++ {
+			event := snap.History[i]
+
+			if filterLower == "" ||
+				strings.Contains(strings.ToLower(event.Level), filterLower) ||
+				strings.Contains(strings.ToLower(event.Message), filterLower) {
+
+				color := "white"
+				switch event.Level {
+				case "ERROR":
+					color = "red"
+				case "WARN":
+					color = "yellow"
+				case "INFO":
+					color = "green"
+				case "DEBUG":
+					color = "cyan"
+				}
+
+				line := fmt.Sprintf("[%s][%s] %-5s -> %s",
+					color, event.Timestamp.Format("15:04:05"), event.Level, event.Message)
+
+				d.FilteredLogs = append(d.FilteredLogs, line)
+			}
+		}
+		d.LastHistoryLen = len(snap.History)
+
+		// Capping the cache so it doesn't grow to infinity
+		if len(d.FilteredLogs) > 50000 {
+			// Keep the most recent 50k matching logs
+			d.FilteredLogs = d.FilteredLogs[len(d.FilteredLogs)-50000:]
+		}
+
+		d.LogView.SetText(strings.Join(d.FilteredLogs, "\n"))
+	}
+
+	//  --- SCROLL FEEDBACK ---
+	matchCount := len(d.FilteredLogs)
+	offset, _ := d.LogView.GetScrollOffset()
+	_, _, _, rectHeight := d.LogView.GetInnerRect()
+
+	if matchCount > rectHeight {
+		maxScroll := matchCount - rectHeight
+		if maxScroll <= 0 {
+			maxScroll = 1
+		}
+		percent := (float64(offset) / float64(maxScroll)) * 100
+		if percent > 100 {
+			percent = 100
+		}
+
+		d.LogView.SetTitle(fmt.Sprintf(" [green]Latest Logs (%d total) [white]| Click and drag right side or use mouse wheel to scroll: %d%% ", matchCount, int(percent)))
+	} else {
+		d.LogView.SetTitle(fmt.Sprintf(" [green]Latest Logs (%d total) [white]| TOP ", matchCount))
+	}
+
+	//  --- AI View ---
 	lastError := "None"
 	if !snap.LastErrorTime.IsZero() {
 		lastError = snap.LastErrorTime.Format("15:04:05")
 	}
-
 	lastWarn := "None"
 	if !snap.LastWarnTime.IsZero() {
 		lastWarn = snap.LastWarnTime.Format("15:04:05")
 	}
-
-	// Update the border title to show the "Heartbeat"
-	d.AIView.SetTitle(fmt.Sprintf(" [purple]AI Insights | [red]Last Err: %s [yellow]Last Warn: %s ",
-		lastError,
-		lastWarn,
-	))
+	d.AIView.SetTitle(fmt.Sprintf(" [purple]AI Insights | [red]Last Err: %s [yellow]Last Warn: %s ", lastError, lastWarn))
 }
 
 // Helper visual func!
@@ -342,18 +427,22 @@ func getSparkline(data []int, height int) string {
 	return strings.Join(lines, "\n")
 }
 
-// Small helper for the "Status" text
-func getStatusLabel(eps int) string {
-	if eps == 0 {
+// getStatusLabel provides a readable health status based on combined ERROR/WARN throughput
+func getStatusLabel(eps float64) string {
+	switch {
+	case eps < 0.01:
 		return "[white]IDLE"
+	case eps > 20.0:
+		return "[blink][red]CRITICAL SPIKE"
+	case eps > 5.0:
+		return "[red]Sustained Errors"
+	case eps > 1.0:
+		return "[yellow]Unstable"
+	case eps > 0.1:
+		return "[blue]Minor Issues"
+	default:
+		return "[green]HEALTHY"
 	}
-	if eps > 300 {
-		return "[blink][red]CRITICAL ERROR SPIKE"
-	}
-	if eps > 100 {
-		return "[yellow]HIGH LOAD"
-	}
-	return "[green]NORMAL"
 }
 
 // Gathers the top 3 Errors and top 3 Warns into a single string for the AI to analyze

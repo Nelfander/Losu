@@ -31,30 +31,36 @@ func NewAlerter(path string) *Alerter {
 // Trigger executes all alert actions
 func (a *Alerter) Trigger(event model.LogEvent) {
 	a.mu.Lock()
-	last, exists := a.LastSent[event.Message]
 
-	// If was sent this recently, just log it to file (quietly) and skip notification
+	// Use a global cooldown key OR the Level as a key
+	alertKey := "GLOBAL_ERROR_COOLDOWN"
+	if event.Level == "WARN" {
+		alertKey = "GLOBAL_WARN_COOLDOWN"
+	}
+
+	last, exists := a.LastSent[alertKey]
+
 	if exists && time.Since(last) < a.Cooldown {
 		a.mu.Unlock()
-		a.writeToLog(event, false) // Log but don't ping
+		a.writeToLog(event, false)
 		return
 	}
 
-	// Update the timestamp and unlock
-	a.LastSent[event.Message] = time.Now()
+	// Update the timestamp for this key
+	a.LastSent[alertKey] = time.Now()
 	a.mu.Unlock()
 
-	//  Log it with a "NOTIFIED" tag
+	// Log it
 	a.writeToLog(event, true)
 
-	//  Visual Notification
-	title := fmt.Sprintf("🚨 %s: Critical Pattern", event.Level)
+	// Visual/Phone Notifications
+	title := fmt.Sprintf("🚨 %s: System Alert", event.Level)
 	go func() {
 		// Native popup
 		_ = beeep.Alert(title, event.Message, "")
 		// Phone alert
-		if event.Level == "ERROR" {
-			go a.SendToPhone(event.Message)
+		if event.Level == "ERROR" && a.NtfyTopic != "" {
+			a.SendToPhone(event.Message)
 		}
 	}()
 }

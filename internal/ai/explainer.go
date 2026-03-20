@@ -18,25 +18,32 @@ func NewExplainer() *Explainer {
 	}
 }
 
-func (e *Explainer) AnalyzeSystem(errorPatterns string, warnPatterns string, eps int) (string, error) {
-	// Instructions for AI
-	prompt := fmt.Sprintf(`Act as a Senior SRE. Analyze these logs:
-ERRORS:
-%s
-WARNS:
-%s
-STATS: %d EPS.
+// Update the signature to take float64 for precision
+func (e *Explainer) AnalyzeSystem(errorPatterns string, warnPatterns string, avgEps float64, peakEps float64) (string, error) {
+	// Sharp, context-aware prompt for a Senior SRE
+	prompt := fmt.Sprintf(`Act as a Senior SRE. Analyze these live telemetry signals:
 
-Provide a "Situation Report": 
-- [Primary Issue Name]
-1. **Root Cause**: What is the most likely single point of failure?
-2. **Action**: What should the dev check first? (e.g., 'Check Redis memory', 'Restart worker_3')
-3. **Status**: Is the system degrading or stable?
+[TELEMETRY]
+- Current Throughput: %.2f Errors+Warns/sec (Avg over 50s)
+- Peak Intensity: %.1f E+W/sec (High Water Mark)
 
-Be extremely concise. Use technical language. No fluff.`, errorPatterns, warnPatterns, eps)
+[ERROR PATTERNS]
+%s
+
+[WARNING PATTERNS]
+%s
+
+[TASK]
+Provide a concise "Situation Report":
+1. **Primary Incident**: Identify the most critical failure pattern.
+2. **Root Cause Analysis**: One-sentence technical hypothesis.
+3. **Mitigation**: Specific technical action (e.g., 'Flush Redis', 'Check DB connection pool').
+4. **Health Trend**: Is this a burst (Peak >> Avg) or sustained saturation?
+
+Use Markdown. No intro/outro fluff. Technical brevity is mandatory.`, avgEps, peakEps, errorPatterns, warnPatterns)
 
 	payload := map[string]interface{}{
-		"model":  "llama3", // Ensure this matches what you pulled
+		"model":  "llama3",
 		"prompt": prompt,
 		"stream": false,
 	}

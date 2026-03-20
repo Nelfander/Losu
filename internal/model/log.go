@@ -33,4 +33,6 @@ type Snapshot struct {
 	Trend          []int
 	LastErrorTime  time.Time
 	LastWarnTime   time.Time
+	AverageEPS     float64
+	PeakEPS        float64
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/nelfander/losu/internal/model"
 )
 
-const maxHistory = 50 // keep 50 last logs for now its enough
+const maxHistory = 50000 // keep 50000 last logs for now its enough
 
 type Aggregator struct {
 	mu              sync.RWMutex
@@ -24,6 +24,7 @@ type Aggregator struct {
 	RecentMessages  map[string]*model.MessageStat // clears everytime AI succesfully reads it
 	LastErrorTime   time.Time
 	LastWarnTime    time.Time
+	PeakEPS         float64
 }
 
 func NewAggregator() *Aggregator {
@@ -90,10 +91,18 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 
 	// ONLY add to history if it passes the weight check
 	if weights[event.Level] >= minWeight {
-		if len(a.history) >= maxHistory {
-			a.history = a.history[1:]
+		if len(a.history) < maxHistory {
+			// Still filling up the initial buffer
+			a.history = append(a.history, event)
+		} else {
+			// Buffer is full: Overwrite the oldest instead of shifting [1:]
+			// This prevents massive memory re-allocations and copies.
+			// We shift the data once or use an index, but for simplicity
+			// and tview compatibility, copy() is actually faster than [1:]
+			// because it's a primitive hardware-optimized operation.
+			copy(a.history, a.history[1:])
+			a.history[maxHistory-1] = event
 		}
-		a.history = append(a.history, event)
 	}
 }
 
@@ -116,6 +125,16 @@ func (a *Aggregator) Snapshot() model.Snapshot {
 	historyCopy := make([]model.LogEvent, len(a.history))
 	copy(historyCopy, a.history)
 
+	// Average eps calculation
+	avg := 0.0
+	if len(a.TrendHistory) > 0 {
+		total := 0
+		for _, v := range a.TrendHistory {
+			total += v
+		}
+		avg = float64(total) / float64(len(a.TrendHistory))
+	}
+
 	return model.Snapshot{
 		TotalLines:    a.TotalLines,
 		ErrorCounts:   counts,
@@ -124,6 +143,8 @@ func (a *Aggregator) Snapshot() model.Snapshot {
 		Trend:         trendCopy,
 		LastErrorTime: a.LastErrorTime,
 		LastWarnTime:  a.LastWarnTime,
+		AverageEPS:    avg,
+		PeakEPS:       a.PeakEPS,
 	}
 }
 
@@ -173,7 +194,13 @@ func (a *Aggregator) getTopMessages(n int) map[string]model.MessageStat {
 	}
 
 	sort.Slice(ss, func(i, j int) bool {
-		return ss[i].Stat.Count > ss[j].Stat.Count
+		// Hits (Primary)
+		if ss[i].Stat.Count != ss[j].Stat.Count {
+			return ss[i].Stat.Count > ss[j].Stat.Count
+		}
+		// Alphabetical (Tie-breaker)
+		// This ensures the slice sent to the UI is ALWAYS in the same order
+		return ss[i].Key < ss[j].Key
 	})
 
 	top := make(map[string]model.MessageStat)
@@ -187,15 +214,20 @@ func (a *Aggregator) PushTrend() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Move the current second's count into history
+	//  Check for new High Water Mark
+	currentEPS := float64(a.CurrentSecCount)
+	if currentEPS > a.PeakEPS {
+		a.PeakEPS = currentEPS
+	}
+
+	//  Move count into history
 	a.TrendHistory = append(a.TrendHistory, a.CurrentSecCount)
 
-	// Keep only the last 50 seconds so the graph doesn't grow forever
 	if len(a.TrendHistory) > 50 {
 		a.TrendHistory = a.TrendHistory[1:]
 	}
 
-	// Reset the counter for the next second
+	//  Reset for next second
 	a.CurrentSecCount = 0
 }
 

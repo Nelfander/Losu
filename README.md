@@ -75,6 +75,30 @@ go run internal/generator/generator.go
 <details><summary>(Click to expand)</summary>
 
 <details>
+<summary><b>March 20, 2026: High-Velocity Telemetry & Delta-Cache UI Architecture</b> (Click to expand)</summary>
+
+#### Phase 1: High-Performance Log Virtualization
+* **Delta-Cache Log Engine**: Engineered a "Sliding Window" caching system in the `Dashboard` using `LastHistoryLen` and `FilteredLogs`. This decoupled the UI from the raw 50k+ log buffer, reducing $O(n)$ re-scans to $O(1)$ incremental updates, achieving 0-latency at 50,000 logs.
+* **Virtual Scroll Integration**: Implemented a mathematical scroll-capture logic that calculates percentage-based jumps through the log cache. This allows for fluid, draggable navigation through massive datasets without string-counting overhead.
+* **Smart Memory Capping**: Integrated an automated cache-trimming mechanism that caps the UI's internal `FilteredLogs` at 50,000 entries, preventing memory exhaustion during indefinite stress-testing.
+
+
+
+#### Phase 2: Signal Intelligence & Alert Hardening
+* **Global Alert Throttle**: Refactored the `Alerter` logic from "Message-Based" to "Pattern-Based" cooldowns. By utilizing a `GLOBAL_ERROR_COOLDOWN` key, we prevented network stack overflows and "NTFY" provider bans during high-frequency error spikes.
+* **Network Stack Protection**: Decoupled the notification trigger from the primary processing loop using a thread-safe `sync.Mutex` and `time.Since` validation, ensuring only high-value alerts reach the mobile device.
+* **Visual Telemetry Graphing**: Enhanced the `GraphView` with a scaled `getSparkline` generator. This translates raw "Errors Per Second" into 10-line high Unicode blocks, providing a 60-second visual "Pulse" of system health.
+
+
+
+#### Phase 3: UI Fluidity & UX Refinement
+* **Non-Blocking Search Concurrency**: Optimized the `SearchFilter` to trigger a background cache rebuild only on change. This allows the user to filter 50k logs in real-time without locking the main `tview` application thread.
+* **Draggable Scrollbar Logic**: Developed a custom `SetMouseCapture` handler for the `LogView`, enabling a "True Scrollbar" experience where the user can click and drag the right-most edge of the terminal to navigate history.
+* **Dynamic Status Labeling**: Implemented an EPS-aware `getStatusLabel` function that provides color-coded, blinking "Critical" states when throughput exceeds 20.0 errors per second.
+
+</details>
+
+<details>
 <summary><b>March 18, 2026: Interactive UX Framework & State-Driven Focus Management</b> (Click to expand)</summary>
 
 #### Phase 1: Interactive Input & Focus Engine
