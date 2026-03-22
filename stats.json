@@ -1,249 +1,24 @@
 {
-  "total_lines": 68474,
+  "total_lines": 16,
   "error_counts": {
-    "DEBUG": 14445,
-    "ERROR": 18852,
-    "INFO": 22397,
-    "WARN": 12780
+    "DEBUG": 6,
+    "ERROR": 1,
+    "INFO": 7,
+    "WARN": 2
   },
   "message_counts": {
-    "Buffer overflow prevented": {
-      "Count": 1613,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "Buffer overflow prevented": 1613
-      }
-    },
-    "Connection failed to database_": {
-      "Count": 1522,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "Connection failed to database_0": 20,
-        "Connection failed to database_1": 10,
-        "Connection failed to database_10": 23,
-        "Connection failed to database_11": 15,
-        "Connection failed to database_12": 14,
-        "Connection failed to database_13": 16,
-        "Connection failed to database_14": 10,
-        "Connection failed to database_15": 14,
-        "Connection failed to database_16": 15,
-        "Connection failed to database_17": 14,
-        "Connection failed to database_18": 11,
-        "Connection failed to database_19": 18,
-        "Connection failed to database_2": 18,
-        "Connection failed to database_20": 19,
-        "Connection failed to database_21": 16,
-        "Connection failed to database_22": 20,
-        "Connection failed to database_23": 7,
-        "Connection failed to database_24": 13,
-        "Connection failed to database_25": 15,
-        "Connection failed to database_26": 18,
-        "Connection failed to database_27": 17,
-        "Connection failed to database_28": 12,
-        "Connection failed to database_29": 16,
-        "Connection failed to database_3": 17,
-        "Connection failed to database_30": 16,
-        "Connection failed to database_31": 9,
-        "Connection failed to database_32": 12,
-        "Connection failed to database_33": 11,
-        "Connection failed to database_34": 18,
-        "Connection failed to database_35": 15,
-        "Connection failed to database_36": 11,
-        "Connection failed to database_37": 16,
-        "Connection failed to database_38": 18,
-        "Connection failed to database_39": 8,
-        "Connection failed to database_4": 10,
-        "Connection failed to database_40": 13,
-        "Connection failed to database_41": 11,
-        "Connection failed to database_42": 24,
-        "Connection failed to database_43": 23,
-        "Connection failed to database_44": 21,
-        "Connection failed to database_45": 14,
-        "Connection failed to database_46": 11,
-        "Connection failed to database_47": 16,
-        "Connection failed to database_48": 15,
-        "Connection failed to database_49": 10,
-        "Connection failed to database_5": 13,
-        "Connection failed to database_50": 15,
-        "Connection failed to database_51": 14,
-        "Connection failed to database_52": 21,
-        "Connection failed to database_53": 16,
-        "Connection failed to database_54": 18,
-        "Connection failed to database_55": 16,
-        "Connection failed to database_56": 17,
-        "Connection failed to database_57": 13,
-        "Connection failed to database_58": 11,
-        "Connection failed to database_59": 14,
-        "Connection failed to database_6": 19,
-        "Connection failed to database_60": 12,
-        "Connection failed to database_61": 13,
-        "Connection failed to database_62": 17,
-        "Connection failed to database_63": 11,
-        "Connection failed to database_64": 15,
-        "Connection failed to database_65": 10,
-        "Connection failed to database_66": 16,
-        "Connection failed to database_67": 19,
-        "Connection failed to database_68": 15,
-        "Connection failed to database_69": 9,
-        "Connection failed to database_7": 12,
-        "Connection failed to database_70": 12,
-        "Connection failed to database_71": 26,
-        "Connection failed to database_72": 9,
-        "Connection failed to database_73": 25,
-        "Connection failed to database_74": 19,
-        "Connection failed to database_75": 15,
-        "Connection failed to database_76": 12,
-        "Connection failed to database_77": 14,
-        "Connection failed to database_78": 24,
-        "Connection failed to database_79": 18,
-        "Connection failed to database_8": 14,
-        "Connection failed to database_80": 14,
-        "Connection failed to database_81": 18,
-        "Connection failed to database_82": 16,
-        "Connection failed to database_83": 19,
-        "Connection failed to database_84": 16,
-        "Connection failed to database_85": 18,
-        "Connection failed to database_86": 13,
-        "Connection failed to database_87": 14,
-        "Connection failed to database_88": 15,
-        "Connection failed to database_89": 17,
-        "Connection failed to database_9": 18,
-        "Connection failed to database_90": 22,
-        "Connection failed to database_91": 18,
-        "Connection failed to database_92": 8,
-        "Connection failed to database_93": 16,
-        "Connection failed to database_94": 15,
-        "Connection failed to database_95": 15,
-        "Connection failed to database_96": 15,
-        "Connection failed to database_97": 15,
-        "Connection failed to database_98": 15,
-        "Connection failed to database_99": 11
-      }
-    },
-    "Context deadline exceeded": {
-      "Count": 1586,
-      "Level": "WARN",
-      "VariantCounts": {
-        "Context deadline exceeded": 1586
-      }
-    },
-    "Disk space critical": {
-      "Count": 1553,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "Disk space critical": 1553
-      }
-    },
     "Failed login attempt": {
-      "Count": 1658,
+      "Count": 2,
       "Level": "WARN",
       "VariantCounts": {
-        "Failed login attempt": 1658
-      }
-    },
-    "HTTP request failed": {
-      "Count": 1572,
-      "Level": "WARN",
-      "VariantCounts": {
-        "HTTP request failed": 1572
-      }
-    },
-    "High memory usage": {
-      "Count": 1585,
-      "Level": "WARN",
-      "VariantCounts": {
-        "High memory usage": 1585
-      }
-    },
-    "Invalid TLS handshake": {
-      "Count": 1547,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "Invalid TLS handshake": 1547
-      }
-    },
-    "Inventory low for SKU": {
-      "Count": 1605,
-      "Level": "WARN",
-      "VariantCounts": {
-        "Inventory low for SKU": 1605
-      }
-    },
-    "Job retrying": {
-      "Count": 1563,
-      "Level": "WARN",
-      "VariantCounts": {
-        "Job retrying": 1563
-      }
-    },
-    "Panic recovered": {
-      "Count": 1589,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "Panic recovered": 1589
-      }
-    },
-    "Query timeout": {
-      "Count": 1575,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "Query timeout": 1575
-      }
-    },
-    "Redis connection refused": {
-      "Count": 1570,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "Redis connection refused": 1570
-      }
-    },
-    "S upload failed": {
-      "Count": 1531,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "S3 upload failed": 1531
-      }
-    },
-    "SQL Injection attempt blocked": {
-      "Count": 1620,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "SQL Injection attempt blocked": 1620
-      }
-    },
-    "Session fixation attempt detected": {
-      "Count": 1574,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "Session fixation attempt detected": 1574
-      }
-    },
-    "Slow query detected": {
-      "Count": 1595,
-      "Level": "WARN",
-      "VariantCounts": {
-        "Slow query detected": 1595
-      }
-    },
-    "Unrecognized file change": {
-      "Count": 1616,
-      "Level": "WARN",
-      "VariantCounts": {
-        "Unrecognized file change": 1616
+        "Failed login attempt": 2
       }
     },
     "Upstream service unavailable": {
-      "Count": 1593,
+      "Count": 1,
       "Level": "ERROR",
       "VariantCounts": {
-        "Upstream service unavailable": 1593
-      }
-    },
-    "Worker crashed": {
-      "Count": 1565,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "Worker crashed": 1565
+        "Upstream service unavailable": 1
       }
     }
   },
@@ -301,7 +76,7 @@
     0
   ],
   "RecentMessages": {},
-  "LastErrorTime": "2026-03-20T16:54:23.5881694+01:00",
-  "LastWarnTime": "2026-03-20T16:54:21.5838795+01:00",
-  "PeakEPS": 293
+  "LastErrorTime": "2026-03-22T12:41:07.8663477+01:00",
+  "LastWarnTime": "2026-03-22T12:41:09.1456981+01:00",
+  "PeakEPS": 1
 }

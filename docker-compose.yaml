@@ -4,14 +4,16 @@ services:
   # The Observer (Losu)
   losu:
     build: .
+    stop_signal: SIGINT
     tty: true
     stdin_open: true
     volumes:
       # Mounts the host folder to the container
-      - ${LOG_PATH_HOST}:/logs
+      - ${LOG_PATH_HOST}:/app/logs
     environment:
       # Change these at .env
-      - LOSU_LOG_PATH=${LOSU_LOG_PATH}
+      - TERM=xterm-256color
+      - LOSU_LOG_PATH=./logs/test.log
       - LOSU_OLLAMA_HOST=http://ollama:11434
       - LOSU_NTFY_TOPIC=${LOSU_NTFY_TOPIC}
       - LOSU_MIN_LEVEL=${LOSU_MIN_LEVEL}

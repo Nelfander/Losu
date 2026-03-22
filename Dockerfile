@@ -21,12 +21,17 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /stress_gen bin/stress/stress_gen.go
 # Step 2: Final Stage
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
-WORKDIR /root/
 
-# Copy all binaries
+
+WORKDIR /app
+
+# Copy all binaries into /app
 COPY --from=builder /losu .
 COPY --from=builder /normal_gen .
 COPY --from=builder /stress_gen .
+
+# Copy the .env file so godotenv can find it!
+COPY .env .
 
 # Run the app
 ENTRYPOINT ["./losu"]

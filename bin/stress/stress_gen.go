@@ -5,10 +5,16 @@ import (
 	"math/rand"
 	"os"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	logFile := "test.log"
+	_ = godotenv.Load()
+	logFile := os.Getenv("LOSU_LOG_PATH")
+	if logFile == "" {
+		logFile = "test.log"
+	}
 	formats := []string{
 		// --- AUTH & USERS ---
 		"time=%s level=INFO msg=\"User logged in\" user_id=%d\n",

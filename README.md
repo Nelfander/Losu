@@ -41,7 +41,87 @@ Losu operates as a high-throughput pipeline designed to bridge the gap between "
 4. **Reactive TUI**: Built with `tview`, the interface provides a real-time dashboard with interactive search filtering, mouse support, and a dynamic sparkline graph for throughput visualization.
 
 ## 📦 Installation & Setup and Testing!
+<details><summary><b>The Docker Way!</b>(Click to expand)</summary>
+Follow these steps to get the monitor, the AI, and the log generator running in sync.
 
+### 1. Spin up the Infrastructure
+This starts the UI container and the AI engine in the background.
+```bash
+docker-compose up -d
+```
+
+### 2. Prepare the AI (One-Time Setup)
+Run this to download the Llama3 model into your local Docker volume. You only need to do this once:
+```bash
+docker-compose exec ollama ollama run llama3
+```
+
+### 3. Launch the Monitor (UI)
+To enter the interactive dashboard (with search and scroll support), run:
+```bash
+docker exec -it losu-losu-1 ./losu
+```
+
+### 4. Start the Log Generator
+In a new <b>terminal window</b>, start the stream of simulated logs:
+```bash
+# For Stress test (1k logs/sec)
+docker-compose exec -d losu ./stress_gen ./logs/test.log
+```
+```bash
+# For Normal test (Warn: 10% chance | Error: 3% chance)
+docker-compose exec -d losu ./normal_gen ./logs/test.log
+```
+
+You're 100% right. If they've cloned the repo, they already have the files! A good README should focus on the **actions** the user needs to take, not a copy-paste of the code they’re already looking at.
+
+Here is the "Lean & Mean" version for your README. It assumes the user has already opened their terminal in your project folder.
+
+```markdown
+# 🚀 Getting Started with Losu (Docker)
+
+Follow these steps to get the monitor, the AI, and the log generator running in sync.
+
+### 1. Spin up the Infrastructure
+This starts the UI container and the AI engine in the background.
+```bash
+docker-compose up -d
+```
+
+### 2. Prepare the AI (One-Time Setup)
+Run this to download the Llama3 model into your local Docker volume. You only need to do this once.
+```bash
+docker-compose exec ollama ollama run llama3
+```
+*Note: You can close the terminal once the download starts; it will continue in the background.*
+
+### 3. Launch the Monitor (UI)
+To enter the interactive dashboard (with search and scroll support), run:
+```bash
+docker exec -it losu-losu-1 ./losu
+```
+
+### 4. Start the Log Generator
+In a **new terminal window**, start the stream of simulated logs:
+```bash
+docker-compose exec -d losu ./stress_gen ./logs/test.log
+```
+
+### 🛠️ Useful Commands
+
+| Action | Command |
+| :--- | :--- |
+| **Stop Logs** | `docker-compose exec losu pkill stress_gen` |
+| **View Raw Logs** | `tail -f ./logs/test.log` |
+| **Shutdown All** | `docker-compose down` |
+| **Reset Stats** | `docker exec -it losu-losu-1 ./losu -reset` |
+
+
+</details>
+
+---
+
+<details><summary><b>The GO Way!</b>(Click to expand)</summary>
 ### 1. Prerequisites
 Install [Ollama](https://ollama.com) and pull the high-performance Llama 3 model:
 ```bash
@@ -70,7 +150,7 @@ git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/l
 cd losu
 
 ### 5. ▹Run the app 
-<details><summary><b>Normal way!</b>(Click to expand)</summary>
+<details><summary><b>Normal GO way!</b>(Click to expand)</summary>
 -Run with default INFO filter
 
 ```bash
@@ -119,10 +199,31 @@ make test-stress
 ```
 </details>
 
+</details>
 ---
 
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
+
+<details>
+<summary><b>March 22, 2026: Containerized Orchestration & Persistent AI Bridge</b> (Click to expand)</summary>
+
+#### Phase 1: Dockerized Environment Architecture
+* **Multi-Stage Build Optimization**: Engineered a high-efficiency `Dockerfile` utilizing `golang:alpine` for compilation and a minimal `alpine:latest` final stage. This decoupled the build environment from the runtime, reducing the final image footprint while ensuring all binaries (`losu`, `stress_gen`) are pre-compiled for Linux.
+* **Persistent Volume Mapping**: Implemented a bidirectional "Data Bridge" between the host `${LOG_PATH_HOST}` and the container `/app/logs`. This ensures that logs generated on the host (or by the internal generator) persist across container restarts and remain accessible for real-time analysis.
+* **Service Orchestration**: Configured `docker-compose.yaml` to manage the lifecycle of both the `losu` observer and the `ollama` AI engine, utilizing `depends_on` to enforce a logical startup sequence.
+
+#### Phase 2: Virtualized TTY & Terminal Fluidity
+* **Interactive TTY Pass-through**: Resolved "Frozen UI" issues by configuring `tty: true` and `stdin_open: true` within the Docker stack. This allows the Go-based TUI to capture raw terminal escapes and mouse events, enabling full search and scroll functionality inside a containerized shell.
+* **Xterm-256Color Integration**: Injected `TERM=xterm-256color` into the container environment, ensuring the `tview` styles, color-coded log levels (INFO/WARN/ERROR), and Unicode sparklines render with 100% fidelity.
+* **Process Management**: Integrated `pkill` logic within the containerized workflow, allowing for the hot-swapping of log generators (`stress_gen`) without interrupting the primary UI telemetry loop.
+
+#### Phase 3: AI Engine & Network Hardening
+* **Internal DNS Resolution**: Refactored the `LOSU_OLLAMA_HOST` networking from `localhost` to a Docker-internal service alias (`http://ollama:11434`). This enables the Go backend to communicate with the Llama3 model across the virtual bridge without exposing unnecessary ports to the host.
+* **Persistent Model Caching**: Configured a dedicated `ollama_data` volume to store the ~5GB Llama3 weights. This prevents costly re-downloads and ensures the "AI Brain" is available immediately upon subsequent stack launches.
+* **Environment Variable Injection**: Centralized the configuration into a `.env` file, allowing for seamless path adjustments (`LOG_PATH_HOST`) without modifying the core source code or Docker infrastructure.
+
+</details>
 
 <details>
 <summary><b>March 20, 2026: High-Velocity Telemetry & Delta-Cache UI Architecture</b> (Click to expand)</summary>
