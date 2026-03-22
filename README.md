@@ -48,22 +48,24 @@ Install [Ollama](https://ollama.com) and pull the high-performance Llama 3 model
 ollama pull llama3
 ```
 
-## Run the app 
-### -Clone the repository
+## ▷Run the app 
+-Clone the repository
 git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
 cd losu
 
-### -Run with default INFO filter
+-Run with default INFO filter
 ```bash
 go run main.go
 ```
 
-### -Run and wipe previous session stats
+-Run and wipe previous session stats
 ```bash
 go run main.go -reset
 ```
 
-### Mobile Alerts Setup
+---
+
+## Mobile Alerts Setup
 1. Download the **ntfy** app (iOS/Android).
 2. Click **"Subscribe to topic"** and enter a unique, private name (e.g., `losu-monitor-7722`).
 3. In `main.go`, ensure the `NtfyTopic` matches your chosen name:
