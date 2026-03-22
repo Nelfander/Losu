@@ -5,16 +5,33 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type Explainer struct {
 	Endpoint string
+	Model    string
 }
 
 func NewExplainer() *Explainer {
+	// Get values from .env (via Docker) or use defaults
+	_ = godotenv.Load()
+	endpoint := os.Getenv("LOSU_OLLAMA_HOST")
+	if endpoint == "" {
+		endpoint = "http://localhost:11434"
+	}
+
+	model := os.Getenv("LOSU_AI_MODEL")
+	if model == "" {
+		model = "llama3:latest"
+	}
+
 	return &Explainer{
-		Endpoint: "http://localhost:11434/api/generate", // Default Ollama port
+		Endpoint: endpoint + "/api/generate",
+		Model:    model,
 	}
 }
 
@@ -43,13 +60,13 @@ Provide a concise "Situation Report":
 Use Markdown. No intro/outro fluff. Technical brevity is mandatory.`, avgEps, peakEps, errorPatterns, warnPatterns)
 
 	payload := map[string]interface{}{
-		"model":  "llama3",
+		"model":  e.Model,
 		"prompt": prompt,
 		"stream": false,
 	}
 
 	body, _ := json.Marshal(payload)
-	client := http.Client{Timeout: 15 * time.Second} // AI can be slow on first load
+	client := http.Client{Timeout: 30 * time.Second} // AI can be slow on first load
 
 	resp, err := client.Post(e.Endpoint, "application/json", bytes.NewBuffer(body))
 	if err != nil {

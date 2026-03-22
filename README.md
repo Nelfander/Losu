@@ -40,10 +40,14 @@ Losu operates as a high-throughput pipeline designed to bridge the gap between "
 3. **Asynchronous Analysis**: A dedicated `Observer` routine periodically snapshots the aggregator state and prompts a local **Ollama** instance to perform root-cause analysis without blocking the UI.
 4. **Reactive TUI**: Built with `tview`, the interface provides a real-time dashboard with interactive search filtering, mouse support, and a dynamic sparkline graph for throughput visualization.
 
-## 📦 Installation & Setup and Testing!
+## 📦 Installation, Setup and Testing!
 <details><summary><b>The Docker Way!</b>(Click to expand)</summary>
 
 Follow these steps to get the monitor, the AI, and the log generator running in sync.
+
+### 1. Clone the repository
+git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
+& cd losu
 
 ### 1. Spin up the Infrastructure
 This starts the UI container and the AI engine in the background.
@@ -91,13 +95,17 @@ docker-compose exec -d losu ./normal_gen ./logs/test.log
 
 <details><summary><b>The GO Way!</b>(Click to expand)</summary>
 
-### 1. Prerequisites
+### 1. Clone the repository
+git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
+& cd losu
+
+### 2. Prerequisites
 Install [Ollama](https://ollama.com) and pull the high-performance Llama 3 model:
 ```bash
 ollama pull llama3
 ```
 
-### 2. Configuration
+### 3. Configuration
 Create a `.env` file in the root directory(Check .env.example):
 | Environment Variable | Description | Default |
 | :--- | :--- | :--- |
@@ -106,7 +114,7 @@ Create a `.env` file in the root directory(Check .env.example):
 | `LOSU_NTFY_TOPIC` | Unique ntfy.sh topic for phone alerts. | `losu-monitor-default` |
 | `LOSU_AI_MODEL` | The Ollama model for analysis. | `llama3` |
 
-### 3. Mobile Alerts Setup
+### 4. Mobile Alerts Setup
 1. Download the **ntfy** app (iOS/Android).
 2. Click **"Subscribe to topic"** and enter a unique, private name (e.g., `losu-monitor-5437`).
 3. In `.env`, ensure the `NTFY_TOPIC` matches your chosen name:
@@ -114,9 +122,6 @@ Create a `.env` file in the root directory(Check .env.example):
    NTFY_TOPIC=losu-monitor-5437
 4. Instant push notifications will now bypass your desktop and hit your pocket for all ERROR level events.
 
-### 4. Clone the repository
-git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
-& cd losu
 
 ### 5. ▹Run the app 
 <details><summary><b>Normal GO way!</b>(Click to expand)</summary>
