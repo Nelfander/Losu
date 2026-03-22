@@ -104,17 +104,19 @@ You can use the provided **Makefile** for easy execution:
 ```bash
 # Run the monitor
 make run
-# Run with reset flag (if using go run directly)
-go run cmd/logsum/main.go -reset
 ```
 
 ### 6. 🧪 Testing 
 -<b>Normal steady traffic</b>
+```bash
+# Run the steady test
 make test-normal
-
+```
 -<b>High-velocity "Chaos" mode</b>
+```bash
+# Run the stress test
 make test-stress
-
+```
 </details>
 
 ---
