@@ -70,7 +70,7 @@ git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/l
 cd losu
 
 ### 5. ▹Run the app 
-<details><summary><b>Normal way!<b>(Click to expand)</summary>
+<details><summary><b>Normal way!</b>(Click to expand)</summary>
 -Run with default INFO filter
 
 ```bash
@@ -109,10 +109,10 @@ go run cmd/logsum/main.go -reset
 ```
 
 ### 6. 🧪 Testing 
--<b>Normal steady traffic
+-<b>Normal steady traffic</b>
 make test-normal
 
--High-velocity "Chaos" mode
+-<b>High-velocity "Chaos" mode</b>
 make test-stress
 
 </details>
