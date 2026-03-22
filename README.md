@@ -42,6 +42,7 @@ Losu operates as a high-throughput pipeline designed to bridge the gap between "
 
 ## 📦 Installation & Setup and Testing!
 <details><summary><b>The Docker Way!</b>(Click to expand)</summary>
+
 Follow these steps to get the monitor, the AI, and the log generator running in sync.
 
 ### 1. Spin up the Infrastructure
@@ -73,39 +74,6 @@ docker-compose exec -d losu ./stress_gen ./logs/test.log
 docker-compose exec -d losu ./normal_gen ./logs/test.log
 ```
 
-You're 100% right. If they've cloned the repo, they already have the files! A good README should focus on the **actions** the user needs to take, not a copy-paste of the code they’re already looking at.
-
-Here is the "Lean & Mean" version for your README. It assumes the user has already opened their terminal in your project folder.
-
-```markdown
-# 🚀 Getting Started with Losu (Docker)
-
-Follow these steps to get the monitor, the AI, and the log generator running in sync.
-
-### 1. Spin up the Infrastructure
-This starts the UI container and the AI engine in the background.
-```bash
-docker-compose up -d
-```
-
-### 2. Prepare the AI (One-Time Setup)
-Run this to download the Llama3 model into your local Docker volume. You only need to do this once.
-```bash
-docker-compose exec ollama ollama run llama3
-```
-*Note: You can close the terminal once the download starts; it will continue in the background.*
-
-### 3. Launch the Monitor (UI)
-To enter the interactive dashboard (with search and scroll support), run:
-```bash
-docker exec -it losu-losu-1 ./losu
-```
-
-### 4. Start the Log Generator
-In a **new terminal window**, start the stream of simulated logs:
-```bash
-docker-compose exec -d losu ./stress_gen ./logs/test.log
-```
 
 ### 🛠️ Useful Commands
 
@@ -122,6 +90,7 @@ docker-compose exec -d losu ./stress_gen ./logs/test.log
 ---
 
 <details><summary><b>The GO Way!</b>(Click to expand)</summary>
+
 ### 1. Prerequisites
 Install [Ollama](https://ollama.com) and pull the high-performance Llama 3 model:
 ```bash
@@ -147,7 +116,7 @@ Create a `.env` file in the root directory(Check .env.example):
 
 ### 4. Clone the repository
 git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
-cd losu
+& cd losu
 
 ### 5. ▹Run the app 
 <details><summary><b>Normal GO way!</b>(Click to expand)</summary>
@@ -200,6 +169,7 @@ make test-stress
 </details>
 
 </details>
+
 ---
 
 ## 🛠 <b>Development History</b>
