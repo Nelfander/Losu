@@ -7,11 +7,13 @@
 ## 🧠 The Intelligence Layer
 Unlike standard tailing tools, LOSU uses a **three-tier analysis engine**:
 
-1.  **Pattern Fingerprinting**: Dynamically groups millions of unique log lines (e.g., `db_1`, `db_2`) into logical "Winner" patterns using fuzzy grouping logic.
+1.  **Pattern Fingerprinting**: Dynamically groups millions of unique log lines (e.g., `db_1`, `db_2`) into logical patterns using fuzzy grouping logic.
 2.  **Visual Delta**: A real-time 60-second "Sparkline" graph that tracks Error-Per-Second (EPS) spikes to detect anomalies instantly.
 3.  **AI Observer (Ollama/Llama 3)**: A background "SRE" entity that analyzes top patterns and provides human-readable root-cause analysis and suggested mitigation steps.
 
 ## 🚀 Key Features
+* **Zero-Dependency Deployment**: Compiled as a single static binary. No JVM, No Python, no bloat.
+* **Delta-Cache Rendering**: Optimized TUI engine capable of handling **50,000+ logs** with 0ms UI lag using incremental history reconciliation.
 * **AI-Driven Root Cause**: Local LLM integration (Llama 3/Phi-3) for private, zero-cost, and offline log interpretation.
 * **Multi-Channel Alerting**:
     * **Desktop**: Native OS notifications via `beeep`.
@@ -47,15 +49,19 @@ ollama pull llama3
 ```
 
 ## Run the app 
-# Clone the repository
+### -Clone the repository
 git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
 cd losu
 
-# Run with default INFO filter
+### -Run with default INFO filter
+```bash
 go run main.go
+```
 
-# Run and wipe previous session stats
+### -Run and wipe previous session stats
+```bash
 go run main.go -reset
+```
 
 ### Mobile Alerts Setup
 1. Download the **ntfy** app (iOS/Android).
@@ -65,11 +71,14 @@ go run main.go -reset
    notifier.NtfyTopic = "losu-monitor-7722"
 4. Instant push notifications will now bypass your desktop and hit your pocket for all ERROR level events.
 
-##🧪 Testing with Chaos
-LOSU includes a built-in Chaos Generator to simulate production-grade failures, including high-memory spikes, database timeouts, and security anomalies:
 
-# In a separate terminal (Change time.Sleep depending on how chaotic you want it! It can handle 1k logs/sec)
+## 🧪 Testing with Chaos
+-LOSU includes a built-in Chaos Generator to simulate production-grade failures, including high-memory spikes, database timeouts, and security anomalies:
+
+-In a separate terminal (Change time.Sleep depending on how chaotic you want it! It can handle 1k logs/sec)
+```bash
 go run internal/generator/generator.go
+```
 
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
@@ -199,9 +208,6 @@ go run internal/generator/generator.go
 </details>
 </details>
 
-## 📜 License
-This project is licensed under the MIT License. Feel free to use, modify, and distribute it in your own projects or as a base for your own observability tools!
-
 ---
 
 ## 🏗 Development Roadmap
@@ -213,9 +219,9 @@ This project is licensed under the MIT License. Feel free to use, modify, and di
 - [ ] **Phase 6**: Prometheus Metrics Export & Grafana Integration
 - [ ] **Phase 7**: Historical Log Searching & Persistence
 
+---
 
-
-## Flow Diagram
+## Pipeline Flow Diagram
 <details>
 <summary>(Click to expand)</summary>
 
@@ -269,3 +275,8 @@ This project is licensed under the MIT License. Feel free to use, modify, and di
    [Mobile Alert]           [Heuristic Report]         [Real-time TUI]
 ```
 </details>
+
+---
+
+## 📜 License
+This project is licensed under the MIT License. Feel free to use, modify, and distribute it in your own projects or as a base for your own observability tools!
