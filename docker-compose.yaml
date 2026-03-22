@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # The Observer (Losu)
+  losu:
+    build: .
+    tty: true
+    stdin_open: true
+    volumes:
+      # Mounts the host folder to the container
+      - ${LOG_PATH_HOST}:/logs
+    environment:
+      # Change these at .env
+      - LOSU_LOG_PATH=${LOSU_LOG_PATH}
+      - LOSU_OLLAMA_HOST=http://ollama:11434
+      - LOSU_NTFY_TOPIC=${LOSU_NTFY_TOPIC}
+      - LOSU_MIN_LEVEL=${LOSU_MIN_LEVEL}
+      - LOSU_AI_MODEL=${LOSU_AI_MODEL}
+      - LOSU_AI_INTERVAL_SECONDS=${LOSU_AI_INTERVAL_SECONDS}
+    depends_on:
+      - ollama
+
+  # The AI Engine
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  ollama_data:

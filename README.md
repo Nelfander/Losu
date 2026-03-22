@@ -9,7 +9,7 @@ Unlike standard tailing tools, LOSU uses a **three-tier analysis engine**:
 
 1.  **Pattern Fingerprinting**: Dynamically groups millions of unique log lines (e.g., `db_1`, `db_2`) into logical patterns using fuzzy grouping logic.
 2.  **Visual Delta**: A real-time 60-second "Sparkline" graph that tracks Error-Per-Second (EPS) spikes to detect anomalies instantly.
-3.  **AI Observer (Ollama/Llama 3)**: A background "SRE" entity that analyzes top patterns and provides human-readable root-cause analysis and suggested mitigation steps.
+3.  **AI Observer (Ollama/Llama 3)**: A background "SRE" entity that analyzes top patterns and provides readable root-cause analysis and suggested mitigation steps.
 
 ## 🚀 Key Features
 * **Zero-Dependency Deployment**: Compiled as a single static binary. No JVM, No Python, no bloat.
@@ -40,7 +40,7 @@ Losu operates as a high-throughput pipeline designed to bridge the gap between "
 3. **Asynchronous Analysis**: A dedicated `Observer` routine periodically snapshots the aggregator state and prompts a local **Ollama** instance to perform root-cause analysis without blocking the UI.
 4. **Reactive TUI**: Built with `tview`, the interface provides a real-time dashboard with interactive search filtering, mouse support, and a dynamic sparkline graph for throughput visualization.
 
-## 📦 Installation & Setup
+## 📦 Installation & Setup and Testing!
 
 ### 1. Prerequisites
 Install [Ollama](https://ollama.com) and pull the high-performance Llama 3 model:
@@ -48,48 +48,73 @@ Install [Ollama](https://ollama.com) and pull the high-performance Llama 3 model
 ollama pull llama3
 ```
 
-### 2. Commands & Flags
-| Environment Variable | Description | Default Value |
+### 2. Configuration
+Create a `.env` file in the root directory(Check .env.example):
+| Environment Variable | Description | Default |
 | :--- | :--- | :--- |
-| `LOG_PATH` | Full path to the log file to monitor. | `test.log` |
-| `MIN_LEVEL` | Minimum severity to display (DEBUG/INFO/WARN/ERROR). | `INFO` |
-| `NTFY_TOPIC` | Your unique ntfy.sh topic for phone alerts. | `losu-monitor-default` |
-| `AI_MODEL` | The Ollama model to use for analysis. | `llama3` |
+| `LOSU_LOG_PATH` | Path to the log file to monitor. | `test.log` |
+| `LOSU_MIN_LEVEL` | Minimum severity (DEBUG/INFO/WARN/ERROR). | `INFO` |
+| `LOSU_NTFY_TOPIC` | Unique ntfy.sh topic for phone alerts. | `losu-monitor-default` |
+| `LOSU_AI_MODEL` | The Ollama model for analysis. | `llama3` |
 
+### 3. Mobile Alerts Setup
+1. Download the **ntfy** app (iOS/Android).
+2. Click **"Subscribe to topic"** and enter a unique, private name (e.g., `losu-monitor-5437`).
+3. In `.env`, ensure the `NTFY_TOPIC` matches your chosen name:
+   ```go
+   NTFY_TOPIC=losu-monitor-5437
+4. Instant push notifications will now bypass your desktop and hit your pocket for all ERROR level events.
 
-## ▹Run the app 
--Clone the repository
+### 4. Clone the repository
 git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
 cd losu
 
+### 5. ▹Run the app 
+<details><summary>Normal way!(Click to expand)</summary>
 -Run with default INFO filter
 ```bash
-go run main.go
+go run cmd/logsum/main.go
 ```
 
 -Run and wipe previous session stats
 ```bash
-go run main.go -reset
+go run cmd/logsum/main.go -reset
 ```
 
----
-
-## Mobile Alerts Setup
-1. Download the **ntfy** app (iOS/Android).
-2. Click **"Subscribe to topic"** and enter a unique, private name (e.g., `losu-monitor-7722`).
-3. In `main.go`, ensure the `NtfyTopic` matches your chosen name:
-   ```go
-   notifier.NtfyTopic = "losu-monitor-7722"
-4. Instant push notifications will now bypass your desktop and hit your pocket for all ERROR level events.
-
-
-## 🧪 Testing with Chaos
+### 6a. 🧪 Testing with Chaos. (Populates test.log!)
 -LOSU includes a built-in Chaos Generator to simulate production-grade failures, including high-memory spikes, database timeouts, and security anomalies:
 
--In a separate terminal (Change time.Sleep depending on how chaotic you want it! It can handle 1k logs/sec)
+-In a separate terminal (Change time.Sleep depending on how chaotic you want it! It can handle 1k logs/sec). 
 ```bash
-go run internal/generator/generator.go
+go run bin/stress/stress_gen.go
 ```
+
+### 6b. 🧪 Testing without Chaos. (Populates test.log!)
+-In a separate terminal
+```bash
+go run bin/normal/normal_gen.go
+```
+</details>
+
+<details><summary>Makefile way!(Click to expand)</summary>
+You can use the provided **Makefile** for easy execution:
+```bash
+# Run the monitor
+make run
+# Run with reset flag (if using go run directly)
+go run cmd/logsum/main.go -reset
+```
+
+### 6. 🧪 Testing 
+# Normal steady traffic
+make test-normal
+
+# High-velocity "Chaos" mode
+make test-stress
+
+</details>
+
+---
 
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
