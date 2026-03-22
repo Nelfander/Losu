@@ -48,7 +48,16 @@ Install [Ollama](https://ollama.com) and pull the high-performance Llama 3 model
 ollama pull llama3
 ```
 
-## ▷Run the app 
+### 2. Commands & Flags
+| Environment Variable | Description | Default Value |
+| :--- | :--- | :--- |
+| `LOG_PATH` | Full path to the log file to monitor. | `test.log` |
+| `MIN_LEVEL` | Minimum severity to display (DEBUG/INFO/WARN/ERROR). | `INFO` |
+| `NTFY_TOPIC` | Your unique ntfy.sh topic for phone alerts. | `losu-monitor-default` |
+| `AI_MODEL` | The Ollama model to use for analysis. | `llama3` |
+
+
+## ▹Run the app 
 -Clone the repository
 git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
 cd losu

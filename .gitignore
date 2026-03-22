@@ -7,3 +7,6 @@ logsum
 
 # OS stuff
 .DS_Store
+
+# env
+.env
