@@ -72,11 +72,13 @@ cd losu
 ### 5. ▹Run the app 
 <details><summary>Normal way!(Click to expand)</summary>
 -Run with default INFO filter
+
 ```bash
 go run cmd/logsum/main.go
 ```
 
 -Run and wipe previous session stats
+
 ```bash
 go run cmd/logsum/main.go -reset
 ```
@@ -98,6 +100,7 @@ go run bin/normal/normal_gen.go
 
 <details><summary>Makefile way!(Click to expand)</summary>
 You can use the provided **Makefile** for easy execution:
+
 ```bash
 # Run the monitor
 make run
