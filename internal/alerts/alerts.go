@@ -108,3 +108,30 @@ func (a *Alerter) SendToPhone(message string) {
 	}
 	defer resp.Body.Close()
 }
+
+// PushNotification sends a plain text alert (used for Heartbeats/Summaries)
+func (a *Alerter) PushNotification(title, message string) {
+	// Log it to local alerts.log file
+	f, _ := os.OpenFile(a.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if f != nil {
+		defer f.Close()
+		timestamp := time.Now().Format("2006-01-02 15:04:05")
+		fmt.Fprintf(f, "[%s] %s: %s\n", timestamp, title, message)
+	}
+
+	// Send to ntfy.sh if a topic is set
+	if a.NtfyTopic != "" {
+		url := "https://ntfy.sh/" + a.NtfyTopic
+		req, _ := http.NewRequest("POST", url, strings.NewReader(message))
+		req.Header.Set("Title", title)
+
+		// Use an emoji tag for the Heartbeat
+		req.Header.Set("Tags", "bar_chart,heartbeat")
+
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Do(req)
+		if err == nil {
+			resp.Body.Close()
+		}
+	}
+}

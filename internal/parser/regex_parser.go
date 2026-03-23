@@ -14,14 +14,23 @@ var patterns = []struct {
 }{
 	//  Flexible Logfmt: Looks for level= and msg= ANYWHERE in the line.
 	// This catches "playingfield-app | time=... level=DEBUG msg=..."
-	{name: "logfmt-flexible", regex: regexp.MustCompile(`level=([a-zA-Z]+).*?msg="?([^"\n]*)"?`)},
+	{
+		name:  "logfmt-flexible",
+		regex: regexp.MustCompile(`level=([a-zA-Z]+).*?msg="?([^"\n]*)"?(.*)`),
+	},
 	//{name: "logfmt", regex: regexp.MustCompile(`time=([^\s]+)\s+level=([a-zA-Z]+)\s+msg="?([^"|^\n]+)"?(.*)`)},
 
 	//  Brackets (Test logs: 2026-03-08 [INFO] Message)
-	{name: "brackets", regex: regexp.MustCompile(`.*?(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}).*?\[([a-zA-Z]+)\]\s+(.*)`)},
+	{
+		name:  "brackets",
+		regex: regexp.MustCompile(`.*?(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}).*?\[([a-zA-Z]+)\]\s+(.*)`),
+	},
 
 	//  Simple Space (Legacy: 2026-03-08 15:00:00 ERROR Message)
-	{name: "simple", regex: regexp.MustCompile(`(\d{4}-\d{2}-\d{2}.*?)\s+([a-zA-Z]+)\s+(.*)`)},
+	{
+		name:  "simple",
+		regex: regexp.MustCompile(`(\d{4}-\d{2}-\d{2}.*?)\s+([a-zA-Z]+)\s+(.*)`),
+	},
 
 	// If nothing else matches, grab the whole line and
 	// treat the whole line as the message and label it "UNKNOWN".
@@ -54,10 +63,13 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 		matches := probe.regex.FindStringSubmatch(line)
 
 		if len(matches) >= 3 {
-			// Assume the last two are always Level and Message
-			level := strings.ToUpper(matches[len(matches)-2])
-			message := matches[len(matches)-1]
+			level := strings.ToUpper(matches[1]) // In logfmt-flexible, group 1 is Level
+			message := matches[2]                // Group 2 is the msg
 
+			// If we have a tail (Group 3), append it safely
+			if len(matches) > 3 {
+				message = message + " " + matches[3]
+			}
 			// If the pattern has a timestamp (group 1), parse it, else use Now()
 			timestamp := time.Now()
 			if len(matches) >= 4 {

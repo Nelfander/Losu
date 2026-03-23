@@ -2,6 +2,7 @@ package aggregator
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"regexp"
 	"sort"
@@ -25,6 +26,14 @@ type Aggregator struct {
 	LastErrorTime   time.Time
 	LastWarnTime    time.Time
 	PeakEPS         float64
+	// --- Hourly Heartbeat/Report--- (Not necesserily hourly, time can be adjusted through env)
+	HourlyStartTime time.Time
+	HourlyCounts    map[string]int
+	TopMessages     map[string]struct {
+		Count int
+		Level string
+	} // To track top most appeared this hour
+	// ------------------------------------
 }
 
 func NewAggregator() *Aggregator {
@@ -34,10 +43,16 @@ func NewAggregator() *Aggregator {
 		history:        make([]model.LogEvent, 0, maxHistory),
 		TrendHistory:   make([]int, 0, 50), // Initialize with space for 50 second
 		RecentMessages: make(map[string]*model.MessageStat),
+		HourlyCounts:   make(map[string]int),
+		TopMessages: make(map[string]struct {
+			Count int
+			Level string
+		}),
+		HourlyStartTime: time.Now(),
 	}
 }
 
-// Update takes an event and a filter weight to decide what to count vs what to record
+// Update processes a single log event into the global state
 func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[string]int) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -49,6 +64,16 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 	// ALWAYS update counts - numbers must be accurate
 	a.TotalLines++
 	a.ErrorCounts[event.Level]++
+
+	// Hourly Stats
+	a.HourlyCounts[event.Level]++
+	if event.Level == "WARN" || event.Level == "ERROR" {
+		// Check if we already have this message
+		entry := a.TopMessages[event.Message]
+		entry.Count++
+		entry.Level = event.Level // Store the level (ERROR or WARN)
+		a.TopMessages[event.Message] = entry
+	}
 
 	// Track the last time we saw a specific severity
 	if event.Level == "ERROR" {
@@ -258,4 +283,49 @@ func (a *Aggregator) GetRecentSnapshot() map[string]model.MessageStat {
 	a.RecentMessages = make(map[string]*model.MessageStat)
 
 	return recent
+}
+
+// Function for Hourly Report
+func (a *Aggregator) FlushHourlyStats() (time.Time, map[string]int, string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	startTime := a.HourlyStartTime
+	counts := a.HourlyCounts
+
+	// Find the single most frequent error/warn
+	topMsg := "None"
+	maxCount := 0
+
+	// Search for the most frequent ERROR
+	for msg, entry := range a.TopMessages {
+		if entry.Level == "ERROR" {
+			if entry.Count > maxCount {
+				maxCount = entry.Count
+				topMsg = "[ERROR] " + msg
+			}
+		}
+	}
+
+	// If no error found, search for the most frequent WARN
+	if topMsg == "None" {
+		for msg, entry := range a.TopMessages {
+			if entry.Level == "WARN" {
+				if entry.Count > maxCount {
+					maxCount = entry.Count
+					topMsg = "[WARN] " + msg
+				}
+			}
+		}
+	}
+
+	// RESET for the next hour
+	a.HourlyStartTime = time.Now()
+	a.HourlyCounts = make(map[string]int)
+	a.TopMessages = make(map[string]struct {
+		Count int
+		Level string
+	})
+
+	return startTime, counts, fmt.Sprintf("%s (%d times)", topMsg, maxCount)
 }

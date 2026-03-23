@@ -1,35 +1,59 @@
 # 🐺 LOSU (Log Observer & Summary Unit)
 
-**LOSU** is a high-performance, AI-native observability tool designed to turn chaotic log streams into actionable engineering insights. It doesn't just tail logs; it understands the "why" behind the "what."
+**LOSU** is a high-performance, zero-dependency log tailing + intelligent analysis tool built in Go.  
+It turns noisy log streams into actionable SRE intelligence — delivered straight to your terminal, desktop, **and pocket**.
 
----
+Whether you're debugging at 2 a.m. or sipping coffee, LOSU gives you real-time visibility, smart pattern grouping, AI-powered root-cause suggestions (optional), and mobile-first heartbeat reports — **all offline-capable and private**.
 
-## 🧠 The Intelligence Layer
-Unlike standard tailing tools, LOSU uses a **three-tier analysis engine**:
+## ✨ Highlights
 
-1.  **Pattern Fingerprinting**: Dynamically groups millions of unique log lines (e.g., `db_1`, `db_2`) into logical patterns using fuzzy grouping logic.
-2.  **Visual Delta**: A real-time 60-second "Sparkline" graph that tracks Error-Per-Second (EPS) spikes to detect anomalies instantly.
-3.  **AI Observer (Ollama/Llama 3)**: A background "SRE" entity that analyzes top patterns and provides readable root-cause analysis and suggested mitigation steps.
+- Single static Go binary — **no runtime dependencies**
+- Real-time TUI dashboard with sparkline EPS graphs
+- Intelligent log pattern fingerprinting & clustering
+- Optional **local AI root-cause analysis** (Ollama + Llama 3 / Phi-3)
+- Mobile heartbeat summaries via **ntfy.sh**
+- Desktop notifications via **beeep**
+- Smart alert rate-limiting to prevent fatigue
+- Memory-safe, high-concurrency pipeline
 
 ## 🚀 Key Features
-* **Zero-Dependency Deployment**: Compiled as a single static binary. No JVM, No Python, no bloat.
-* **Delta-Cache Rendering**: Optimized TUI engine capable of handling **50,000+ logs** with 0ms UI lag using incremental history reconciliation.
-* **AI-Driven Root Cause**: Local LLM integration (Llama 3/Phi-3) for private, zero-cost, and offline log interpretation.
-* **Multi-Channel Alerting**:
-    * **Desktop**: Native OS notifications via `beeep`.
-    * **Mobile**: Instant push notifications to your phone via `ntfy.sh` (zero-account setup required).
-    * **Smart Rate Limiting**: Intelligent 20-second cooldown per error pattern to prevent "Alert Fatigue."
-* **High-Concurrency Pipeline**: 
-    * **Non-Blocking UI**: Dedicated goroutines for Data Processing, UI Rendering, and AI Analysis.
-    * **Memory Bounded**: Fixed-buffer channels and backpressure strategies prevent RAM spikes during massive log storms.
-* **Developer Dashboard**: ANSI-powered TUI featuring real-time stats, error distributions, and a dedicated "AI Wisdom" panel.
+
+### Core Monitoring
+- **Dynamic pattern grouping** — turns millions of near-identical log lines into clean, readable clusters
+- Real-time **60-second sparkline** showing Errors-Per-Second (EPS) anomalies
+- **Error-first prioritization** — most frequent ERROR always surfaces as "Top Issue"
+- Zero-data / low-activity awareness with clear delta counters (Errors, Warnings, Info)
+
+### Executive Heartbeat (SRE Reporting)
+LOSU doesn't just tail — it **summarizes system health** and pushes concise status reports to your phone.
+
+- Configurable reporting window (`LOSU_REPORT_WINDOW`)
+- **Error-first "Top Issue"** promotion
+- Counts + delta over the window
+- Beautiful, emoji-enhanced mobile notifications via **ntfy.sh**
+
+### 🧠 Optional AI Layer ("Pluggable Brain")
+If a local Ollama instance is available:
+
+- Dedicated "SRE Take" section in heartbeat & TUI
+- Root-cause hypothesis + concrete mitigation suggestions  
+  (e.g. "Redis connection pool exhaustion — flush + increase max connections")
+- Fully local, private, zero-cost, offline
+
+When AI is unavailable → falls back gracefully to statistical summaries.
+
+### Alerting
+- **Desktop** — native OS notifications (`beeep`)
+- **Mobile** — instant push via `ntfy.sh` (no account needed)
+- **Smart cooldown** — 20-second per-pattern rate limit
 
 ## 🛠 Tech Stack
-* **Language**: Go (Golang)
-* **TUI Framework**: `tview` & `tcell`
-* **AI Engine**: Ollama (Local API)
-* **Alerting**: `beeep` (Desktop) & `ntfy` (Mobile/HTTP)
-* **Concurrency**: Context-aware Worker Pools, Mutex-protected Snapshots, and Atomic Counters.
+
+- **Language**: Go (Golang)
+- **TUI**: `tview` + `tcell`
+- **AI**: Ollama (local HTTP API)
+- **Notifications**: `beeep` (desktop), `ntfy` (mobile/HTTP)
+- **Concurrency**: context-aware worker pools, atomic counters, mutex snapshots, bounded channels
 
 ## ⚙️ How It Works
 
@@ -49,25 +73,25 @@ Follow these steps to get the monitor, the AI, and the log generator running in 
 git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
 & cd losu
 
-### 1. Spin up the Infrastructure
+### 2. Spin up the Infrastructure
 This starts the UI container and the AI engine in the background.
 ```bash
 docker-compose up -d
 ```
 
-### 2. Prepare the AI (One-Time Setup)
+### 3. Prepare the AI (One-Time Setup)
 Run this to download the Llama3 model into your local Docker volume. You only need to do this once:
 ```bash
 docker-compose exec ollama ollama run llama3
 ```
 
-### 3. Launch the Monitor (UI)
+### 4. Launch the Monitor (UI)
 To enter the interactive dashboard (with search and scroll support), run:
 ```bash
 docker exec -it losu-losu-1 ./losu
 ```
 
-### 4. Start the Log Generator
+### 5. Start the Log Generator
 In a new <b>terminal window</b>, start the stream of simulated logs:
 ```bash
 # For Stress test (1k logs/sec)
@@ -117,7 +141,7 @@ Create a `.env` file in the root directory(Check .env.example):
 ### 4. Mobile Alerts Setup
 1. Download the **ntfy** app (iOS/Android).
 2. Click **"Subscribe to topic"** and enter a unique, private name (e.g., `losu-monitor-5437`).
-3. In `.env`, ensure the `NTFY_TOPIC` matches your chosen name:
+3. In `.env`, ensure the `LOSU_NTFY_TOPIC` matches your chosen name:
    ```go
    NTFY_TOPIC=losu-monitor-5437
 4. Instant push notifications will now bypass your desktop and hit your pocket for all ERROR level events.
@@ -179,6 +203,26 @@ make test-stress
 
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
+
+<details>
+<summary><b>March 23, 2026: Proactive SRE Heartbeat & Priority Analytics</b> (Click to expand)</summary>
+
+#### Phase 1: Temporal Heartbeat Architecture
+* **Dynamic Reporting Engine**: Engineered a secondary time-windowed aggregator that tracks system health over configurable intervals (e.g., 60m). Implemented via `time.Ticker` in a dedicated background goroutine, it ensures periodic status updates are dispatched regardless of real-time UI activity.
+* **Environment-Driven Scheduling**: Integrated `LOSU_REPORT_WINDOW` into the `.env` configuration with robust `strconv` parsing and safety defaults. This allows users to scale the reporting "pulse" from high-frequency 1-minute bursts to 24-hour executive summaries.
+* **AI-Optional Failover**: Architected the reporting logic to be "AI-First, but not AI-Dependent." If the Ollama bridge is offline, the system gracefully falls back to a high-fidelity raw data summary, ensuring 100% uptime for critical notifications.
+
+#### Phase 2: Priority-Weighted Data Aggregation
+* **Error-First Intelligence**: Refactored the `FlushHourlyStats` logic to implement a "Criticality Search." The system now prioritizes **ERROR** patterns as the "Top Issue" for the hour, ensuring that high-volume warnings do not mask low-frequency but catastrophic failure states.
+* **Aggregator Struct Evolution**: Enhanced the internal `TopMessages` map to store complex anonymous structs `{Count int; Level string}`. This move from simple frequency tracking to level-aware tracking provides the AI and the user with verified severity context for every summarized message.
+* **Stat Preservation**: Integrated the new hourly counters into the `Update` loop, maintaining separate buckets for real-time sparkline telemetry and windowed reporting to prevent data contamination between the two systems.
+
+#### Phase 3: Executive AI Reporting & Mobile Integration
+* **Multi-Modal Prompt Engineering**: Developed the `AnalyzeHeartbeat` method within the AI Explainer. This utilizes a structured "[REPORT FORMAT]" prompt that forces Llama3 to provide a consistent 3-point brief (Status, Analysis, Action), eliminating "lazy" or inconsistent LLM responses.
+* **Mobile Notification Hardening**: Expanded the `alerts.Alerter` package with a generic `PushNotification` method. This enables the transmission of custom-formatted markdown reports and summaries to **ntfy.sh**, complete with priority tags and status emojis for instant mobile observability.
+* **Resource Conflict Resolution**: Optimized the HTTP client timeouts (20s) for heartbeat analysis to prevent "Cold Start" LLM latency from blocking the primary telemetry workers or the UI thread.
+
+</details>
 
 <details>
 <summary><b>March 22, 2026: Containerized Orchestration & Persistent AI Bridge</b> (Click to expand)</summary>

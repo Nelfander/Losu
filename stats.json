@@ -1,24 +1,67 @@
 {
-  "total_lines": 16,
+  "total_lines": 268,
   "error_counts": {
-    "DEBUG": 6,
-    "ERROR": 1,
-    "INFO": 7,
-    "WARN": 2
+    "2026-03-23T16:09:47": 1,
+    "2026-03-23T16:11:45": 1,
+    "DEBUG": 102,
+    "ERROR": 3,
+    "INFO": 151,
+    "WARN": 10
   },
   "message_counts": {
-    "Failed login attempt": {
-      "Count": 2,
-      "Level": "WARN",
-      "VariantCounts": {
-        "Failed login attempt": 2
-      }
-    },
-    "Upstream service unavailable": {
+    "Disk space critical  partition=\"/var/log\" usage=%": {
       "Count": 1,
       "Level": "ERROR",
       "VariantCounts": {
-        "Upstream service unavailable": 1
+        "Disk space critical  partition=\"/var/log\" usage=653%": 1
+      }
+    },
+    "Failed login attempt  ip=... user=\"admin\"": {
+      "Count": 2,
+      "Level": "WARN",
+      "VariantCounts": {
+        "Failed login attempt  ip=412.291.750.716 user=\"admin\"": 1,
+        "Failed login attempt  ip=658.506.341.603 user=\"admin\"": 1
+      }
+    },
+    "HTTP request failed  status= path=\"/favicon.ico\" ip=...": {
+      "Count": 1,
+      "Level": "WARN",
+      "VariantCounts": {
+        "HTTP request failed  status=404 path=\"/favicon.ico\" ip=49.698.919.378": 1
+      }
+    },
+    "High memory usage  threshold=%": {
+      "Count": 3,
+      "Level": "WARN",
+      "VariantCounts": {
+        "High memory usage  threshold=378%": 1,
+        "High memory usage  threshold=78%": 1,
+        "High memory usage  threshold=998%": 1
+      }
+    },
+    "Inventory low for SKU  sku=\"SKU-\" stock=": {
+      "Count": 2,
+      "Level": "WARN",
+      "VariantCounts": {
+        "Inventory low for SKU  sku=\"SKU-331\" stock=138": 1,
+        "Inventory low for SKU  sku=\"SKU-588\" stock=428": 1
+      }
+    },
+    "Query timeout  duration=ms query_id=q_": {
+      "Count": 2,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Query timeout  duration=500ms query_id=q_158": 1,
+        "Query timeout  duration=500ms query_id=q_93": 1
+      }
+    },
+    "Slow query detected  duration=ms sql=\"SELECT * FROM users\"": {
+      "Count": 2,
+      "Level": "WARN",
+      "VariantCounts": {
+        "Slow query detected  duration=39ms sql=\"SELECT * FROM users\"": 1,
+        "Slow query detected  duration=529ms sql=\"SELECT * FROM users\"": 1
       }
     }
   },
@@ -27,7 +70,7 @@
     0,
     0,
     0,
-    0,
+    1,
     0,
     0,
     0,
@@ -76,7 +119,14 @@
     0
   ],
   "RecentMessages": {},
-  "LastErrorTime": "2026-03-22T12:41:07.8663477+01:00",
-  "LastWarnTime": "2026-03-22T12:41:09.1456981+01:00",
-  "PeakEPS": 1
+  "LastErrorTime": "2026-03-23T16:10:50.3952976+01:00",
+  "LastWarnTime": "2026-03-23T16:11:29.8442802+01:00",
+  "PeakEPS": 1,
+  "HourlyStartTime": "2026-03-23T16:11:34.177686+01:00",
+  "HourlyCounts": {
+    "2026-03-23T16:11:45": 1,
+    "DEBUG": 11,
+    "INFO": 17
+  },
+  "TopMessages": {}
 }
