@@ -402,6 +402,20 @@ make test-stress
 
 ---
 
+## Problems & How I Solved Them
+<details>
+<summary>(Click to expand)</summary>
+### 🚧 Challenge: The "Symbol Wall" (Terminal Buffer Desync)
+**Problem:** As log throughput exceeded 10,000 EPS (Events Per Second), the UI would periodically "crash" into a wall of raw ANSI escape codes and terminal coordinate symbols (e.g., `[555;72;20M`). This was caused by a race condition between the high-speed `io.Writer` and the Terminal's rendering engine. When the stdout pipe saturated, the terminal would drop "closing tags" for colors, causing it to interpret log data as raw control sequences.
+
+**Solution: UI Virtualization & Atomic Buffer Management**
+To reach stable performance at **400,000+ EPS**, the rendering logic was completely overhauled:
+* **Decoupled History from Viewport:** Instead of the UI holding the entire log history, a "Virtual Window" of 1,500 lines is maintained.
+* **Atomic Resets:** Implemented `LogView.Clear()` during high-volume spikes to flush the GPU text cache and reset the `tcell` internal state, preventing buffer fragmentation.
+* **$O(1)$ Event Capture:** Migrated mouse-tracking logic from active string-scanning (`strings.Count`) to cached slice indexing. This eliminated the CPU-bound "read-back" lag that previously triggered terminal desync.
+* **Throttled Delta Updates:** The UI now prioritizes the background processing engine. If the log firehose exceeds the terminal's refresh rate, the UI intelligently skips frames to maintain system stability without losing data in the underlying telemetry.
+</details>
+---
 ## Pipeline Flow Diagram
 <details>
 <summary>(Click to expand)</summary>
