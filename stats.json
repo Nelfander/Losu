@@ -1,132 +1,2526 @@
 {
-  "total_lines": 268,
+  "total_lines": 131588,
   "error_counts": {
-    "2026-03-23T16:09:47": 1,
-    "2026-03-23T16:11:45": 1,
-    "DEBUG": 102,
-    "ERROR": 3,
-    "INFO": 151,
-    "WARN": 10
+    "DEBUG": 16633,
+    "ERROR": 33027,
+    "INFO": 49248,
+    "WARN": 32680
   },
   "message_counts": {
-    "Disk space critical  partition=\"/var/log\" usage=%": {
-      "Count": 1,
-      "Level": "ERROR",
-      "VariantCounts": {
-        "Disk space critical  partition=\"/var/log\" usage=653%": 1
-      }
-    },
     "Failed login attempt  ip=... user=\"admin\"": {
-      "Count": 2,
+      "Count": 16285,
       "Level": "WARN",
       "VariantCounts": {
-        "Failed login attempt  ip=412.291.750.716 user=\"admin\"": 1,
-        "Failed login attempt  ip=658.506.341.603 user=\"admin\"": 1
-      }
-    },
-    "HTTP request failed  status= path=\"/favicon.ico\" ip=...": {
-      "Count": 1,
-      "Level": "WARN",
-      "VariantCounts": {
-        "HTTP request failed  status=404 path=\"/favicon.ico\" ip=49.698.919.378": 1
+        "Failed login attempt  ip=192.168.1.0 user=\"admin\"": 149,
+        "Failed login attempt  ip=192.168.1.1 user=\"admin\"": 168,
+        "Failed login attempt  ip=192.168.1.10 user=\"admin\"": 163,
+        "Failed login attempt  ip=192.168.1.11 user=\"admin\"": 177,
+        "Failed login attempt  ip=192.168.1.12 user=\"admin\"": 142,
+        "Failed login attempt  ip=192.168.1.13 user=\"admin\"": 167,
+        "Failed login attempt  ip=192.168.1.14 user=\"admin\"": 162,
+        "Failed login attempt  ip=192.168.1.15 user=\"admin\"": 156,
+        "Failed login attempt  ip=192.168.1.16 user=\"admin\"": 176,
+        "Failed login attempt  ip=192.168.1.17 user=\"admin\"": 166,
+        "Failed login attempt  ip=192.168.1.18 user=\"admin\"": 176,
+        "Failed login attempt  ip=192.168.1.19 user=\"admin\"": 176,
+        "Failed login attempt  ip=192.168.1.2 user=\"admin\"": 139,
+        "Failed login attempt  ip=192.168.1.20 user=\"admin\"": 158,
+        "Failed login attempt  ip=192.168.1.21 user=\"admin\"": 184,
+        "Failed login attempt  ip=192.168.1.22 user=\"admin\"": 141,
+        "Failed login attempt  ip=192.168.1.23 user=\"admin\"": 174,
+        "Failed login attempt  ip=192.168.1.24 user=\"admin\"": 176,
+        "Failed login attempt  ip=192.168.1.25 user=\"admin\"": 156,
+        "Failed login attempt  ip=192.168.1.26 user=\"admin\"": 166,
+        "Failed login attempt  ip=192.168.1.27 user=\"admin\"": 152,
+        "Failed login attempt  ip=192.168.1.28 user=\"admin\"": 166,
+        "Failed login attempt  ip=192.168.1.29 user=\"admin\"": 162,
+        "Failed login attempt  ip=192.168.1.3 user=\"admin\"": 178,
+        "Failed login attempt  ip=192.168.1.30 user=\"admin\"": 126,
+        "Failed login attempt  ip=192.168.1.31 user=\"admin\"": 156,
+        "Failed login attempt  ip=192.168.1.32 user=\"admin\"": 135,
+        "Failed login attempt  ip=192.168.1.33 user=\"admin\"": 160,
+        "Failed login attempt  ip=192.168.1.34 user=\"admin\"": 172,
+        "Failed login attempt  ip=192.168.1.35 user=\"admin\"": 163,
+        "Failed login attempt  ip=192.168.1.36 user=\"admin\"": 171,
+        "Failed login attempt  ip=192.168.1.37 user=\"admin\"": 162,
+        "Failed login attempt  ip=192.168.1.38 user=\"admin\"": 158,
+        "Failed login attempt  ip=192.168.1.39 user=\"admin\"": 143,
+        "Failed login attempt  ip=192.168.1.4 user=\"admin\"": 182,
+        "Failed login attempt  ip=192.168.1.40 user=\"admin\"": 167,
+        "Failed login attempt  ip=192.168.1.41 user=\"admin\"": 173,
+        "Failed login attempt  ip=192.168.1.42 user=\"admin\"": 167,
+        "Failed login attempt  ip=192.168.1.43 user=\"admin\"": 179,
+        "Failed login attempt  ip=192.168.1.44 user=\"admin\"": 147,
+        "Failed login attempt  ip=192.168.1.45 user=\"admin\"": 171,
+        "Failed login attempt  ip=192.168.1.46 user=\"admin\"": 160,
+        "Failed login attempt  ip=192.168.1.47 user=\"admin\"": 147,
+        "Failed login attempt  ip=192.168.1.48 user=\"admin\"": 156,
+        "Failed login attempt  ip=192.168.1.49 user=\"admin\"": 168,
+        "Failed login attempt  ip=192.168.1.5 user=\"admin\"": 178,
+        "Failed login attempt  ip=192.168.1.50 user=\"admin\"": 195,
+        "Failed login attempt  ip=192.168.1.51 user=\"admin\"": 172,
+        "Failed login attempt  ip=192.168.1.52 user=\"admin\"": 165,
+        "Failed login attempt  ip=192.168.1.53 user=\"admin\"": 167,
+        "Failed login attempt  ip=192.168.1.54 user=\"admin\"": 178,
+        "Failed login attempt  ip=192.168.1.55 user=\"admin\"": 140,
+        "Failed login attempt  ip=192.168.1.56 user=\"admin\"": 151,
+        "Failed login attempt  ip=192.168.1.57 user=\"admin\"": 189,
+        "Failed login attempt  ip=192.168.1.58 user=\"admin\"": 153,
+        "Failed login attempt  ip=192.168.1.59 user=\"admin\"": 165,
+        "Failed login attempt  ip=192.168.1.6 user=\"admin\"": 138,
+        "Failed login attempt  ip=192.168.1.60 user=\"admin\"": 138,
+        "Failed login attempt  ip=192.168.1.61 user=\"admin\"": 143,
+        "Failed login attempt  ip=192.168.1.62 user=\"admin\"": 153,
+        "Failed login attempt  ip=192.168.1.63 user=\"admin\"": 139,
+        "Failed login attempt  ip=192.168.1.64 user=\"admin\"": 168,
+        "Failed login attempt  ip=192.168.1.65 user=\"admin\"": 175,
+        "Failed login attempt  ip=192.168.1.66 user=\"admin\"": 183,
+        "Failed login attempt  ip=192.168.1.67 user=\"admin\"": 161,
+        "Failed login attempt  ip=192.168.1.68 user=\"admin\"": 160,
+        "Failed login attempt  ip=192.168.1.69 user=\"admin\"": 174,
+        "Failed login attempt  ip=192.168.1.7 user=\"admin\"": 132,
+        "Failed login attempt  ip=192.168.1.70 user=\"admin\"": 178,
+        "Failed login attempt  ip=192.168.1.71 user=\"admin\"": 178,
+        "Failed login attempt  ip=192.168.1.72 user=\"admin\"": 158,
+        "Failed login attempt  ip=192.168.1.73 user=\"admin\"": 168,
+        "Failed login attempt  ip=192.168.1.74 user=\"admin\"": 165,
+        "Failed login attempt  ip=192.168.1.75 user=\"admin\"": 171,
+        "Failed login attempt  ip=192.168.1.76 user=\"admin\"": 171,
+        "Failed login attempt  ip=192.168.1.77 user=\"admin\"": 176,
+        "Failed login attempt  ip=192.168.1.78 user=\"admin\"": 153,
+        "Failed login attempt  ip=192.168.1.79 user=\"admin\"": 152,
+        "Failed login attempt  ip=192.168.1.8 user=\"admin\"": 188,
+        "Failed login attempt  ip=192.168.1.80 user=\"admin\"": 149,
+        "Failed login attempt  ip=192.168.1.81 user=\"admin\"": 131,
+        "Failed login attempt  ip=192.168.1.82 user=\"admin\"": 174,
+        "Failed login attempt  ip=192.168.1.83 user=\"admin\"": 186,
+        "Failed login attempt  ip=192.168.1.84 user=\"admin\"": 166,
+        "Failed login attempt  ip=192.168.1.85 user=\"admin\"": 135,
+        "Failed login attempt  ip=192.168.1.86 user=\"admin\"": 170,
+        "Failed login attempt  ip=192.168.1.87 user=\"admin\"": 164,
+        "Failed login attempt  ip=192.168.1.88 user=\"admin\"": 161,
+        "Failed login attempt  ip=192.168.1.89 user=\"admin\"": 149,
+        "Failed login attempt  ip=192.168.1.9 user=\"admin\"": 160,
+        "Failed login attempt  ip=192.168.1.90 user=\"admin\"": 164,
+        "Failed login attempt  ip=192.168.1.91 user=\"admin\"": 174,
+        "Failed login attempt  ip=192.168.1.92 user=\"admin\"": 164,
+        "Failed login attempt  ip=192.168.1.93 user=\"admin\"": 172,
+        "Failed login attempt  ip=192.168.1.94 user=\"admin\"": 171,
+        "Failed login attempt  ip=192.168.1.95 user=\"admin\"": 162,
+        "Failed login attempt  ip=192.168.1.96 user=\"admin\"": 175,
+        "Failed login attempt  ip=192.168.1.97 user=\"admin\"": 166,
+        "Failed login attempt  ip=192.168.1.98 user=\"admin\"": 180,
+        "Failed login attempt  ip=192.168.1.99 user=\"admin\"": 144
       }
     },
     "High memory usage  threshold=%": {
-      "Count": 3,
+      "Count": 16395,
       "Level": "WARN",
       "VariantCounts": {
-        "High memory usage  threshold=378%": 1,
-        "High memory usage  threshold=78%": 1,
-        "High memory usage  threshold=998%": 1
-      }
-    },
-    "Inventory low for SKU  sku=\"SKU-\" stock=": {
-      "Count": 2,
-      "Level": "WARN",
-      "VariantCounts": {
-        "Inventory low for SKU  sku=\"SKU-331\" stock=138": 1,
-        "Inventory low for SKU  sku=\"SKU-588\" stock=428": 1
+        "High memory usage  threshold=0%": 170,
+        "High memory usage  threshold=1%": 181,
+        "High memory usage  threshold=10%": 153,
+        "High memory usage  threshold=11%": 187,
+        "High memory usage  threshold=12%": 168,
+        "High memory usage  threshold=13%": 153,
+        "High memory usage  threshold=14%": 159,
+        "High memory usage  threshold=15%": 153,
+        "High memory usage  threshold=16%": 186,
+        "High memory usage  threshold=17%": 153,
+        "High memory usage  threshold=18%": 153,
+        "High memory usage  threshold=19%": 176,
+        "High memory usage  threshold=2%": 171,
+        "High memory usage  threshold=20%": 179,
+        "High memory usage  threshold=21%": 153,
+        "High memory usage  threshold=22%": 155,
+        "High memory usage  threshold=23%": 169,
+        "High memory usage  threshold=24%": 188,
+        "High memory usage  threshold=25%": 166,
+        "High memory usage  threshold=26%": 171,
+        "High memory usage  threshold=27%": 177,
+        "High memory usage  threshold=28%": 168,
+        "High memory usage  threshold=29%": 183,
+        "High memory usage  threshold=3%": 171,
+        "High memory usage  threshold=30%": 178,
+        "High memory usage  threshold=31%": 162,
+        "High memory usage  threshold=32%": 151,
+        "High memory usage  threshold=33%": 162,
+        "High memory usage  threshold=34%": 169,
+        "High memory usage  threshold=35%": 153,
+        "High memory usage  threshold=36%": 172,
+        "High memory usage  threshold=37%": 158,
+        "High memory usage  threshold=38%": 153,
+        "High memory usage  threshold=39%": 172,
+        "High memory usage  threshold=4%": 164,
+        "High memory usage  threshold=40%": 171,
+        "High memory usage  threshold=41%": 164,
+        "High memory usage  threshold=42%": 156,
+        "High memory usage  threshold=43%": 168,
+        "High memory usage  threshold=44%": 167,
+        "High memory usage  threshold=45%": 153,
+        "High memory usage  threshold=46%": 159,
+        "High memory usage  threshold=47%": 159,
+        "High memory usage  threshold=48%": 162,
+        "High memory usage  threshold=49%": 165,
+        "High memory usage  threshold=5%": 160,
+        "High memory usage  threshold=50%": 174,
+        "High memory usage  threshold=51%": 161,
+        "High memory usage  threshold=52%": 157,
+        "High memory usage  threshold=53%": 146,
+        "High memory usage  threshold=54%": 146,
+        "High memory usage  threshold=55%": 169,
+        "High memory usage  threshold=56%": 169,
+        "High memory usage  threshold=57%": 180,
+        "High memory usage  threshold=58%": 157,
+        "High memory usage  threshold=59%": 160,
+        "High memory usage  threshold=6%": 182,
+        "High memory usage  threshold=60%": 167,
+        "High memory usage  threshold=61%": 166,
+        "High memory usage  threshold=62%": 151,
+        "High memory usage  threshold=63%": 165,
+        "High memory usage  threshold=64%": 151,
+        "High memory usage  threshold=65%": 170,
+        "High memory usage  threshold=66%": 155,
+        "High memory usage  threshold=67%": 170,
+        "High memory usage  threshold=68%": 154,
+        "High memory usage  threshold=69%": 171,
+        "High memory usage  threshold=7%": 159,
+        "High memory usage  threshold=70%": 174,
+        "High memory usage  threshold=71%": 174,
+        "High memory usage  threshold=72%": 174,
+        "High memory usage  threshold=73%": 165,
+        "High memory usage  threshold=74%": 150,
+        "High memory usage  threshold=75%": 155,
+        "High memory usage  threshold=76%": 174,
+        "High memory usage  threshold=77%": 152,
+        "High memory usage  threshold=78%": 180,
+        "High memory usage  threshold=79%": 171,
+        "High memory usage  threshold=8%": 182,
+        "High memory usage  threshold=80%": 138,
+        "High memory usage  threshold=81%": 166,
+        "High memory usage  threshold=82%": 154,
+        "High memory usage  threshold=83%": 151,
+        "High memory usage  threshold=84%": 157,
+        "High memory usage  threshold=85%": 148,
+        "High memory usage  threshold=86%": 153,
+        "High memory usage  threshold=87%": 168,
+        "High memory usage  threshold=88%": 170,
+        "High memory usage  threshold=89%": 150,
+        "High memory usage  threshold=9%": 165,
+        "High memory usage  threshold=90%": 169,
+        "High memory usage  threshold=91%": 150,
+        "High memory usage  threshold=92%": 177,
+        "High memory usage  threshold=93%": 151,
+        "High memory usage  threshold=94%": 168,
+        "High memory usage  threshold=95%": 144,
+        "High memory usage  threshold=96%": 160,
+        "High memory usage  threshold=97%": 200,
+        "High memory usage  threshold=98%": 133,
+        "High memory usage  threshold=99%": 171
       }
     },
     "Query timeout  duration=ms query_id=q_": {
-      "Count": 2,
+      "Count": 16416,
       "Level": "ERROR",
       "VariantCounts": {
-        "Query timeout  duration=500ms query_id=q_158": 1,
-        "Query timeout  duration=500ms query_id=q_93": 1
+        "Query timeout  duration=0ms query_id=q_99": 166,
+        "Query timeout  duration=10ms query_id=q_99": 154,
+        "Query timeout  duration=11ms query_id=q_99": 173,
+        "Query timeout  duration=12ms query_id=q_99": 167,
+        "Query timeout  duration=13ms query_id=q_99": 161,
+        "Query timeout  duration=14ms query_id=q_99": 165,
+        "Query timeout  duration=15ms query_id=q_99": 166,
+        "Query timeout  duration=16ms query_id=q_99": 166,
+        "Query timeout  duration=17ms query_id=q_99": 165,
+        "Query timeout  duration=18ms query_id=q_99": 180,
+        "Query timeout  duration=19ms query_id=q_99": 177,
+        "Query timeout  duration=1ms query_id=q_99": 169,
+        "Query timeout  duration=20ms query_id=q_99": 148,
+        "Query timeout  duration=21ms query_id=q_99": 135,
+        "Query timeout  duration=22ms query_id=q_99": 182,
+        "Query timeout  duration=23ms query_id=q_99": 159,
+        "Query timeout  duration=24ms query_id=q_99": 139,
+        "Query timeout  duration=25ms query_id=q_99": 170,
+        "Query timeout  duration=26ms query_id=q_99": 157,
+        "Query timeout  duration=27ms query_id=q_99": 192,
+        "Query timeout  duration=28ms query_id=q_99": 158,
+        "Query timeout  duration=29ms query_id=q_99": 167,
+        "Query timeout  duration=2ms query_id=q_99": 186,
+        "Query timeout  duration=30ms query_id=q_99": 151,
+        "Query timeout  duration=31ms query_id=q_99": 169,
+        "Query timeout  duration=32ms query_id=q_99": 170,
+        "Query timeout  duration=33ms query_id=q_99": 178,
+        "Query timeout  duration=34ms query_id=q_99": 161,
+        "Query timeout  duration=35ms query_id=q_99": 167,
+        "Query timeout  duration=36ms query_id=q_99": 164,
+        "Query timeout  duration=37ms query_id=q_99": 171,
+        "Query timeout  duration=38ms query_id=q_99": 172,
+        "Query timeout  duration=39ms query_id=q_99": 145,
+        "Query timeout  duration=3ms query_id=q_99": 169,
+        "Query timeout  duration=40ms query_id=q_99": 181,
+        "Query timeout  duration=41ms query_id=q_99": 165,
+        "Query timeout  duration=42ms query_id=q_99": 168,
+        "Query timeout  duration=43ms query_id=q_99": 175,
+        "Query timeout  duration=44ms query_id=q_99": 169,
+        "Query timeout  duration=45ms query_id=q_99": 152,
+        "Query timeout  duration=46ms query_id=q_99": 174,
+        "Query timeout  duration=47ms query_id=q_99": 150,
+        "Query timeout  duration=48ms query_id=q_99": 159,
+        "Query timeout  duration=49ms query_id=q_99": 157,
+        "Query timeout  duration=4ms query_id=q_99": 170,
+        "Query timeout  duration=50ms query_id=q_99": 179,
+        "Query timeout  duration=51ms query_id=q_99": 173,
+        "Query timeout  duration=52ms query_id=q_99": 175,
+        "Query timeout  duration=53ms query_id=q_99": 168,
+        "Query timeout  duration=54ms query_id=q_99": 165,
+        "Query timeout  duration=55ms query_id=q_99": 159,
+        "Query timeout  duration=56ms query_id=q_99": 148,
+        "Query timeout  duration=57ms query_id=q_99": 169,
+        "Query timeout  duration=58ms query_id=q_99": 147,
+        "Query timeout  duration=59ms query_id=q_99": 171,
+        "Query timeout  duration=5ms query_id=q_99": 154,
+        "Query timeout  duration=60ms query_id=q_99": 151,
+        "Query timeout  duration=61ms query_id=q_99": 147,
+        "Query timeout  duration=62ms query_id=q_99": 161,
+        "Query timeout  duration=63ms query_id=q_99": 155,
+        "Query timeout  duration=64ms query_id=q_99": 150,
+        "Query timeout  duration=65ms query_id=q_99": 163,
+        "Query timeout  duration=66ms query_id=q_99": 161,
+        "Query timeout  duration=67ms query_id=q_99": 173,
+        "Query timeout  duration=68ms query_id=q_99": 175,
+        "Query timeout  duration=69ms query_id=q_99": 162,
+        "Query timeout  duration=6ms query_id=q_99": 169,
+        "Query timeout  duration=70ms query_id=q_99": 174,
+        "Query timeout  duration=71ms query_id=q_99": 179,
+        "Query timeout  duration=72ms query_id=q_99": 151,
+        "Query timeout  duration=73ms query_id=q_99": 172,
+        "Query timeout  duration=74ms query_id=q_99": 162,
+        "Query timeout  duration=75ms query_id=q_99": 193,
+        "Query timeout  duration=76ms query_id=q_99": 169,
+        "Query timeout  duration=77ms query_id=q_99": 166,
+        "Query timeout  duration=78ms query_id=q_99": 168,
+        "Query timeout  duration=79ms query_id=q_99": 177,
+        "Query timeout  duration=7ms query_id=q_99": 172,
+        "Query timeout  duration=80ms query_id=q_99": 157,
+        "Query timeout  duration=81ms query_id=q_99": 154,
+        "Query timeout  duration=82ms query_id=q_99": 152,
+        "Query timeout  duration=83ms query_id=q_99": 155,
+        "Query timeout  duration=84ms query_id=q_99": 145,
+        "Query timeout  duration=85ms query_id=q_99": 182,
+        "Query timeout  duration=86ms query_id=q_99": 155,
+        "Query timeout  duration=87ms query_id=q_99": 144,
+        "Query timeout  duration=88ms query_id=q_99": 157,
+        "Query timeout  duration=89ms query_id=q_99": 147,
+        "Query timeout  duration=8ms query_id=q_99": 154,
+        "Query timeout  duration=90ms query_id=q_99": 161,
+        "Query timeout  duration=91ms query_id=q_99": 180,
+        "Query timeout  duration=92ms query_id=q_99": 165,
+        "Query timeout  duration=93ms query_id=q_99": 176,
+        "Query timeout  duration=94ms query_id=q_99": 164,
+        "Query timeout  duration=95ms query_id=q_99": 169,
+        "Query timeout  duration=96ms query_id=q_99": 165,
+        "Query timeout  duration=97ms query_id=q_99": 162,
+        "Query timeout  duration=98ms query_id=q_99": 169,
+        "Query timeout  duration=99ms query_id=q_99": 162,
+        "Query timeout  duration=9ms query_id=q_99": 144
       }
     },
-    "Slow query detected  duration=ms sql=\"SELECT * FROM users\"": {
-      "Count": 2,
-      "Level": "WARN",
+    "S upload failed  bucket=\"assets\" key=\"img_.png\"": {
+      "Count": 16611,
+      "Level": "ERROR",
       "VariantCounts": {
-        "Slow query detected  duration=39ms sql=\"SELECT * FROM users\"": 1,
-        "Slow query detected  duration=529ms sql=\"SELECT * FROM users\"": 1
+        "S3 upload failed  bucket=\"assets\" key=\"img_0.png\"": 158,
+        "S3 upload failed  bucket=\"assets\" key=\"img_1.png\"": 184,
+        "S3 upload failed  bucket=\"assets\" key=\"img_10.png\"": 190,
+        "S3 upload failed  bucket=\"assets\" key=\"img_11.png\"": 159,
+        "S3 upload failed  bucket=\"assets\" key=\"img_12.png\"": 177,
+        "S3 upload failed  bucket=\"assets\" key=\"img_13.png\"": 168,
+        "S3 upload failed  bucket=\"assets\" key=\"img_14.png\"": 187,
+        "S3 upload failed  bucket=\"assets\" key=\"img_15.png\"": 158,
+        "S3 upload failed  bucket=\"assets\" key=\"img_16.png\"": 157,
+        "S3 upload failed  bucket=\"assets\" key=\"img_17.png\"": 167,
+        "S3 upload failed  bucket=\"assets\" key=\"img_18.png\"": 156,
+        "S3 upload failed  bucket=\"assets\" key=\"img_19.png\"": 177,
+        "S3 upload failed  bucket=\"assets\" key=\"img_2.png\"": 175,
+        "S3 upload failed  bucket=\"assets\" key=\"img_20.png\"": 169,
+        "S3 upload failed  bucket=\"assets\" key=\"img_21.png\"": 182,
+        "S3 upload failed  bucket=\"assets\" key=\"img_22.png\"": 155,
+        "S3 upload failed  bucket=\"assets\" key=\"img_23.png\"": 166,
+        "S3 upload failed  bucket=\"assets\" key=\"img_24.png\"": 163,
+        "S3 upload failed  bucket=\"assets\" key=\"img_25.png\"": 168,
+        "S3 upload failed  bucket=\"assets\" key=\"img_26.png\"": 171,
+        "S3 upload failed  bucket=\"assets\" key=\"img_27.png\"": 160,
+        "S3 upload failed  bucket=\"assets\" key=\"img_28.png\"": 170,
+        "S3 upload failed  bucket=\"assets\" key=\"img_29.png\"": 172,
+        "S3 upload failed  bucket=\"assets\" key=\"img_3.png\"": 171,
+        "S3 upload failed  bucket=\"assets\" key=\"img_30.png\"": 160,
+        "S3 upload failed  bucket=\"assets\" key=\"img_31.png\"": 173,
+        "S3 upload failed  bucket=\"assets\" key=\"img_32.png\"": 163,
+        "S3 upload failed  bucket=\"assets\" key=\"img_33.png\"": 167,
+        "S3 upload failed  bucket=\"assets\" key=\"img_34.png\"": 169,
+        "S3 upload failed  bucket=\"assets\" key=\"img_35.png\"": 156,
+        "S3 upload failed  bucket=\"assets\" key=\"img_36.png\"": 177,
+        "S3 upload failed  bucket=\"assets\" key=\"img_37.png\"": 170,
+        "S3 upload failed  bucket=\"assets\" key=\"img_38.png\"": 147,
+        "S3 upload failed  bucket=\"assets\" key=\"img_39.png\"": 176,
+        "S3 upload failed  bucket=\"assets\" key=\"img_4.png\"": 171,
+        "S3 upload failed  bucket=\"assets\" key=\"img_40.png\"": 156,
+        "S3 upload failed  bucket=\"assets\" key=\"img_41.png\"": 156,
+        "S3 upload failed  bucket=\"assets\" key=\"img_42.png\"": 174,
+        "S3 upload failed  bucket=\"assets\" key=\"img_43.png\"": 170,
+        "S3 upload failed  bucket=\"assets\" key=\"img_44.png\"": 182,
+        "S3 upload failed  bucket=\"assets\" key=\"img_45.png\"": 152,
+        "S3 upload failed  bucket=\"assets\" key=\"img_46.png\"": 147,
+        "S3 upload failed  bucket=\"assets\" key=\"img_47.png\"": 175,
+        "S3 upload failed  bucket=\"assets\" key=\"img_48.png\"": 151,
+        "S3 upload failed  bucket=\"assets\" key=\"img_49.png\"": 163,
+        "S3 upload failed  bucket=\"assets\" key=\"img_5.png\"": 167,
+        "S3 upload failed  bucket=\"assets\" key=\"img_50.png\"": 170,
+        "S3 upload failed  bucket=\"assets\" key=\"img_51.png\"": 176,
+        "S3 upload failed  bucket=\"assets\" key=\"img_52.png\"": 173,
+        "S3 upload failed  bucket=\"assets\" key=\"img_53.png\"": 159,
+        "S3 upload failed  bucket=\"assets\" key=\"img_54.png\"": 159,
+        "S3 upload failed  bucket=\"assets\" key=\"img_55.png\"": 188,
+        "S3 upload failed  bucket=\"assets\" key=\"img_56.png\"": 148,
+        "S3 upload failed  bucket=\"assets\" key=\"img_57.png\"": 142,
+        "S3 upload failed  bucket=\"assets\" key=\"img_58.png\"": 181,
+        "S3 upload failed  bucket=\"assets\" key=\"img_59.png\"": 161,
+        "S3 upload failed  bucket=\"assets\" key=\"img_6.png\"": 157,
+        "S3 upload failed  bucket=\"assets\" key=\"img_60.png\"": 128,
+        "S3 upload failed  bucket=\"assets\" key=\"img_61.png\"": 169,
+        "S3 upload failed  bucket=\"assets\" key=\"img_62.png\"": 159,
+        "S3 upload failed  bucket=\"assets\" key=\"img_63.png\"": 202,
+        "S3 upload failed  bucket=\"assets\" key=\"img_64.png\"": 172,
+        "S3 upload failed  bucket=\"assets\" key=\"img_65.png\"": 146,
+        "S3 upload failed  bucket=\"assets\" key=\"img_66.png\"": 162,
+        "S3 upload failed  bucket=\"assets\" key=\"img_67.png\"": 164,
+        "S3 upload failed  bucket=\"assets\" key=\"img_68.png\"": 174,
+        "S3 upload failed  bucket=\"assets\" key=\"img_69.png\"": 164,
+        "S3 upload failed  bucket=\"assets\" key=\"img_7.png\"": 188,
+        "S3 upload failed  bucket=\"assets\" key=\"img_70.png\"": 159,
+        "S3 upload failed  bucket=\"assets\" key=\"img_71.png\"": 163,
+        "S3 upload failed  bucket=\"assets\" key=\"img_72.png\"": 172,
+        "S3 upload failed  bucket=\"assets\" key=\"img_73.png\"": 151,
+        "S3 upload failed  bucket=\"assets\" key=\"img_74.png\"": 167,
+        "S3 upload failed  bucket=\"assets\" key=\"img_75.png\"": 140,
+        "S3 upload failed  bucket=\"assets\" key=\"img_76.png\"": 162,
+        "S3 upload failed  bucket=\"assets\" key=\"img_77.png\"": 181,
+        "S3 upload failed  bucket=\"assets\" key=\"img_78.png\"": 158,
+        "S3 upload failed  bucket=\"assets\" key=\"img_79.png\"": 153,
+        "S3 upload failed  bucket=\"assets\" key=\"img_8.png\"": 176,
+        "S3 upload failed  bucket=\"assets\" key=\"img_80.png\"": 167,
+        "S3 upload failed  bucket=\"assets\" key=\"img_81.png\"": 160,
+        "S3 upload failed  bucket=\"assets\" key=\"img_82.png\"": 162,
+        "S3 upload failed  bucket=\"assets\" key=\"img_83.png\"": 155,
+        "S3 upload failed  bucket=\"assets\" key=\"img_84.png\"": 146,
+        "S3 upload failed  bucket=\"assets\" key=\"img_85.png\"": 151,
+        "S3 upload failed  bucket=\"assets\" key=\"img_86.png\"": 186,
+        "S3 upload failed  bucket=\"assets\" key=\"img_87.png\"": 194,
+        "S3 upload failed  bucket=\"assets\" key=\"img_88.png\"": 169,
+        "S3 upload failed  bucket=\"assets\" key=\"img_89.png\"": 176,
+        "S3 upload failed  bucket=\"assets\" key=\"img_9.png\"": 154,
+        "S3 upload failed  bucket=\"assets\" key=\"img_90.png\"": 183,
+        "S3 upload failed  bucket=\"assets\" key=\"img_91.png\"": 153,
+        "S3 upload failed  bucket=\"assets\" key=\"img_92.png\"": 173,
+        "S3 upload failed  bucket=\"assets\" key=\"img_93.png\"": 180,
+        "S3 upload failed  bucket=\"assets\" key=\"img_94.png\"": 161,
+        "S3 upload failed  bucket=\"assets\" key=\"img_95.png\"": 174,
+        "S3 upload failed  bucket=\"assets\" key=\"img_96.png\"": 181,
+        "S3 upload failed  bucket=\"assets\" key=\"img_97.png\"": 160,
+        "S3 upload failed  bucket=\"assets\" key=\"img_98.png\"": 139,
+        "S3 upload failed  bucket=\"assets\" key=\"img_99.png\"": 181
       }
     }
   },
   "CurrentSecCount": 0,
   "TrendHistory": [
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
+    265,
+    295,
+    256,
+    262,
+    285,
+    293,
+    280,
+    263,
+    258,
+    272,
+    276,
+    267,
+    273,
+    314,
+    286,
+    270,
+    265,
+    255,
+    290,
+    277,
+    294,
+    290,
+    290,
+    298,
+    292,
+    275,
+    290,
+    291,
+    278,
+    282,
+    268,
+    268,
+    288,
+    296,
+    273,
+    298,
+    287,
+    288,
+    272,
+    276,
+    285,
+    262,
+    286,
+    275,
+    263,
+    272,
+    302,
+    279,
+    268,
+    225
   ],
-  "RecentMessages": {},
-  "LastErrorTime": "2026-03-23T16:10:50.3952976+01:00",
-  "LastWarnTime": "2026-03-23T16:11:29.8442802+01:00",
-  "PeakEPS": 1,
-  "HourlyStartTime": "2026-03-23T16:11:34.177686+01:00",
-  "HourlyCounts": {
-    "2026-03-23T16:11:45": 1,
-    "DEBUG": 11,
-    "INFO": 17
+  "RecentMessages": {
+    "Failed login attempt  ip=... user=\"admin\"": {
+      "Count": 1795,
+      "Level": "WARN",
+      "VariantCounts": {
+        "Failed login attempt  ip=192.168.1.0 user=\"admin\"": 15,
+        "Failed login attempt  ip=192.168.1.1 user=\"admin\"": 10,
+        "Failed login attempt  ip=192.168.1.10 user=\"admin\"": 19,
+        "Failed login attempt  ip=192.168.1.11 user=\"admin\"": 15,
+        "Failed login attempt  ip=192.168.1.12 user=\"admin\"": 15,
+        "Failed login attempt  ip=192.168.1.13 user=\"admin\"": 19,
+        "Failed login attempt  ip=192.168.1.14 user=\"admin\"": 14,
+        "Failed login attempt  ip=192.168.1.15 user=\"admin\"": 29,
+        "Failed login attempt  ip=192.168.1.16 user=\"admin\"": 19,
+        "Failed login attempt  ip=192.168.1.17 user=\"admin\"": 13,
+        "Failed login attempt  ip=192.168.1.18 user=\"admin\"": 10,
+        "Failed login attempt  ip=192.168.1.19 user=\"admin\"": 26,
+        "Failed login attempt  ip=192.168.1.2 user=\"admin\"": 9,
+        "Failed login attempt  ip=192.168.1.20 user=\"admin\"": 14,
+        "Failed login attempt  ip=192.168.1.21 user=\"admin\"": 17,
+        "Failed login attempt  ip=192.168.1.22 user=\"admin\"": 21,
+        "Failed login attempt  ip=192.168.1.23 user=\"admin\"": 22,
+        "Failed login attempt  ip=192.168.1.24 user=\"admin\"": 22,
+        "Failed login attempt  ip=192.168.1.25 user=\"admin\"": 13,
+        "Failed login attempt  ip=192.168.1.26 user=\"admin\"": 14,
+        "Failed login attempt  ip=192.168.1.27 user=\"admin\"": 16,
+        "Failed login attempt  ip=192.168.1.28 user=\"admin\"": 16,
+        "Failed login attempt  ip=192.168.1.29 user=\"admin\"": 14,
+        "Failed login attempt  ip=192.168.1.3 user=\"admin\"": 23,
+        "Failed login attempt  ip=192.168.1.30 user=\"admin\"": 12,
+        "Failed login attempt  ip=192.168.1.31 user=\"admin\"": 12,
+        "Failed login attempt  ip=192.168.1.32 user=\"admin\"": 17,
+        "Failed login attempt  ip=192.168.1.33 user=\"admin\"": 22,
+        "Failed login attempt  ip=192.168.1.34 user=\"admin\"": 15,
+        "Failed login attempt  ip=192.168.1.35 user=\"admin\"": 22,
+        "Failed login attempt  ip=192.168.1.36 user=\"admin\"": 14,
+        "Failed login attempt  ip=192.168.1.37 user=\"admin\"": 14,
+        "Failed login attempt  ip=192.168.1.38 user=\"admin\"": 14,
+        "Failed login attempt  ip=192.168.1.39 user=\"admin\"": 14,
+        "Failed login attempt  ip=192.168.1.4 user=\"admin\"": 18,
+        "Failed login attempt  ip=192.168.1.40 user=\"admin\"": 25,
+        "Failed login attempt  ip=192.168.1.41 user=\"admin\"": 26,
+        "Failed login attempt  ip=192.168.1.42 user=\"admin\"": 22,
+        "Failed login attempt  ip=192.168.1.43 user=\"admin\"": 23,
+        "Failed login attempt  ip=192.168.1.44 user=\"admin\"": 13,
+        "Failed login attempt  ip=192.168.1.45 user=\"admin\"": 19,
+        "Failed login attempt  ip=192.168.1.46 user=\"admin\"": 17,
+        "Failed login attempt  ip=192.168.1.47 user=\"admin\"": 19,
+        "Failed login attempt  ip=192.168.1.48 user=\"admin\"": 23,
+        "Failed login attempt  ip=192.168.1.49 user=\"admin\"": 18,
+        "Failed login attempt  ip=192.168.1.5 user=\"admin\"": 27,
+        "Failed login attempt  ip=192.168.1.50 user=\"admin\"": 22,
+        "Failed login attempt  ip=192.168.1.51 user=\"admin\"": 25,
+        "Failed login attempt  ip=192.168.1.52 user=\"admin\"": 23,
+        "Failed login attempt  ip=192.168.1.53 user=\"admin\"": 23,
+        "Failed login attempt  ip=192.168.1.54 user=\"admin\"": 21,
+        "Failed login attempt  ip=192.168.1.55 user=\"admin\"": 20,
+        "Failed login attempt  ip=192.168.1.56 user=\"admin\"": 12,
+        "Failed login attempt  ip=192.168.1.57 user=\"admin\"": 17,
+        "Failed login attempt  ip=192.168.1.58 user=\"admin\"": 17,
+        "Failed login attempt  ip=192.168.1.59 user=\"admin\"": 18,
+        "Failed login attempt  ip=192.168.1.6 user=\"admin\"": 8,
+        "Failed login attempt  ip=192.168.1.60 user=\"admin\"": 18,
+        "Failed login attempt  ip=192.168.1.61 user=\"admin\"": 13,
+        "Failed login attempt  ip=192.168.1.62 user=\"admin\"": 12,
+        "Failed login attempt  ip=192.168.1.63 user=\"admin\"": 24,
+        "Failed login attempt  ip=192.168.1.64 user=\"admin\"": 23,
+        "Failed login attempt  ip=192.168.1.65 user=\"admin\"": 21,
+        "Failed login attempt  ip=192.168.1.66 user=\"admin\"": 18,
+        "Failed login attempt  ip=192.168.1.67 user=\"admin\"": 22,
+        "Failed login attempt  ip=192.168.1.68 user=\"admin\"": 18,
+        "Failed login attempt  ip=192.168.1.69 user=\"admin\"": 18,
+        "Failed login attempt  ip=192.168.1.7 user=\"admin\"": 16,
+        "Failed login attempt  ip=192.168.1.70 user=\"admin\"": 20,
+        "Failed login attempt  ip=192.168.1.71 user=\"admin\"": 22,
+        "Failed login attempt  ip=192.168.1.72 user=\"admin\"": 16,
+        "Failed login attempt  ip=192.168.1.73 user=\"admin\"": 15,
+        "Failed login attempt  ip=192.168.1.74 user=\"admin\"": 24,
+        "Failed login attempt  ip=192.168.1.75 user=\"admin\"": 24,
+        "Failed login attempt  ip=192.168.1.76 user=\"admin\"": 18,
+        "Failed login attempt  ip=192.168.1.77 user=\"admin\"": 17,
+        "Failed login attempt  ip=192.168.1.78 user=\"admin\"": 16,
+        "Failed login attempt  ip=192.168.1.79 user=\"admin\"": 16,
+        "Failed login attempt  ip=192.168.1.8 user=\"admin\"": 29,
+        "Failed login attempt  ip=192.168.1.80 user=\"admin\"": 11,
+        "Failed login attempt  ip=192.168.1.81 user=\"admin\"": 8,
+        "Failed login attempt  ip=192.168.1.82 user=\"admin\"": 15,
+        "Failed login attempt  ip=192.168.1.83 user=\"admin\"": 17,
+        "Failed login attempt  ip=192.168.1.84 user=\"admin\"": 24,
+        "Failed login attempt  ip=192.168.1.85 user=\"admin\"": 21,
+        "Failed login attempt  ip=192.168.1.86 user=\"admin\"": 15,
+        "Failed login attempt  ip=192.168.1.87 user=\"admin\"": 16,
+        "Failed login attempt  ip=192.168.1.88 user=\"admin\"": 17,
+        "Failed login attempt  ip=192.168.1.89 user=\"admin\"": 16,
+        "Failed login attempt  ip=192.168.1.9 user=\"admin\"": 17,
+        "Failed login attempt  ip=192.168.1.90 user=\"admin\"": 25,
+        "Failed login attempt  ip=192.168.1.91 user=\"admin\"": 16,
+        "Failed login attempt  ip=192.168.1.92 user=\"admin\"": 19,
+        "Failed login attempt  ip=192.168.1.93 user=\"admin\"": 24,
+        "Failed login attempt  ip=192.168.1.94 user=\"admin\"": 19,
+        "Failed login attempt  ip=192.168.1.95 user=\"admin\"": 12,
+        "Failed login attempt  ip=192.168.1.96 user=\"admin\"": 21,
+        "Failed login attempt  ip=192.168.1.97 user=\"admin\"": 17,
+        "Failed login attempt  ip=192.168.1.98 user=\"admin\"": 14,
+        "Failed login attempt  ip=192.168.1.99 user=\"admin\"": 14
+      }
+    },
+    "High memory usage  threshold=%": {
+      "Count": 1827,
+      "Level": "WARN",
+      "VariantCounts": {
+        "High memory usage  threshold=0%": 16,
+        "High memory usage  threshold=1%": 19,
+        "High memory usage  threshold=10%": 17,
+        "High memory usage  threshold=11%": 14,
+        "High memory usage  threshold=12%": 28,
+        "High memory usage  threshold=13%": 15,
+        "High memory usage  threshold=14%": 18,
+        "High memory usage  threshold=15%": 9,
+        "High memory usage  threshold=16%": 14,
+        "High memory usage  threshold=17%": 17,
+        "High memory usage  threshold=18%": 13,
+        "High memory usage  threshold=19%": 21,
+        "High memory usage  threshold=2%": 23,
+        "High memory usage  threshold=20%": 17,
+        "High memory usage  threshold=21%": 14,
+        "High memory usage  threshold=22%": 20,
+        "High memory usage  threshold=23%": 16,
+        "High memory usage  threshold=24%": 22,
+        "High memory usage  threshold=25%": 18,
+        "High memory usage  threshold=26%": 15,
+        "High memory usage  threshold=27%": 14,
+        "High memory usage  threshold=28%": 22,
+        "High memory usage  threshold=29%": 20,
+        "High memory usage  threshold=3%": 15,
+        "High memory usage  threshold=30%": 22,
+        "High memory usage  threshold=31%": 18,
+        "High memory usage  threshold=32%": 17,
+        "High memory usage  threshold=33%": 19,
+        "High memory usage  threshold=34%": 22,
+        "High memory usage  threshold=35%": 15,
+        "High memory usage  threshold=36%": 20,
+        "High memory usage  threshold=37%": 21,
+        "High memory usage  threshold=38%": 18,
+        "High memory usage  threshold=39%": 12,
+        "High memory usage  threshold=4%": 19,
+        "High memory usage  threshold=40%": 19,
+        "High memory usage  threshold=41%": 25,
+        "High memory usage  threshold=42%": 20,
+        "High memory usage  threshold=43%": 24,
+        "High memory usage  threshold=44%": 22,
+        "High memory usage  threshold=45%": 21,
+        "High memory usage  threshold=46%": 16,
+        "High memory usage  threshold=47%": 19,
+        "High memory usage  threshold=48%": 14,
+        "High memory usage  threshold=49%": 15,
+        "High memory usage  threshold=5%": 18,
+        "High memory usage  threshold=50%": 17,
+        "High memory usage  threshold=51%": 25,
+        "High memory usage  threshold=52%": 18,
+        "High memory usage  threshold=53%": 13,
+        "High memory usage  threshold=54%": 23,
+        "High memory usage  threshold=55%": 19,
+        "High memory usage  threshold=56%": 19,
+        "High memory usage  threshold=57%": 15,
+        "High memory usage  threshold=58%": 21,
+        "High memory usage  threshold=59%": 19,
+        "High memory usage  threshold=6%": 14,
+        "High memory usage  threshold=60%": 15,
+        "High memory usage  threshold=61%": 14,
+        "High memory usage  threshold=62%": 16,
+        "High memory usage  threshold=63%": 19,
+        "High memory usage  threshold=64%": 25,
+        "High memory usage  threshold=65%": 26,
+        "High memory usage  threshold=66%": 13,
+        "High memory usage  threshold=67%": 14,
+        "High memory usage  threshold=68%": 30,
+        "High memory usage  threshold=69%": 15,
+        "High memory usage  threshold=7%": 15,
+        "High memory usage  threshold=70%": 21,
+        "High memory usage  threshold=71%": 17,
+        "High memory usage  threshold=72%": 30,
+        "High memory usage  threshold=73%": 19,
+        "High memory usage  threshold=74%": 16,
+        "High memory usage  threshold=75%": 17,
+        "High memory usage  threshold=76%": 16,
+        "High memory usage  threshold=77%": 20,
+        "High memory usage  threshold=78%": 26,
+        "High memory usage  threshold=79%": 23,
+        "High memory usage  threshold=8%": 23,
+        "High memory usage  threshold=80%": 13,
+        "High memory usage  threshold=81%": 22,
+        "High memory usage  threshold=82%": 18,
+        "High memory usage  threshold=83%": 13,
+        "High memory usage  threshold=84%": 16,
+        "High memory usage  threshold=85%": 14,
+        "High memory usage  threshold=86%": 16,
+        "High memory usage  threshold=87%": 18,
+        "High memory usage  threshold=88%": 21,
+        "High memory usage  threshold=89%": 12,
+        "High memory usage  threshold=9%": 17,
+        "High memory usage  threshold=90%": 14,
+        "High memory usage  threshold=91%": 21,
+        "High memory usage  threshold=92%": 22,
+        "High memory usage  threshold=93%": 16,
+        "High memory usage  threshold=94%": 22,
+        "High memory usage  threshold=95%": 18,
+        "High memory usage  threshold=96%": 17,
+        "High memory usage  threshold=97%": 21,
+        "High memory usage  threshold=98%": 10,
+        "High memory usage  threshold=99%": 20
+      }
+    },
+    "Query timeout  duration=ms query_id=q_": {
+      "Count": 1794,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "Query timeout  duration=0ms query_id=q_99": 16,
+        "Query timeout  duration=10ms query_id=q_99": 14,
+        "Query timeout  duration=11ms query_id=q_99": 30,
+        "Query timeout  duration=12ms query_id=q_99": 12,
+        "Query timeout  duration=13ms query_id=q_99": 22,
+        "Query timeout  duration=14ms query_id=q_99": 19,
+        "Query timeout  duration=15ms query_id=q_99": 18,
+        "Query timeout  duration=16ms query_id=q_99": 19,
+        "Query timeout  duration=17ms query_id=q_99": 24,
+        "Query timeout  duration=18ms query_id=q_99": 31,
+        "Query timeout  duration=19ms query_id=q_99": 27,
+        "Query timeout  duration=1ms query_id=q_99": 13,
+        "Query timeout  duration=20ms query_id=q_99": 14,
+        "Query timeout  duration=21ms query_id=q_99": 13,
+        "Query timeout  duration=22ms query_id=q_99": 24,
+        "Query timeout  duration=23ms query_id=q_99": 15,
+        "Query timeout  duration=24ms query_id=q_99": 15,
+        "Query timeout  duration=25ms query_id=q_99": 18,
+        "Query timeout  duration=26ms query_id=q_99": 16,
+        "Query timeout  duration=27ms query_id=q_99": 22,
+        "Query timeout  duration=28ms query_id=q_99": 17,
+        "Query timeout  duration=29ms query_id=q_99": 22,
+        "Query timeout  duration=2ms query_id=q_99": 25,
+        "Query timeout  duration=30ms query_id=q_99": 17,
+        "Query timeout  duration=31ms query_id=q_99": 25,
+        "Query timeout  duration=32ms query_id=q_99": 14,
+        "Query timeout  duration=33ms query_id=q_99": 14,
+        "Query timeout  duration=34ms query_id=q_99": 14,
+        "Query timeout  duration=35ms query_id=q_99": 15,
+        "Query timeout  duration=36ms query_id=q_99": 14,
+        "Query timeout  duration=37ms query_id=q_99": 15,
+        "Query timeout  duration=38ms query_id=q_99": 18,
+        "Query timeout  duration=39ms query_id=q_99": 20,
+        "Query timeout  duration=3ms query_id=q_99": 18,
+        "Query timeout  duration=40ms query_id=q_99": 17,
+        "Query timeout  duration=41ms query_id=q_99": 15,
+        "Query timeout  duration=42ms query_id=q_99": 13,
+        "Query timeout  duration=43ms query_id=q_99": 18,
+        "Query timeout  duration=44ms query_id=q_99": 17,
+        "Query timeout  duration=45ms query_id=q_99": 19,
+        "Query timeout  duration=46ms query_id=q_99": 22,
+        "Query timeout  duration=47ms query_id=q_99": 18,
+        "Query timeout  duration=48ms query_id=q_99": 13,
+        "Query timeout  duration=49ms query_id=q_99": 23,
+        "Query timeout  duration=4ms query_id=q_99": 18,
+        "Query timeout  duration=50ms query_id=q_99": 22,
+        "Query timeout  duration=51ms query_id=q_99": 20,
+        "Query timeout  duration=52ms query_id=q_99": 16,
+        "Query timeout  duration=53ms query_id=q_99": 19,
+        "Query timeout  duration=54ms query_id=q_99": 20,
+        "Query timeout  duration=55ms query_id=q_99": 15,
+        "Query timeout  duration=56ms query_id=q_99": 11,
+        "Query timeout  duration=57ms query_id=q_99": 21,
+        "Query timeout  duration=58ms query_id=q_99": 21,
+        "Query timeout  duration=59ms query_id=q_99": 17,
+        "Query timeout  duration=5ms query_id=q_99": 16,
+        "Query timeout  duration=60ms query_id=q_99": 21,
+        "Query timeout  duration=61ms query_id=q_99": 14,
+        "Query timeout  duration=62ms query_id=q_99": 21,
+        "Query timeout  duration=63ms query_id=q_99": 14,
+        "Query timeout  duration=64ms query_id=q_99": 17,
+        "Query timeout  duration=65ms query_id=q_99": 16,
+        "Query timeout  duration=66ms query_id=q_99": 14,
+        "Query timeout  duration=67ms query_id=q_99": 21,
+        "Query timeout  duration=68ms query_id=q_99": 12,
+        "Query timeout  duration=69ms query_id=q_99": 15,
+        "Query timeout  duration=6ms query_id=q_99": 17,
+        "Query timeout  duration=70ms query_id=q_99": 22,
+        "Query timeout  duration=71ms query_id=q_99": 18,
+        "Query timeout  duration=72ms query_id=q_99": 17,
+        "Query timeout  duration=73ms query_id=q_99": 20,
+        "Query timeout  duration=74ms query_id=q_99": 11,
+        "Query timeout  duration=75ms query_id=q_99": 16,
+        "Query timeout  duration=76ms query_id=q_99": 11,
+        "Query timeout  duration=77ms query_id=q_99": 16,
+        "Query timeout  duration=78ms query_id=q_99": 27,
+        "Query timeout  duration=79ms query_id=q_99": 23,
+        "Query timeout  duration=7ms query_id=q_99": 21,
+        "Query timeout  duration=80ms query_id=q_99": 16,
+        "Query timeout  duration=81ms query_id=q_99": 12,
+        "Query timeout  duration=82ms query_id=q_99": 15,
+        "Query timeout  duration=83ms query_id=q_99": 20,
+        "Query timeout  duration=84ms query_id=q_99": 15,
+        "Query timeout  duration=85ms query_id=q_99": 21,
+        "Query timeout  duration=86ms query_id=q_99": 15,
+        "Query timeout  duration=87ms query_id=q_99": 18,
+        "Query timeout  duration=88ms query_id=q_99": 12,
+        "Query timeout  duration=89ms query_id=q_99": 14,
+        "Query timeout  duration=8ms query_id=q_99": 17,
+        "Query timeout  duration=90ms query_id=q_99": 13,
+        "Query timeout  duration=91ms query_id=q_99": 28,
+        "Query timeout  duration=92ms query_id=q_99": 25,
+        "Query timeout  duration=93ms query_id=q_99": 13,
+        "Query timeout  duration=94ms query_id=q_99": 18,
+        "Query timeout  duration=95ms query_id=q_99": 19,
+        "Query timeout  duration=96ms query_id=q_99": 14,
+        "Query timeout  duration=97ms query_id=q_99": 27,
+        "Query timeout  duration=98ms query_id=q_99": 22,
+        "Query timeout  duration=99ms query_id=q_99": 19,
+        "Query timeout  duration=9ms query_id=q_99": 16
+      }
+    },
+    "S upload failed  bucket=\"assets\" key=\"img_.png\"": {
+      "Count": 1822,
+      "Level": "ERROR",
+      "VariantCounts": {
+        "S3 upload failed  bucket=\"assets\" key=\"img_0.png\"": 15,
+        "S3 upload failed  bucket=\"assets\" key=\"img_1.png\"": 16,
+        "S3 upload failed  bucket=\"assets\" key=\"img_10.png\"": 16,
+        "S3 upload failed  bucket=\"assets\" key=\"img_11.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_12.png\"": 11,
+        "S3 upload failed  bucket=\"assets\" key=\"img_13.png\"": 11,
+        "S3 upload failed  bucket=\"assets\" key=\"img_14.png\"": 20,
+        "S3 upload failed  bucket=\"assets\" key=\"img_15.png\"": 20,
+        "S3 upload failed  bucket=\"assets\" key=\"img_16.png\"": 17,
+        "S3 upload failed  bucket=\"assets\" key=\"img_17.png\"": 15,
+        "S3 upload failed  bucket=\"assets\" key=\"img_18.png\"": 11,
+        "S3 upload failed  bucket=\"assets\" key=\"img_19.png\"": 22,
+        "S3 upload failed  bucket=\"assets\" key=\"img_2.png\"": 16,
+        "S3 upload failed  bucket=\"assets\" key=\"img_20.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_21.png\"": 23,
+        "S3 upload failed  bucket=\"assets\" key=\"img_22.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_23.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_24.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_25.png\"": 22,
+        "S3 upload failed  bucket=\"assets\" key=\"img_26.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_27.png\"": 17,
+        "S3 upload failed  bucket=\"assets\" key=\"img_28.png\"": 23,
+        "S3 upload failed  bucket=\"assets\" key=\"img_29.png\"": 17,
+        "S3 upload failed  bucket=\"assets\" key=\"img_3.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_30.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_31.png\"": 25,
+        "S3 upload failed  bucket=\"assets\" key=\"img_32.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_33.png\"": 14,
+        "S3 upload failed  bucket=\"assets\" key=\"img_34.png\"": 12,
+        "S3 upload failed  bucket=\"assets\" key=\"img_35.png\"": 16,
+        "S3 upload failed  bucket=\"assets\" key=\"img_36.png\"": 16,
+        "S3 upload failed  bucket=\"assets\" key=\"img_37.png\"": 17,
+        "S3 upload failed  bucket=\"assets\" key=\"img_38.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_39.png\"": 21,
+        "S3 upload failed  bucket=\"assets\" key=\"img_4.png\"": 17,
+        "S3 upload failed  bucket=\"assets\" key=\"img_40.png\"": 13,
+        "S3 upload failed  bucket=\"assets\" key=\"img_41.png\"": 14,
+        "S3 upload failed  bucket=\"assets\" key=\"img_42.png\"": 14,
+        "S3 upload failed  bucket=\"assets\" key=\"img_43.png\"": 20,
+        "S3 upload failed  bucket=\"assets\" key=\"img_44.png\"": 23,
+        "S3 upload failed  bucket=\"assets\" key=\"img_45.png\"": 14,
+        "S3 upload failed  bucket=\"assets\" key=\"img_46.png\"": 15,
+        "S3 upload failed  bucket=\"assets\" key=\"img_47.png\"": 16,
+        "S3 upload failed  bucket=\"assets\" key=\"img_48.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_49.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_5.png\"": 16,
+        "S3 upload failed  bucket=\"assets\" key=\"img_50.png\"": 24,
+        "S3 upload failed  bucket=\"assets\" key=\"img_51.png\"": 23,
+        "S3 upload failed  bucket=\"assets\" key=\"img_52.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_53.png\"": 22,
+        "S3 upload failed  bucket=\"assets\" key=\"img_54.png\"": 30,
+        "S3 upload failed  bucket=\"assets\" key=\"img_55.png\"": 15,
+        "S3 upload failed  bucket=\"assets\" key=\"img_56.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_57.png\"": 16,
+        "S3 upload failed  bucket=\"assets\" key=\"img_58.png\"": 23,
+        "S3 upload failed  bucket=\"assets\" key=\"img_59.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_6.png\"": 14,
+        "S3 upload failed  bucket=\"assets\" key=\"img_60.png\"": 15,
+        "S3 upload failed  bucket=\"assets\" key=\"img_61.png\"": 23,
+        "S3 upload failed  bucket=\"assets\" key=\"img_62.png\"": 17,
+        "S3 upload failed  bucket=\"assets\" key=\"img_63.png\"": 20,
+        "S3 upload failed  bucket=\"assets\" key=\"img_64.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_65.png\"": 13,
+        "S3 upload failed  bucket=\"assets\" key=\"img_66.png\"": 27,
+        "S3 upload failed  bucket=\"assets\" key=\"img_67.png\"": 22,
+        "S3 upload failed  bucket=\"assets\" key=\"img_68.png\"": 22,
+        "S3 upload failed  bucket=\"assets\" key=\"img_69.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_7.png\"": 20,
+        "S3 upload failed  bucket=\"assets\" key=\"img_70.png\"": 11,
+        "S3 upload failed  bucket=\"assets\" key=\"img_71.png\"": 11,
+        "S3 upload failed  bucket=\"assets\" key=\"img_72.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_73.png\"": 11,
+        "S3 upload failed  bucket=\"assets\" key=\"img_74.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_75.png\"": 20,
+        "S3 upload failed  bucket=\"assets\" key=\"img_76.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_77.png\"": 22,
+        "S3 upload failed  bucket=\"assets\" key=\"img_78.png\"": 15,
+        "S3 upload failed  bucket=\"assets\" key=\"img_79.png\"": 16,
+        "S3 upload failed  bucket=\"assets\" key=\"img_8.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_80.png\"": 22,
+        "S3 upload failed  bucket=\"assets\" key=\"img_81.png\"": 23,
+        "S3 upload failed  bucket=\"assets\" key=\"img_82.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_83.png\"": 21,
+        "S3 upload failed  bucket=\"assets\" key=\"img_84.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_85.png\"": 15,
+        "S3 upload failed  bucket=\"assets\" key=\"img_86.png\"": 20,
+        "S3 upload failed  bucket=\"assets\" key=\"img_87.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_88.png\"": 21,
+        "S3 upload failed  bucket=\"assets\" key=\"img_89.png\"": 21,
+        "S3 upload failed  bucket=\"assets\" key=\"img_9.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_90.png\"": 15,
+        "S3 upload failed  bucket=\"assets\" key=\"img_91.png\"": 16,
+        "S3 upload failed  bucket=\"assets\" key=\"img_92.png\"": 13,
+        "S3 upload failed  bucket=\"assets\" key=\"img_93.png\"": 28,
+        "S3 upload failed  bucket=\"assets\" key=\"img_94.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_95.png\"": 19,
+        "S3 upload failed  bucket=\"assets\" key=\"img_96.png\"": 30,
+        "S3 upload failed  bucket=\"assets\" key=\"img_97.png\"": 18,
+        "S3 upload failed  bucket=\"assets\" key=\"img_98.png\"": 14,
+        "S3 upload failed  bucket=\"assets\" key=\"img_99.png\"": 21
+      }
+    }
   },
-  "TopMessages": {}
+  "LastErrorTime": "2026-03-24T18:51:06.6216875+01:00",
+  "LastWarnTime": "2026-03-24T18:51:06.627518+01:00",
+  "PeakEPS": 319,
+  "HourlyStartTime": "2026-03-24T18:47:05.8892012+01:00",
+  "HourlyCounts": {
+    "DEBUG": 16633,
+    "ERROR": 33027,
+    "INFO": 49248,
+    "WARN": 32680
+  },
+  "TopMessages": {
+    "Failed login attempt  ip=192.168.1.0 user=\"admin\"": {
+      "Count": 149,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.1 user=\"admin\"": {
+      "Count": 168,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.10 user=\"admin\"": {
+      "Count": 163,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.11 user=\"admin\"": {
+      "Count": 177,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.12 user=\"admin\"": {
+      "Count": 142,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.13 user=\"admin\"": {
+      "Count": 167,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.14 user=\"admin\"": {
+      "Count": 162,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.15 user=\"admin\"": {
+      "Count": 156,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.16 user=\"admin\"": {
+      "Count": 176,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.17 user=\"admin\"": {
+      "Count": 166,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.18 user=\"admin\"": {
+      "Count": 176,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.19 user=\"admin\"": {
+      "Count": 176,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.2 user=\"admin\"": {
+      "Count": 139,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.20 user=\"admin\"": {
+      "Count": 158,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.21 user=\"admin\"": {
+      "Count": 184,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.22 user=\"admin\"": {
+      "Count": 141,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.23 user=\"admin\"": {
+      "Count": 174,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.24 user=\"admin\"": {
+      "Count": 176,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.25 user=\"admin\"": {
+      "Count": 156,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.26 user=\"admin\"": {
+      "Count": 166,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.27 user=\"admin\"": {
+      "Count": 152,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.28 user=\"admin\"": {
+      "Count": 166,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.29 user=\"admin\"": {
+      "Count": 162,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.3 user=\"admin\"": {
+      "Count": 178,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.30 user=\"admin\"": {
+      "Count": 126,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.31 user=\"admin\"": {
+      "Count": 156,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.32 user=\"admin\"": {
+      "Count": 135,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.33 user=\"admin\"": {
+      "Count": 160,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.34 user=\"admin\"": {
+      "Count": 172,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.35 user=\"admin\"": {
+      "Count": 163,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.36 user=\"admin\"": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.37 user=\"admin\"": {
+      "Count": 162,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.38 user=\"admin\"": {
+      "Count": 158,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.39 user=\"admin\"": {
+      "Count": 143,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.4 user=\"admin\"": {
+      "Count": 182,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.40 user=\"admin\"": {
+      "Count": 167,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.41 user=\"admin\"": {
+      "Count": 173,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.42 user=\"admin\"": {
+      "Count": 167,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.43 user=\"admin\"": {
+      "Count": 179,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.44 user=\"admin\"": {
+      "Count": 147,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.45 user=\"admin\"": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.46 user=\"admin\"": {
+      "Count": 160,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.47 user=\"admin\"": {
+      "Count": 147,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.48 user=\"admin\"": {
+      "Count": 156,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.49 user=\"admin\"": {
+      "Count": 168,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.5 user=\"admin\"": {
+      "Count": 178,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.50 user=\"admin\"": {
+      "Count": 195,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.51 user=\"admin\"": {
+      "Count": 172,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.52 user=\"admin\"": {
+      "Count": 165,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.53 user=\"admin\"": {
+      "Count": 167,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.54 user=\"admin\"": {
+      "Count": 178,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.55 user=\"admin\"": {
+      "Count": 140,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.56 user=\"admin\"": {
+      "Count": 151,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.57 user=\"admin\"": {
+      "Count": 189,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.58 user=\"admin\"": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.59 user=\"admin\"": {
+      "Count": 165,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.6 user=\"admin\"": {
+      "Count": 138,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.60 user=\"admin\"": {
+      "Count": 138,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.61 user=\"admin\"": {
+      "Count": 143,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.62 user=\"admin\"": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.63 user=\"admin\"": {
+      "Count": 139,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.64 user=\"admin\"": {
+      "Count": 168,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.65 user=\"admin\"": {
+      "Count": 175,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.66 user=\"admin\"": {
+      "Count": 183,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.67 user=\"admin\"": {
+      "Count": 161,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.68 user=\"admin\"": {
+      "Count": 160,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.69 user=\"admin\"": {
+      "Count": 174,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.7 user=\"admin\"": {
+      "Count": 132,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.70 user=\"admin\"": {
+      "Count": 178,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.71 user=\"admin\"": {
+      "Count": 178,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.72 user=\"admin\"": {
+      "Count": 158,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.73 user=\"admin\"": {
+      "Count": 168,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.74 user=\"admin\"": {
+      "Count": 165,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.75 user=\"admin\"": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.76 user=\"admin\"": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.77 user=\"admin\"": {
+      "Count": 176,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.78 user=\"admin\"": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.79 user=\"admin\"": {
+      "Count": 152,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.8 user=\"admin\"": {
+      "Count": 188,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.80 user=\"admin\"": {
+      "Count": 149,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.81 user=\"admin\"": {
+      "Count": 131,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.82 user=\"admin\"": {
+      "Count": 174,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.83 user=\"admin\"": {
+      "Count": 186,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.84 user=\"admin\"": {
+      "Count": 166,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.85 user=\"admin\"": {
+      "Count": 135,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.86 user=\"admin\"": {
+      "Count": 170,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.87 user=\"admin\"": {
+      "Count": 164,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.88 user=\"admin\"": {
+      "Count": 161,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.89 user=\"admin\"": {
+      "Count": 149,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.9 user=\"admin\"": {
+      "Count": 160,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.90 user=\"admin\"": {
+      "Count": 164,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.91 user=\"admin\"": {
+      "Count": 174,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.92 user=\"admin\"": {
+      "Count": 164,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.93 user=\"admin\"": {
+      "Count": 172,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.94 user=\"admin\"": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.95 user=\"admin\"": {
+      "Count": 162,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.96 user=\"admin\"": {
+      "Count": 175,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.97 user=\"admin\"": {
+      "Count": 166,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.98 user=\"admin\"": {
+      "Count": 180,
+      "Level": "WARN"
+    },
+    "Failed login attempt  ip=192.168.1.99 user=\"admin\"": {
+      "Count": 144,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=0%": {
+      "Count": 170,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=1%": {
+      "Count": 181,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=10%": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=11%": {
+      "Count": 187,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=12%": {
+      "Count": 168,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=13%": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=14%": {
+      "Count": 159,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=15%": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=16%": {
+      "Count": 186,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=17%": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=18%": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=19%": {
+      "Count": 176,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=2%": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=20%": {
+      "Count": 179,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=21%": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=22%": {
+      "Count": 155,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=23%": {
+      "Count": 169,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=24%": {
+      "Count": 188,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=25%": {
+      "Count": 166,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=26%": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=27%": {
+      "Count": 177,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=28%": {
+      "Count": 168,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=29%": {
+      "Count": 183,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=3%": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=30%": {
+      "Count": 178,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=31%": {
+      "Count": 162,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=32%": {
+      "Count": 151,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=33%": {
+      "Count": 162,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=34%": {
+      "Count": 169,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=35%": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=36%": {
+      "Count": 172,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=37%": {
+      "Count": 158,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=38%": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=39%": {
+      "Count": 172,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=4%": {
+      "Count": 164,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=40%": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=41%": {
+      "Count": 164,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=42%": {
+      "Count": 156,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=43%": {
+      "Count": 168,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=44%": {
+      "Count": 167,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=45%": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=46%": {
+      "Count": 159,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=47%": {
+      "Count": 159,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=48%": {
+      "Count": 162,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=49%": {
+      "Count": 165,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=5%": {
+      "Count": 160,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=50%": {
+      "Count": 174,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=51%": {
+      "Count": 161,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=52%": {
+      "Count": 157,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=53%": {
+      "Count": 146,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=54%": {
+      "Count": 146,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=55%": {
+      "Count": 169,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=56%": {
+      "Count": 169,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=57%": {
+      "Count": 180,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=58%": {
+      "Count": 157,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=59%": {
+      "Count": 160,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=6%": {
+      "Count": 182,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=60%": {
+      "Count": 167,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=61%": {
+      "Count": 166,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=62%": {
+      "Count": 151,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=63%": {
+      "Count": 165,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=64%": {
+      "Count": 151,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=65%": {
+      "Count": 170,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=66%": {
+      "Count": 155,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=67%": {
+      "Count": 170,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=68%": {
+      "Count": 154,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=69%": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=7%": {
+      "Count": 159,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=70%": {
+      "Count": 174,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=71%": {
+      "Count": 174,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=72%": {
+      "Count": 174,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=73%": {
+      "Count": 165,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=74%": {
+      "Count": 150,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=75%": {
+      "Count": 155,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=76%": {
+      "Count": 174,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=77%": {
+      "Count": 152,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=78%": {
+      "Count": 180,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=79%": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=8%": {
+      "Count": 182,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=80%": {
+      "Count": 138,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=81%": {
+      "Count": 166,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=82%": {
+      "Count": 154,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=83%": {
+      "Count": 151,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=84%": {
+      "Count": 157,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=85%": {
+      "Count": 148,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=86%": {
+      "Count": 153,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=87%": {
+      "Count": 168,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=88%": {
+      "Count": 170,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=89%": {
+      "Count": 150,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=9%": {
+      "Count": 165,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=90%": {
+      "Count": 169,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=91%": {
+      "Count": 150,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=92%": {
+      "Count": 177,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=93%": {
+      "Count": 151,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=94%": {
+      "Count": 168,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=95%": {
+      "Count": 144,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=96%": {
+      "Count": 160,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=97%": {
+      "Count": 200,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=98%": {
+      "Count": 133,
+      "Level": "WARN"
+    },
+    "High memory usage  threshold=99%": {
+      "Count": 171,
+      "Level": "WARN"
+    },
+    "Query timeout  duration=0ms query_id=q_99": {
+      "Count": 166,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=10ms query_id=q_99": {
+      "Count": 154,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=11ms query_id=q_99": {
+      "Count": 173,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=12ms query_id=q_99": {
+      "Count": 167,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=13ms query_id=q_99": {
+      "Count": 161,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=14ms query_id=q_99": {
+      "Count": 165,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=15ms query_id=q_99": {
+      "Count": 166,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=16ms query_id=q_99": {
+      "Count": 166,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=17ms query_id=q_99": {
+      "Count": 165,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=18ms query_id=q_99": {
+      "Count": 180,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=19ms query_id=q_99": {
+      "Count": 177,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=1ms query_id=q_99": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=20ms query_id=q_99": {
+      "Count": 148,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=21ms query_id=q_99": {
+      "Count": 135,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=22ms query_id=q_99": {
+      "Count": 182,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=23ms query_id=q_99": {
+      "Count": 159,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=24ms query_id=q_99": {
+      "Count": 139,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=25ms query_id=q_99": {
+      "Count": 170,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=26ms query_id=q_99": {
+      "Count": 157,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=27ms query_id=q_99": {
+      "Count": 192,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=28ms query_id=q_99": {
+      "Count": 158,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=29ms query_id=q_99": {
+      "Count": 167,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=2ms query_id=q_99": {
+      "Count": 186,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=30ms query_id=q_99": {
+      "Count": 151,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=31ms query_id=q_99": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=32ms query_id=q_99": {
+      "Count": 170,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=33ms query_id=q_99": {
+      "Count": 178,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=34ms query_id=q_99": {
+      "Count": 161,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=35ms query_id=q_99": {
+      "Count": 167,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=36ms query_id=q_99": {
+      "Count": 164,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=37ms query_id=q_99": {
+      "Count": 171,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=38ms query_id=q_99": {
+      "Count": 172,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=39ms query_id=q_99": {
+      "Count": 145,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=3ms query_id=q_99": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=40ms query_id=q_99": {
+      "Count": 181,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=41ms query_id=q_99": {
+      "Count": 165,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=42ms query_id=q_99": {
+      "Count": 168,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=43ms query_id=q_99": {
+      "Count": 175,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=44ms query_id=q_99": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=45ms query_id=q_99": {
+      "Count": 152,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=46ms query_id=q_99": {
+      "Count": 174,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=47ms query_id=q_99": {
+      "Count": 150,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=48ms query_id=q_99": {
+      "Count": 159,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=49ms query_id=q_99": {
+      "Count": 157,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=4ms query_id=q_99": {
+      "Count": 170,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=50ms query_id=q_99": {
+      "Count": 179,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=51ms query_id=q_99": {
+      "Count": 173,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=52ms query_id=q_99": {
+      "Count": 175,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=53ms query_id=q_99": {
+      "Count": 168,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=54ms query_id=q_99": {
+      "Count": 165,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=55ms query_id=q_99": {
+      "Count": 159,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=56ms query_id=q_99": {
+      "Count": 148,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=57ms query_id=q_99": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=58ms query_id=q_99": {
+      "Count": 147,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=59ms query_id=q_99": {
+      "Count": 171,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=5ms query_id=q_99": {
+      "Count": 154,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=60ms query_id=q_99": {
+      "Count": 151,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=61ms query_id=q_99": {
+      "Count": 147,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=62ms query_id=q_99": {
+      "Count": 161,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=63ms query_id=q_99": {
+      "Count": 155,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=64ms query_id=q_99": {
+      "Count": 150,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=65ms query_id=q_99": {
+      "Count": 163,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=66ms query_id=q_99": {
+      "Count": 161,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=67ms query_id=q_99": {
+      "Count": 173,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=68ms query_id=q_99": {
+      "Count": 175,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=69ms query_id=q_99": {
+      "Count": 162,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=6ms query_id=q_99": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=70ms query_id=q_99": {
+      "Count": 174,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=71ms query_id=q_99": {
+      "Count": 179,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=72ms query_id=q_99": {
+      "Count": 151,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=73ms query_id=q_99": {
+      "Count": 172,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=74ms query_id=q_99": {
+      "Count": 162,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=75ms query_id=q_99": {
+      "Count": 193,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=76ms query_id=q_99": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=77ms query_id=q_99": {
+      "Count": 166,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=78ms query_id=q_99": {
+      "Count": 168,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=79ms query_id=q_99": {
+      "Count": 177,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=7ms query_id=q_99": {
+      "Count": 172,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=80ms query_id=q_99": {
+      "Count": 157,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=81ms query_id=q_99": {
+      "Count": 154,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=82ms query_id=q_99": {
+      "Count": 152,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=83ms query_id=q_99": {
+      "Count": 155,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=84ms query_id=q_99": {
+      "Count": 145,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=85ms query_id=q_99": {
+      "Count": 182,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=86ms query_id=q_99": {
+      "Count": 155,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=87ms query_id=q_99": {
+      "Count": 144,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=88ms query_id=q_99": {
+      "Count": 157,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=89ms query_id=q_99": {
+      "Count": 147,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=8ms query_id=q_99": {
+      "Count": 154,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=90ms query_id=q_99": {
+      "Count": 161,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=91ms query_id=q_99": {
+      "Count": 180,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=92ms query_id=q_99": {
+      "Count": 165,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=93ms query_id=q_99": {
+      "Count": 176,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=94ms query_id=q_99": {
+      "Count": 164,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=95ms query_id=q_99": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=96ms query_id=q_99": {
+      "Count": 165,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=97ms query_id=q_99": {
+      "Count": 162,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=98ms query_id=q_99": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=99ms query_id=q_99": {
+      "Count": 162,
+      "Level": "ERROR"
+    },
+    "Query timeout  duration=9ms query_id=q_99": {
+      "Count": 144,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_0.png\"": {
+      "Count": 158,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_1.png\"": {
+      "Count": 184,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_10.png\"": {
+      "Count": 190,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_11.png\"": {
+      "Count": 159,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_12.png\"": {
+      "Count": 177,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_13.png\"": {
+      "Count": 168,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_14.png\"": {
+      "Count": 187,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_15.png\"": {
+      "Count": 158,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_16.png\"": {
+      "Count": 157,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_17.png\"": {
+      "Count": 167,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_18.png\"": {
+      "Count": 156,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_19.png\"": {
+      "Count": 177,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_2.png\"": {
+      "Count": 175,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_20.png\"": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_21.png\"": {
+      "Count": 182,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_22.png\"": {
+      "Count": 155,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_23.png\"": {
+      "Count": 166,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_24.png\"": {
+      "Count": 163,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_25.png\"": {
+      "Count": 168,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_26.png\"": {
+      "Count": 171,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_27.png\"": {
+      "Count": 160,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_28.png\"": {
+      "Count": 170,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_29.png\"": {
+      "Count": 172,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_3.png\"": {
+      "Count": 171,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_30.png\"": {
+      "Count": 160,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_31.png\"": {
+      "Count": 173,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_32.png\"": {
+      "Count": 163,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_33.png\"": {
+      "Count": 167,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_34.png\"": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_35.png\"": {
+      "Count": 156,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_36.png\"": {
+      "Count": 177,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_37.png\"": {
+      "Count": 170,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_38.png\"": {
+      "Count": 147,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_39.png\"": {
+      "Count": 176,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_4.png\"": {
+      "Count": 171,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_40.png\"": {
+      "Count": 156,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_41.png\"": {
+      "Count": 156,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_42.png\"": {
+      "Count": 174,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_43.png\"": {
+      "Count": 170,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_44.png\"": {
+      "Count": 182,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_45.png\"": {
+      "Count": 152,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_46.png\"": {
+      "Count": 147,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_47.png\"": {
+      "Count": 175,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_48.png\"": {
+      "Count": 151,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_49.png\"": {
+      "Count": 163,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_5.png\"": {
+      "Count": 167,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_50.png\"": {
+      "Count": 170,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_51.png\"": {
+      "Count": 176,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_52.png\"": {
+      "Count": 173,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_53.png\"": {
+      "Count": 159,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_54.png\"": {
+      "Count": 159,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_55.png\"": {
+      "Count": 188,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_56.png\"": {
+      "Count": 148,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_57.png\"": {
+      "Count": 142,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_58.png\"": {
+      "Count": 181,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_59.png\"": {
+      "Count": 161,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_6.png\"": {
+      "Count": 157,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_60.png\"": {
+      "Count": 128,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_61.png\"": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_62.png\"": {
+      "Count": 159,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_63.png\"": {
+      "Count": 202,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_64.png\"": {
+      "Count": 172,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_65.png\"": {
+      "Count": 146,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_66.png\"": {
+      "Count": 162,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_67.png\"": {
+      "Count": 164,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_68.png\"": {
+      "Count": 174,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_69.png\"": {
+      "Count": 164,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_7.png\"": {
+      "Count": 188,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_70.png\"": {
+      "Count": 159,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_71.png\"": {
+      "Count": 163,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_72.png\"": {
+      "Count": 172,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_73.png\"": {
+      "Count": 151,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_74.png\"": {
+      "Count": 167,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_75.png\"": {
+      "Count": 140,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_76.png\"": {
+      "Count": 162,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_77.png\"": {
+      "Count": 181,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_78.png\"": {
+      "Count": 158,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_79.png\"": {
+      "Count": 153,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_8.png\"": {
+      "Count": 176,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_80.png\"": {
+      "Count": 167,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_81.png\"": {
+      "Count": 160,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_82.png\"": {
+      "Count": 162,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_83.png\"": {
+      "Count": 155,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_84.png\"": {
+      "Count": 146,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_85.png\"": {
+      "Count": 151,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_86.png\"": {
+      "Count": 186,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_87.png\"": {
+      "Count": 194,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_88.png\"": {
+      "Count": 169,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_89.png\"": {
+      "Count": 176,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_9.png\"": {
+      "Count": 154,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_90.png\"": {
+      "Count": 183,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_91.png\"": {
+      "Count": 153,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_92.png\"": {
+      "Count": 173,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_93.png\"": {
+      "Count": 180,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_94.png\"": {
+      "Count": 161,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_95.png\"": {
+      "Count": 174,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_96.png\"": {
+      "Count": 181,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_97.png\"": {
+      "Count": 160,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_98.png\"": {
+      "Count": 139,
+      "Level": "ERROR"
+    },
+    "S3 upload failed  bucket=\"assets\" key=\"img_99.png\"": {
+      "Count": 181,
+      "Level": "ERROR"
+    }
+  }
 }

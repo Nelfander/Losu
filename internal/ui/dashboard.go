@@ -49,6 +49,7 @@ func NewDashboard() *Dashboard {
 	// Configure Latest Logs
 	logs.SetDynamicColors(true).
 		SetScrollable(true).
+		SetMaxLines(5000). // Keep the UI buffer light and fast
 		SetRegions(true).
 		SetWordWrap(false).
 		SetBorder(true).
@@ -130,7 +131,7 @@ func NewDashboard() *Dashboard {
 				}
 
 				// Get total lines and jump
-				totalLines := strings.Count(logs.GetText(false), "\n")
+				totalLines := len(dashboard.FilteredLogs)
 				targetLine := int(percentage * float64(totalLines))
 
 				logs.ScrollTo(targetLine, 0)
@@ -145,6 +146,11 @@ func NewDashboard() *Dashboard {
 		}
 
 		return action, event
+	})
+
+	logs.SetMaxLines(2000) // hard limit on visible + internal buffer
+	logs.SetChangedFunc(func() {
+		dashboard.App.Draw()
 	})
 
 	// Layout:
@@ -221,7 +227,6 @@ func NewDashboard() *Dashboard {
 		})
 	*/
 	return dashboard
-
 }
 
 // Helper func
@@ -305,57 +310,62 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 	}
 	d.TopErrorsView.SetText(topStr.String())
 
-	//  --- HIGH PERFORMANCE LOG CACHING ---
-	// If filter changed OR the history was truncated (reached max capacity), rebuild
+	//  --- HIGH PERFORMANCE + STABLE LOG UPDATES ---
 	filterChanged := d.SearchFilter != d.LastSearchFilter
-	historyFull := len(snap.History) >= 50000 // Assuming maxHistory is 50k
+	historyFull := len(snap.History) >= 50000
 
 	if filterChanged || historyFull {
-		// At 50k, we rebuild to ensure the "sliding window" stays accurate
-		d.FilteredLogs = []string{}
+		d.FilteredLogs = d.FilteredLogs[:0]
 		d.LastHistoryLen = 0
 		d.LastSearchFilter = d.SearchFilter
 	}
 
-	// Only process logs that have arrived since last update
 	if len(snap.History) > d.LastHistoryLen {
+		var uiBatch strings.Builder
 		filterLower := strings.ToLower(d.SearchFilter)
 
 		for i := d.LastHistoryLen; i < len(snap.History); i++ {
 			event := snap.History[i]
 
-			if filterLower == "" ||
-				strings.Contains(strings.ToLower(event.Level), filterLower) ||
-				strings.Contains(strings.ToLower(event.Message), filterLower) {
+			if filterLower == "" || strings.Contains(strings.ToLower(event.Message), filterLower) {
+				line := fmt.Sprintf("[%s][%s] %-5s -> [-]%s\n",
+					d.getColor(event.Level),
+					event.Timestamp.Format("15:04:05"),
+					event.Level,
+					tview.Escape(event.Message))
 
-				color := "white"
-				switch event.Level {
-				case "ERROR":
-					color = "red"
-				case "WARN":
-					color = "yellow"
-				case "INFO":
-					color = "green"
-				case "DEBUG":
-					color = "cyan"
-				}
-
-				line := fmt.Sprintf("[%s][%s] %-5s -> %s",
-					color, event.Timestamp.Format("15:04:05"), event.Level, event.Message)
-
+				uiBatch.WriteString(line)
 				d.FilteredLogs = append(d.FilteredLogs, line)
 			}
 		}
-		d.LastHistoryLen = len(snap.History)
 
-		// Capping the cache so it doesn't grow to infinity
-		if len(d.FilteredLogs) > 50000 {
-			// Keep the most recent 50k matching logs
-			d.FilteredLogs = d.FilteredLogs[len(d.FilteredLogs)-50000:]
+		if uiBatch.Len() > 0 {
+			fmt.Fprint(d.LogView, uiBatch.String())
 		}
 
-		d.LogView.SetText(strings.Join(d.FilteredLogs, "\n"))
+		d.LastHistoryLen = len(snap.History)
 	}
+
+	// === CRITICAL: Force hard trim to prevent buffer explosion and garbage ===
+	const maxVisibleLines = 1500
+
+	if len(d.FilteredLogs) > maxVisibleLines+500 {
+		// Keep only the newest lines
+		start := len(d.FilteredLogs) - maxVisibleLines
+		if start < 0 {
+			start = 0
+		}
+
+		d.LogView.Clear() // fastest way to reset internal buffer
+
+		for _, line := range d.FilteredLogs[start:] {
+			fmt.Fprint(d.LogView, line)
+		}
+
+		d.FilteredLogs = d.FilteredLogs[start:] // trim cache too
+	}
+	d.LogView.SetText(d.LogView.GetText(false)) // forces full re-render (slow but cleans artifacts)
+	d.LogView.ScrollToEnd()
 
 	//  --- SCROLL FEEDBACK ---
 	matchCount := len(d.FilteredLogs)
@@ -487,4 +497,19 @@ func (d *Dashboard) GetSummaryForAI(snap model.Snapshot) (errors string, warns s
 		}
 	}
 	return errB.String(), warnB.String()
+}
+
+func (d *Dashboard) getColor(level string) string {
+	switch level {
+	case "ERROR":
+		return "red"
+	case "WARN":
+		return "yellow"
+	case "INFO":
+		return "green"
+	case "DEBUG":
+		return "cyan"
+	default:
+		return "white"
+	}
 }
