@@ -13,6 +13,15 @@ import (
 )
 
 const maxHistory = 50000 // keep 50000 last logs for now its enough
+var (
+	reDigits = regexp.MustCompile(`\d+`)
+	reHex    = regexp.MustCompile(`0x[0-9a-fA-F]+`)
+)
+
+func fingerprint(msg string) string {
+	msg = reHex.ReplaceAllString(msg, "0x*")
+	return reDigits.ReplaceAllString(msg, "")
+}
 
 type Aggregator struct {
 	mu              sync.RWMutex
@@ -33,7 +42,6 @@ type Aggregator struct {
 		Count int
 		Level string
 	} // To track top most appeared this hour
-	// ------------------------------------
 }
 
 func NewAggregator() *Aggregator {
@@ -86,19 +94,34 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 	if event.Level == "ERROR" || event.Level == "WARN" {
 		pattern := fingerprint(event.Message)
 
-		//  Update Global MessageCounts (For the UI Top 10)
+		// 1. Safety Check: Don't grow the map forever
+		_, exists := a.MessageCounts[pattern]
+		if !exists && len(a.MessageCounts) > 10000 {
+			// Stop tracking new unique patterns but still make the graph to move
+			a.CurrentSecCount++
+			return
+		}
+
+		// Update Global MessageCounts (For the UI Top 10)
 		stat, exists := a.MessageCounts[pattern]
 		if !exists {
 			stat = model.MessageStat{
 				Level:         event.Level,
 				VariantCounts: make(map[string]int),
+				Timestamps:    make([]time.Time, 0, 100),
 			}
 		}
 		stat.Count++
 		stat.VariantCounts[event.Message]++
+
+		// Add the timestamp to the slice, keeping only the last 100
+		stat.Timestamps = append(stat.Timestamps, event.Timestamp)
+		if len(stat.Timestamps) > 100 {
+			stat.Timestamps = stat.Timestamps[1:]
+		}
 		a.MessageCounts[pattern] = stat
 
-		//  Update RecentMessages (AI short memory)
+		// Update RecentMessages (AI short memory)
 		recentStat, recentExists := a.RecentMessages[pattern]
 		if !recentExists {
 			recentStat = &model.MessageStat{
@@ -110,7 +133,7 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 		recentStat.Count++
 		recentStat.VariantCounts[event.Message]++
 
-		// Increment the counter for the Sparkline graph
+		// Update Graph counter
 		a.CurrentSecCount++
 	}
 
@@ -256,19 +279,21 @@ func (a *Aggregator) PushTrend() {
 	a.CurrentSecCount = 0
 }
 
+/*
 // fingerprint simplifies a message by replacing variable data (numbers, hex) with '*'
-func fingerprint(msg string) string {
-	// Match digits (IDs, database numbers, etc.)
-	reDigits := regexp.MustCompile(`\d+`)
-	// Match hex sequences (Memory addresses like 0x7ffd...)
-	reHex := regexp.MustCompile(`0x[0-9a-fA-F]+`)
 
-	msg = reHex.ReplaceAllString(msg, "0x*")
-	msg = reDigits.ReplaceAllString(msg, "")
+	func fingerprint(msg string) string {
+		// Match digits (IDs, database numbers, etc.)
+		reDigits := regexp.MustCompile(`\d+`)
+		// Match hex sequences (Memory addresses like 0x7ffd...)
+		reHex := regexp.MustCompile(`0x[0-9a-fA-F]+`)
 
-	return msg
-}
+		msg = reHex.ReplaceAllString(msg, "0x*")
+		msg = reDigits.ReplaceAllString(msg, "")
 
+		return msg
+	}
+*/
 func (a *Aggregator) GetRecentSnapshot() map[string]model.MessageStat {
 	a.mu.Lock()
 	defer a.mu.Unlock()

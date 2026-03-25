@@ -42,38 +42,99 @@ type RegexParser struct{}
 func NewRegexParser() *RegexParser {
 	return &RegexParser{}
 }
-
 func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
-	// Heavy-duty cleaning: Remove Nulls, Tabs, and Newlines
-	cleanLine := strings.Map(func(r rune) rune {
-		if r == '\x00' || r == '\r' || r == '\n' || r == '\t' {
-			return -1 // Drop these characters
-		}
-		return r
-	}, rawLine.Line)
-
-	line := strings.TrimSpace(cleanLine)
+	// strings.ReplaceAll is optimized in assembly and much faster for specific removals.
+	line := rawLine.Line
+	line = strings.ReplaceAll(line, "\x00", "") // Remove null bytes
+	line = strings.ReplaceAll(line, "\r", "")   // Remove carriage returns
+	line = strings.ReplaceAll(line, "\t", " ")  // Convert tabs to spaces for easier indexing
+	line = strings.TrimSpace(line)
 
 	// Immediate Exit for empty lines
 	if line == "" {
 		return model.LogEvent{Level: "IGNORE", Message: ""}
 	}
-	// Loop through every pattern
-	for _, probe := range patterns {
-		matches := probe.regex.FindStringSubmatch(line)
 
-		if len(matches) >= 3 {
-			level := strings.ToUpper(matches[1]) // In logfmt-flexible, group 1 is Level
-			message := matches[2]                // Group 2 is the msg
+	// If the line looks like logfmt (contains level= and msg=), we extract them manually.
+	// This avoids the overhead of the Regex engine entirely for standard logs.
+	lvlIdx := strings.Index(line, "level=")
+	msgIdx := strings.Index(line, "msg=")
 
-			// If we have a tail (Group 3), append it safely
-			if len(matches) > 3 {
-				message = message + " " + matches[3]
+	if lvlIdx != -1 && msgIdx != -1 {
+		//  Extract Level
+		lvlPart := line[lvlIdx+6:]
+		lvlEnd := strings.IndexAny(lvlPart, " \t,")
+		if lvlEnd == -1 {
+			lvlEnd = len(lvlPart)
+		}
+		level := strings.ToUpper(lvlPart[:lvlEnd])
+
+		// Extract Message
+		message := line[msgIdx+4:]
+		var msgFull string
+		var remaining string
+
+		if strings.HasPrefix(message, "\"") {
+			endQuote := strings.Index(message[1:], "\"")
+			if endQuote != -1 {
+				msgFull = message[1 : endQuote+1]
+				remaining = message[endQuote+2:] // Grab everything AFTER the closing quote
+			} else {
+				msgFull = message // Fallback
 			}
-			// If the pattern has a timestamp (group 1), parse it, else use Now()
+		} else {
+			spaceIdx := strings.IndexAny(message, " \t")
+			if spaceIdx != -1 {
+				msgFull = message[:spaceIdx]
+				remaining = message[spaceIdx+1:] // Grab everything AFTER the first word
+			} else {
+				msgFull = message
+			}
+		}
+
+		// 3. RECONSTRUCT THE FULL ANALYTIC MESSAGE
+		// Take the primary message and append any "remaining" key-value pairs
+		finalMessage := msgFull
+		if strings.TrimSpace(remaining) != "" {
+			// Clean up the remaining string to remove leftover level= parts
+			// This keeps log lines "analytic"
+			finalMessage = msgFull + " | " + strings.TrimSpace(remaining)
+		}
+
+		return model.LogEvent{
+			Timestamp: time.Now(),
+			Level:     level,
+			Message:   finalMessage,
+			Source:    rawLine.Source,
+		}
+	}
+
+	// If it's not logfmt, we loop through our specific patterns (Brackets, Simple, etc.)
+	for _, probe := range patterns {
+		//  Already handled logfmt-flexible above, so skip it here
+		if probe.name == "logfmt-flexible" {
+			continue
+		}
+
+		matches := probe.regex.FindStringSubmatch(line)
+		if len(matches) >= 3 {
+			var level, message string
 			timestamp := time.Now()
-			if len(matches) >= 4 {
+
+			switch probe.name {
+			case "brackets":
+				// matches[1] = Timestamp, [2] = Level, [3] = Message
 				timestamp = parseFlexibleTime(matches[1])
+				level = strings.ToUpper(matches[2])
+				message = matches[3]
+			case "simple":
+				// matches[1] = Timestamp, [2] = Level, [3] = Message
+				timestamp = parseFlexibleTime(matches[1])
+				level = strings.ToUpper(matches[2])
+				message = matches[3]
+			case "catch-all":
+				level = "UNKNOWN"
+				message = matches[1]
 			}
 
 			return model.LogEvent{
@@ -85,8 +146,7 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 		}
 	}
 
-	// If we are here, it means no pattern matched, but it's NOT a ghost line.
-	// Return it as UNKNOWN so we see EVERYTHING.
+	// Fallback
 	return model.LogEvent{
 		Timestamp: time.Now(),
 		Level:     "UNKNOWN",

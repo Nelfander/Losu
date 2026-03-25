@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/nelfander/losu/internal/model"
@@ -19,7 +20,9 @@ type Dashboard struct {
 	AIView           *tview.TextView
 	SearchInput      *tview.InputField
 	SearchFilter     string
-	Pages            *tview.Flex
+	MainLayout       *tview.Flex
+	Pages            *tview.Pages
+	StatLookup       []model.MessageStat
 	LastHistoryLen   int
 	LastSearchFilter string
 	FilteredLogs     []string // Cache of logs that matched the current filter
@@ -43,8 +46,16 @@ func NewDashboard() *Dashboard {
 
 	// Configure Top Errors/Warns
 	topErrors.SetDynamicColors(true).
+		SetRegions(true).
 		SetBorder(true).
 		SetTitle(" [red]Top 10 Error/Warn Messages ")
+
+	// Prevent losing focus when clicking or hitting Enter
+	topErrors.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyTab {
+			app.SetFocus(logs) // Tab moves to the logs
+		}
+	})
 
 	// Configure Latest Logs
 	logs.SetDynamicColors(true).
@@ -148,6 +159,45 @@ func NewDashboard() *Dashboard {
 		return action, event
 	})
 
+	// --- TOP 10 ERROR/WARN DRAGGABLE LOGIC --- (For later when we populate with more than 10 err/warn)
+	var isDraggingTop bool
+
+	topErrors.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+		x, y := event.Position()
+		rectX, rectY, rectWidth, rectHeight := topErrors.GetInnerRect()
+		scrollbarX := rectX + rectWidth - 1
+		leftPressed := event.Buttons()&tcell.Button1 != 0
+
+		if leftPressed {
+			// Check if they clicked the right edge OR are already dragging
+			if x >= scrollbarX-1 || isDraggingTop {
+				isDraggingTop = true
+
+				relativeY := float64(y - rectY)
+				percentage := relativeY / float64(rectHeight)
+
+				// Clamp 0.0 to 1.0
+				if percentage < 0 {
+					percentage = 0
+				}
+				if percentage > 1 {
+					percentage = 1
+				}
+
+				// Get total lines in the TopErrors text
+				// We split by newline to see how many lines are actually there
+				totalLines := strings.Count(topErrors.GetText(false), "\n")
+				targetLine := int(percentage * float64(totalLines))
+
+				topErrors.ScrollTo(targetLine, 0)
+				return action, nil
+			}
+		} else {
+			isDraggingTop = false
+		}
+		return action, event
+	})
+
 	logs.SetMaxLines(2000) // hard limit on visible + internal buffer
 	logs.SetChangedFunc(func() {
 		dashboard.App.Draw()
@@ -181,9 +231,17 @@ func NewDashboard() *Dashboard {
 		AddItem(header, 8, 1, false).
 		AddItem(body, 0, 1, false) // Stack the split body below the header
 
-	dashboard.Pages = flex
 	// Enable Mouse support so clicking works
 	app.EnableMouse(true)
+
+	// Create the Pages container
+	pages := tview.NewPages()
+
+	//  Add  main dashboard as the bottom layer
+	pages.AddPage("dashboard", flex, true, true)
+
+	dashboard.MainLayout = flex
+	dashboard.Pages = pages
 
 	//  Set initial focus to the app itself, not a specific box
 	// This keeps Ctrl+C working and prevents the search box from
@@ -205,36 +263,63 @@ func NewDashboard() *Dashboard {
 			dashboard.SearchFilter = "" // Clears the logic filter
 		}
 	})
-	/*
-		// Keys for scrolling latest logs
-		logs.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-			row, col := logs.GetScrollOffset()
-			switch event.Key() {
-			case tcell.KeyPgUp:
-				logs.ScrollTo(row-10, col) // Scrolls 10 up
-				return nil
-			case tcell.KeyPgDn:
-				logs.ScrollTo(row+10, col) // Scrolls 10 down
-				return nil
-			case tcell.KeyHome:
-				logs.ScrollToBeginning() // Scrolls to beginning of latest logs
-				return nil
-			case tcell.KeyEnd:
-				logs.ScrollToEnd() // Scrolls to the end of latest logs
-				return nil
-			}
-			return event
-		})
-	*/
-	return dashboard
-}
 
-// Helper func
-func truncate(s string, l int) string {
-	if len(s) > l {
-		return s[:l-3] + "..."
-	}
-	return s
+	// Top 10 error/warn clickable popup logic
+	topErrors.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEnter {
+			highlights := topErrors.GetHighlights()
+			if len(highlights) > 0 {
+				var index int
+				// Parse index back out of top_0 , top_1 etc..
+				fmt.Sscanf(highlights[0], "top_%d", &index)
+
+				if index >= 0 && index < len(dashboard.StatLookup) {
+					stat := dashboard.StatLookup[index]
+					levelColor := dashboard.getColor(stat.Level)
+
+					// We grab the 'bestMsg' again so the Title of the popup
+					// matches the text of the row you just pressed Enter on.
+					bestMsg := ""
+					max := -1
+					for msg, count := range stat.VariantCounts {
+						if count > max {
+							max = count
+							bestMsg = msg
+						}
+					}
+
+					//Build the details string
+					var sb strings.Builder
+					// Use the levelColor for the Level label and the Total count
+					sb.WriteString(fmt.Sprintf("[%s]Log Level: [%s]%s\n", levelColor, levelColor, stat.Level))
+					sb.WriteString(fmt.Sprintf("Message : [%s]%s\n", levelColor, tview.Escape(bestMsg)))
+					sb.WriteString(fmt.Sprintf("[%s]Total Occurrences: [%s]%d\n", levelColor, levelColor, stat.Count))
+					sb.WriteString("[gray]" + strings.Repeat("━", 64) + "\n") // Visual separator
+
+					// 100-timestamp timeline!
+					sb.WriteString("\n[cyan]🕒 Recent Timeline (Last 100):\n")
+					for i := len(stat.Timestamps) - 1; i >= 0; i-- {
+						ts := stat.Timestamps[i]
+						sb.WriteString(fmt.Sprintf(" [white]%s [gray](%s ago)\n",
+							ts.Format("15:04:05:000"),
+							time.Since(ts).Truncate(time.Second)))
+					}
+
+					sb.WriteString("\n[yellow]📝 Unique Variations in this Cluster:\n")
+					for msg, count := range stat.VariantCounts {
+						sb.WriteString(fmt.Sprintf(" [white](%d hits) %s\n", count, tview.Escape(msg)))
+					}
+
+					// Show popup
+					dashboard.ShowInspector("[#ff8c00]Error/Warn Detail Analysis[-]", sb.String())
+				}
+			}
+			return nil
+		}
+		return event
+	})
+
+	return dashboard
 }
 
 func (d *Dashboard) Update(snap model.Snapshot) {
@@ -283,12 +368,17 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 
 	var topStr strings.Builder
 	topStr.WriteString("\n")
+
+	//Clear the lookup slice every update
+	d.StatLookup = nil
+
 	for i := 0; i < 5; i++ {
 		getRow := func(idx int) string {
 			if idx >= len(sortedTop) {
 				return strings.Repeat(" ", 45)
 			}
 			item := sortedTop[idx]
+
 			bestMsg := ""
 			maxSubCount := -1
 			for msg, count := range item.Stat.VariantCounts {
@@ -300,11 +390,20 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 				}
 			}
 
+			d.StatLookup = append(d.StatLookup, item.Stat)
+			lookupIdx := len(d.StatLookup) - 1
+
 			color := "red"
 			if item.Stat.Level == "WARN" {
 				color = "yellow"
 			}
-			return fmt.Sprintf("[%s]%5d [white]| %-35s", color, item.Stat.Count, truncate(bestMsg, 35))
+
+			// wrap it in a ["top_X"] region so its clickable!
+			return fmt.Sprintf(`["top_%d"][%s]%5d [white]| %-35s[""]`,
+				lookupIdx,
+				color,
+				item.Stat.Count,
+				truncate(bestMsg, 35))
 		}
 		topStr.WriteString(fmt.Sprintf(" %s   %s\n", getRow(i), getRow(i+5)))
 	}
@@ -397,6 +496,14 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 		lastWarn = snap.LastWarnTime.Format("15:04:05")
 	}
 	d.AIView.SetTitle(fmt.Sprintf(" [purple]AI Insights | [red]Last Err: %s [yellow]Last Warn: %s ", lastError, lastWarn))
+}
+
+// Helper func
+func truncate(s string, l int) string {
+	if len(s) > l {
+		return s[:l-3] + "..."
+	}
+	return s
 }
 
 // Helper visual func!
@@ -499,6 +606,7 @@ func (d *Dashboard) GetSummaryForAI(snap model.Snapshot) (errors string, warns s
 	return errB.String(), warnB.String()
 }
 
+// Helper func to get color
 func (d *Dashboard) getColor(level string) string {
 	switch level {
 	case "ERROR":
@@ -512,4 +620,102 @@ func (d *Dashboard) getColor(level string) string {
 	default:
 		return "white"
 	}
+}
+
+// Helper to make top10 err/warn clickable with popup detailed box!
+func (d *Dashboard) ShowInspector(title, content string) {
+	textView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetText("\n " + content)
+
+	// Helper to update the title based on scroll position
+	updatePopupTitle := func() {
+		offset, _ := textView.GetScrollOffset()
+		_, _, _, rectHeight := textView.GetInnerRect()
+
+		// Count total lines in content
+		lines := strings.Split(content, "\n")
+		totalLines := len(lines)
+
+		if totalLines > rectHeight {
+			maxScroll := totalLines - rectHeight
+			percent := (float64(offset) / float64(maxScroll)) * 100
+			if percent > 100 {
+				percent = 100
+			}
+
+			textView.SetTitle(fmt.Sprintf(" %s [white]| %d%% ", title, int(percent)))
+		} else {
+			textView.SetTitle(fmt.Sprintf(" %s [white]| TOP ", title))
+		}
+	}
+
+	// Initial title set
+	updatePopupTitle()
+	textView.SetBorder(true)
+
+	// --- DRAGGABLE LOGIC ---
+	var isDraggingInspector bool
+	textView.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+		x, y := event.Position()
+		rectX, rectY, rectWidth, rectHeight := textView.GetInnerRect()
+		scrollbarX := rectX + rectWidth - 1
+		leftPressed := event.Buttons()&tcell.Button1 != 0
+
+		if leftPressed {
+			if x >= scrollbarX-1 || isDraggingInspector {
+				isDraggingInspector = true
+				relativeY := float64(y - rectY)
+				percentage := relativeY / float64(rectHeight)
+
+				if percentage < 0 {
+					percentage = 0
+				}
+				if percentage > 1 {
+					percentage = 1
+				}
+
+				totalLines := strings.Count(textView.GetText(false), "\n")
+				targetLine := int(percentage * float64(totalLines))
+
+				textView.ScrollTo(targetLine, 0)
+
+				// Update title while dragging
+				updatePopupTitle()
+				return action, nil
+			}
+		} else {
+			isDraggingInspector = false
+		}
+
+		// Also update title with mouse wheel
+		if action == tview.MouseScrollUp || action == tview.MouseScrollDown {
+			// Let the default scroll happen first, then update title
+			defer updatePopupTitle()
+		}
+
+		return action, event
+	})
+
+	// Layout and Page logic
+	modal := tview.NewFlex().
+		AddItem(nil, 0, 1, false).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(nil, 0, 1, false).
+			AddItem(textView, 0, 4, true).
+			AddItem(nil, 0, 1, false), 100, 1, true).
+		AddItem(nil, 0, 1, false)
+
+	d.Pages.AddPage("inspector", modal, true, true)
+	d.App.SetFocus(textView)
+
+	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEsc || event.Rune() == 'q' {
+			d.Pages.RemovePage("inspector")
+			d.App.SetFocus(d.TopErrorsView)
+			return nil
+		}
+		return event
+	})
 }
