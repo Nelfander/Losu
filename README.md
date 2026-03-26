@@ -66,7 +66,7 @@ Losu operates as a high-throughput pipeline designed to bridge the gap between "
 4. **Reactive TUI**: Built with `tview`, the interface provides a real-time dashboard with interactive search filtering, mouse support, and a dynamic sparkline graph for throughput visualization.
 ## 🚀 Performance & Stress Testing
 
-LOSU is engineered for high-throughput production environments where resource overhead is a deal-breaker. The following metrics were captured during a 24-hour continuous high-velocity stress test.
+LOSU is engineered for high-throughput production environments where resource overhead is a deal-breaker. The following metrics were captured during a continuous high-velocity stress test.
 
 ### 📊 5,000,000+ Log Benchmark (v1.0 Stable)
 * **Total Logs Processed**: 5,042,578 (and climbing)
@@ -176,7 +176,7 @@ Create a `.env` file in the root directory(Check .env.example):
 
 
 ### 5. ▹Run the app 
-<details><summary><b>Normal GO way!</b>(Click to expand)</summary>
+<details><summary><b>Windows way!</b>(Click to expand)</summary>
 -Run with default INFO filter
 
 ```bash
@@ -269,14 +269,9 @@ Production logs are messy. LOSU protects itself from oversized log entries (like
 * **Proactive Capacity Priming**: Implemented a `Cap()`-check and `Grow(150000)` logic to pre-allocate memory for the 1,500-line UI viewport. This "warms up" the heap during initialization, ensuring zero OS-level memory requests during high-velocity rendering frames.
 * **Atomic `SetText` Migration**: Finalized the transition to a single-pass rendering model. By constructing the entire dashboard view in a private buffer and pushing it via a single atomic call, we eliminated the "ANSI Fragmentation" (Symbol Wall) that previously occurred during concurrent `Fprint` operations.
 
-#### Phase 2: The "Log-Bomb" Shield & Truncation Logic
-* **Two-Tier Character Clamping**: Engineered a safety-gate for oversized log entries (e.g., base64 dumps or 50KB JSON blobs). 
-    * **List View**: Hard-clamped at 1,000 characters to maintain TUI scroll performance.
-    * **Inspector View**: Soft-clamped at 5,000 characters to provide deep-dive visibility without choking the terminal emulator's word-wrap engine.
-* **Truncation-Aware Escaping**: Optimized the `tview.Escape` sequence by truncating raw strings **before** the escaping pass. This prevents $O(N)$ CPU spikes on malformed logs and ensures the "Log-Bomb" shield remains effective even under active "Denial of Service" style logging conditions.
 * **Manual Cache Slicing**: Replaced the expensive `Clear()`/`Fprint` loop with a direct slice-trimming operation on `FilteredLogs`. By managing the internal cache with simple pointer arithmetic, the UI-thread latency remains sub-1ms regardless of the total logs processed.
 
-#### Phase 3: 5,000,000+ Log Endurance Benchmark
+#### Phase 2: 5,000,000+ Log Endurance Benchmark
 * **State-Independent Memory Profile**: Successfully validated a **5,042,578 log stress test** with a sustained throughput of 1,200+ EPS. The application demonstrated a "Flat-Line" memory profile, plateauing at **~25.8MB RSS** and remaining there for the duration of the 5M+ run.
 * **Steady-State Verification**: Confirmed via `pprof` that `NewAggregator` and `Snapshot` allocations remain stationary. This proves that the **Cardinality Guard** and **Fixed-Cap History** logic are effectively containing data growth, making the app safe for 24/7 production monitoring.
 * **Burst Resilience Testing**: Subjected the engine to a 90% error-rate "Storm Simulation" while simultaneously dropping 50KB "Log-Bombs." The system maintained UI responsiveness and correctly identified the primary incident via AI Insights without exceeding the 30MB RAM threshold.
