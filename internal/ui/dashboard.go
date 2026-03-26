@@ -26,6 +26,9 @@ type Dashboard struct {
 	LastHistoryLen   int
 	LastSearchFilter string
 	FilteredLogs     []string // Cache of logs that matched the current filter
+	isDragging       bool
+	isAutoScroll     bool
+	renderBuf        strings.Builder
 }
 
 func NewDashboard() *Dashboard {
@@ -112,8 +115,6 @@ func NewDashboard() *Dashboard {
 	dashboard.SearchInput = searchInput
 
 	// --- THE UNIVERSAL DRAGGABLE LOGIC ---
-	var isDragging bool
-
 	logs.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
 		x, y := event.Position()
 		rectX, rectY, rectWidth, rectHeight := logs.GetInnerRect()
@@ -127,8 +128,8 @@ func NewDashboard() *Dashboard {
 
 		if leftPressed {
 			// If they just clicked the scrollbar OR they are already dragging
-			if x >= scrollbarX-1 || isDragging {
-				isDragging = true
+			if x >= scrollbarX-1 || dashboard.isDragging {
+				dashboard.isDragging = true
 
 				// Calculate percentage (0.0 at top, 1.0 at bottom)
 				relativeY := float64(y - rectY)
@@ -147,13 +148,16 @@ func NewDashboard() *Dashboard {
 
 				logs.ScrollTo(targetLine, 0)
 
+				// If dragged to the very bottom, re-enable auto-scroll
+				dashboard.isAutoScroll = (percentage >= 0.95)
+
 				// Return nil for the event so tview doesn't try to
 				// highlight text while dragging the bar
 				return action, nil
 			}
 		} else {
 			// Button is released
-			isDragging = false
+			dashboard.isDragging = false
 		}
 
 		return action, event
@@ -417,6 +421,8 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 		d.FilteredLogs = d.FilteredLogs[:0]
 		d.LastHistoryLen = 0
 		d.LastSearchFilter = d.SearchFilter
+		d.LogView.Clear()
+		d.isAutoScroll = true // Reset auto-scroll when starting a new search
 	}
 
 	if len(snap.History) > d.LastHistoryLen {
@@ -426,12 +432,23 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 		for i := d.LastHistoryLen; i < len(snap.History); i++ {
 			event := snap.History[i]
 
-			if filterLower == "" || strings.Contains(strings.ToLower(event.Message), filterLower) {
+			// We search BOTH the level and the message now for better effectiveness
+			match := filterLower == "" ||
+				strings.Contains(strings.ToLower(event.Message), filterLower) ||
+				strings.Contains(strings.ToLower(event.Level), filterLower)
+
+			if match {
+				// --- PROTECTIVE CLAMP ---
+				displayMsg := event.Message
+				if len(displayMsg) > 1000 {
+					displayMsg = displayMsg[:1000] + "... [TRUNCATED]"
+				}
+
 				line := fmt.Sprintf("[%s][%s] %-5s -> [-]%s\n",
 					d.getColor(event.Level),
 					event.Timestamp.Format("15:04:05"),
 					event.Level,
-					tview.Escape(event.Message))
+					tview.Escape(displayMsg))
 
 				uiBatch.WriteString(line)
 				d.FilteredLogs = append(d.FilteredLogs, line)
@@ -440,31 +457,26 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 
 		if uiBatch.Len() > 0 {
 			fmt.Fprint(d.LogView, uiBatch.String())
+
+			// Only scroll if we are in "AutoScroll" mode and NOT dragging
+			if d.isAutoScroll && !d.isDragging {
+				d.LogView.ScrollToEnd()
+			}
 		}
 
 		d.LastHistoryLen = len(snap.History)
 	}
 
 	// === CRITICAL: Force hard trim to prevent buffer explosion and garbage ===
-	const maxVisibleLines = 1500
 
-	if len(d.FilteredLogs) > maxVisibleLines+500 {
-		// Keep only the newest lines
-		start := len(d.FilteredLogs) - maxVisibleLines
-		if start < 0 {
-			start = 0
-		}
-
-		d.LogView.Clear() // fastest way to reset internal buffer
-
-		for _, line := range d.FilteredLogs[start:] {
-			fmt.Fprint(d.LogView, line)
-		}
-
-		d.FilteredLogs = d.FilteredLogs[start:] // trim cache too
+	// Keep the internal cache healthy (e.g., maxVisibleLines = 1500)
+	if len(d.FilteredLogs) > 2000 {
+		// Just slice the data. No Clear(), no Fprint() here.
+		// We let the final SetText() handle the visual update.
+		d.FilteredLogs = d.FilteredLogs[len(d.FilteredLogs)-1500:]
 	}
-	d.LogView.SetText(d.LogView.GetText(false)) // forces full re-render (slow but cleans artifacts)
-	d.LogView.ScrollToEnd()
+	//d.LogView.SetText(d.LogView.GetText(false)) // forces full re-render (slow but cleans artifacts)
+	//d.LogView.ScrollToEnd()
 
 	//  --- SCROLL FEEDBACK ---
 	matchCount := len(d.FilteredLogs)
@@ -496,6 +508,27 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 		lastWarn = snap.LastWarnTime.Format("15:04:05")
 	}
 	d.AIView.SetTitle(fmt.Sprintf(" [purple]AI Insights | [red]Last Err: %s [yellow]Last Warn: %s ", lastError, lastWarn))
+
+	// === FINAL RENDERING STEP (Optimized) ===
+	d.LogView.Clear()
+
+	d.renderBuf.Reset() // Clear the persistent buffer without deallocating memory
+
+	// Pre-allocate  (approx 100 chars per line * 1500 lines)
+	if d.renderBuf.Cap() < 150000 {
+		d.renderBuf.Grow(150000)
+	}
+
+	for _, line := range d.FilteredLogs {
+		d.renderBuf.WriteString(line)
+	}
+
+	// SetText from the persistent buffer
+	d.LogView.SetText(d.renderBuf.String())
+
+	if d.isAutoScroll && !d.isDragging {
+		d.LogView.ScrollToEnd()
+	}
 }
 
 // Helper func
@@ -624,22 +657,39 @@ func (d *Dashboard) getColor(level string) string {
 
 // Helper to make top10 err/warn clickable with popup detailed box!
 func (d *Dashboard) ShowInspector(title, content string) {
+	// --- SAFETY TRUNCATION ---
+	// We allow a larger buffer for the detail view (5000 chars) than the main list (1000 chars).
+	// This prevents the TUI from lagging when rendering "Log Bombs" or massive JSON blobs.
+	maxDetailLength := 5000
+	safeContent := content
+	if len(content) > maxDetailLength {
+		safeContent = content[:maxDetailLength] +
+			"\n\n[yellow][!!! MESSAGE TRUNCATED FOR UI PERFORMANCE !!!][-]" +
+			"\n[white]The full raw log remains safely in your log file on disk.[-]"
+	}
+
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
-		SetText("\n " + content)
+		SetWrap(true). // Ensure text wraps so giant lines don't disappear off-screen
+		SetText("\n " + safeContent)
 
 	// Helper to update the title based on scroll position
 	updatePopupTitle := func() {
 		offset, _ := textView.GetScrollOffset()
 		_, _, _, rectHeight := textView.GetInnerRect()
 
-		// Count total lines in content
-		lines := strings.Split(content, "\n")
+		// Count total lines in the SAFE content
+		lines := strings.Split(safeContent, "\n")
 		totalLines := len(lines)
 
 		if totalLines > rectHeight {
 			maxScroll := totalLines - rectHeight
+			if maxScroll <= 0 {
+				textView.SetTitle(fmt.Sprintf(" %s [white]| TOP ", title))
+				return
+			}
+
 			percent := (float64(offset) / float64(maxScroll)) * 100
 			if percent > 100 {
 				percent = 100
@@ -676,6 +726,7 @@ func (d *Dashboard) ShowInspector(title, content string) {
 					percentage = 1
 				}
 
+				// Calculate lines from the actual rendered text
 				totalLines := strings.Count(textView.GetText(false), "\n")
 				targetLine := int(percentage * float64(totalLines))
 
