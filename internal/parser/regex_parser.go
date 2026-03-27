@@ -55,6 +55,7 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 		return model.LogEvent{Level: "IGNORE", Message: ""}
 	}
 
+	// --- Optimization ---
 	// If the line looks like logfmt (contains level= and msg=), we extract them manually.
 	// This avoids the overhead of the Regex engine entirely for standard logs.
 	lvlIdx := strings.Index(line, "level=")
@@ -92,7 +93,7 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 			}
 		}
 
-		// 3. RECONSTRUCT THE FULL ANALYTIC MESSAGE
+		// RECONSTRUCT THE FULL ANALYTIC MESSAGE
 		// Take the primary message and append any "remaining" key-value pairs
 		finalMessage := msgFull
 		if strings.TrimSpace(remaining) != "" {
@@ -157,15 +158,15 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 
 // Helper to handle multiple time formats
 func parseFlexibleTime(raw string) time.Time {
-	// Try ISO8601 (2026-03-08T15:20:45Z)
+	// ISO8601 (2026-03-08T15:20:45Z)
 	if t, err := time.Parse(time.RFC3339Nano, raw); err == nil {
 		return t
 	}
-	// Try RFC3339 without Nano
+	//  RFC3339 without Nano
 	if t, err := time.Parse(time.RFC3339, raw); err == nil {
 		return t
 	}
-	// Try Standard Space (2026-03-08 15:04:05)
+	// Standard Space (2026-03-08 15:04:05)
 	if t, err := time.Parse("2006-01-02 15:04:05", raw); err == nil {
 		return t
 	}

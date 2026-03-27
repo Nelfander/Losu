@@ -43,6 +43,16 @@ If a local Ollama instance is available:
 
 When AI is unavailable → falls back gracefully to statistical summaries.
 
+### Forensic Incident Guard 
+LOSU acts as an automated SRE that never sleeps. When a system-wide anomaly is detected, it freezes the state for post-mortem analysis.
+
+- **Automated Anomaly Snapshots**: Detects 3x traffic spikes or ERROR storms and immediately dumps a "Forensic JSON" to disk.
+- **Crime Scene Context**: Each report captures 30,000 lines of data, including:
+    - `signal_history`: A filtered view of the exact errors that triggered the spike.
+    - `full_context`: The raw system state leading up to the crash.
+    - `hourly_trend`: Statistical metadata for long-term trend analysis.
+- **Non-Blocking I/O**: Snapshots are serialized and written in a background goroutine, ensuring zero impact on your monitoring latency.
+
 ### Alerting
 - **Desktop** — native OS notifications (`beeep`)
 - **Mobile** — instant push via `ntfy.sh` (no account needed)
@@ -64,6 +74,8 @@ Losu operates as a high-throughput pipeline designed to bridge the gap between "
 2. **State Aggregation**: The `Aggregator` maintains a thread-safe global state, calculating Errors Per Second (EPS) and clustering similar log patterns via cryptographic-style fingerprinting.
 3. **Asynchronous Analysis**: A dedicated `Observer` routine periodically snapshots the aggregator state and prompts a local **Ollama** instance to perform root-cause analysis without blocking the UI.
 4. **Reactive TUI**: Built with `tview`, the interface provides a real-time dashboard with interactive search filtering, mouse support, and a dynamic sparkline graph for throughput visualization.
+5. **Incident Orchestration**: A background "Observer" monitors the Delta between the rolling hourly average and current EPS. If a threshold is crossed, it triggers a `sync.WaitGroup`-protected writer that flushes a forensic snapshot to disk, ensuring data integrity even during a forced shutdown.
+
 ## 🚀 Performance & Stress Testing
 
 LOSU is engineered for high-throughput production environments where resource overhead is a deal-breaker. The following metrics were captured during a continuous high-velocity stress test.
@@ -229,37 +241,93 @@ make test-stress
 
 ---
 
+## 🏗️ Internal Architecture
+
+LOSU is designed as a decoupled, concurrent data pipeline. Each component is isolated to ensure high throughput and memory stability.
+
+| Component | Package | Responsibility |
+| :--- | :--- | :--- |
+| **The Watcher** | `/internal/watcher` | **Signal**: Low-level FS events via `fsnotify`. |
+| **The Tailer** | `/internal/tailer` | **I/O**: Streams raw bytes from disk into the pipeline. |
+| **The Pipeline** | `/internal/pipeline` | **Concurrency**: A worker pool that parallelizes log processing. |
+| **The Parser** | `/internal/parser` | **Transformation**: Translates raw strings into structured `LogEvent` objects. |
+| **The Aggregator** | `/internal/aggregator` | **State**: Tracks real-time metrics, trends, and error cardinality. |
+| **The UI** | `/internal/ui` | **Visualization**: A high-performance TUI with atomic buffer rendering. |
+| **The AI** | `/internal/ai` | **Intelligence**: Automated incident analysis via local LLM integration. |
+| **The Alerts** | `/internal/alerts` | **Notification**: Rate-limited alerting via Desktop, Mobile (ntfy), or Audio. |
+
+### 🔄 The Data Flow
+1. **Ingest**: `Watcher` signals the `Tailer` to read new bytes.
+2. **Process**: `Pipeline` fans out raw lines to multiple `Parser` workers.
+3. **Analyze**: `Aggregator` updates the global state with structured data.
+4. **Render**: `UI` pulls a point-in-time snapshot for flicker-free display.
+
+---
+
 ## 🏗️ Architecture & Performance Design
 
-LOSU is built on the principle of **State-Independent Resource Usage**. Unlike traditional log viewers that grow in memory as logs accumulate, LOSU maintains a "Flat-Line" profile through four core architectural pillars:
+LOSU is engineered for high-throughput environments using a decoupled, concurrent data pipeline and a "Flat-Line" memory profile.
 
-### 1. Persistent Buffer Pooling
+### 1. System Topology & Responsibilities
+The application is divided into specialized modules to ensure a clear **Separation of Concerns**.
+
+| Component | Package | Responsibility |
+| :--- | :--- | :--- |
+| **The Watcher** | `/internal/watcher` | **Signal**: Monitors file changes via `fsnotify` and emits non-blocking update signals. |
+| **The Tailer** | `/internal/tailer` | **I/O**: Reacts to signals to stream newly added raw bytes into a results channel. |
+| **The Pipeline** | `/internal/pipeline` | **Concurrency**: A worker pool that parallelizes parsing across multiple goroutines. |
+| **The Parser** | `/internal/parser` | **Transformation**: Detects formats (logfmt, bracketed, etc.) and translates raw lines into structured `LogEvent` objects. |
+| **The Aggregator** | `/internal/aggregator` | **State**: A stateful engine that builds real-time metrics, trends, and error cardinality. Also triggers forensic snapshots via sync.WaitGroup |
+| **The UI** | `/internal/ui` | **Visualization**: A high-performance TUI utilizing atomic buffer rendering for flicker-free display. |
+| **The AI** | `/internal/ai` | **Intelligence**: Automated incident analysis and SRE-style reporting via local LLM integration. |
+| **The Alerts** | `/internal/alerts` | **Notification**: Rate-limited alerting via Desktop, Mobile (ntfy), or Audio notifications. |
+
+### 2. Core Engineering Pillars
+Our architecture maintains **State-Independent Resource Usage**, ensuring stability regardless of log volume or uptime.
+
+#### 🔍 Tiered History Strategy
+To balance "Deep Forensics" with "Low RAM," LOSU utilizes a three-tier memory architecture:
+* **Tier 1 (UI)**: A 1,500-line virtualized window for real-time rendering.
+* **Tier 2 (Forensics)**: A 50,000-line circular buffer for on-demand incident reports.
+* **Tier 3 (Signals)**: A dedicated 10,000-line high-priority buffer that isolates WARNINGS and ERRORS from the background "INFO" noise.
+
+#### ⚡ Persistent Buffer Pooling
 To eliminate the overhead of Go's Garbage Collector (GC), the UI does not create new strings for every frame. 
 * **The Tech**: Uses a persistent `strings.Builder` with `Reset()` and `Grow()`.
 * **The Result**: Memory is recycled instead of re-allocated, dropping UI churn by ~60% in high-velocity environments.
 
-### 2. Atomic Viewport Rendering
+#### 🧊 Atomic Viewport Rendering
 Traditional TUI updates often suffer from "Screen Tearing" or "ANSI Fragmentation" when processing thousands of updates per second.
 * **The Tech**: LOSU utilizes a double-buffered rendering approach, where a full frame is constructed in memory and pushed to the terminal in a single `SetText` operation.
 * **The Result**: 100% flicker-free UI and zero "Symbol Wall" artifacts, even during 50KB+ log bursts.
 
-### 3. Hard-Capped Cardinality
+#### 🛡️ Hard-Capped Cardinality & History
 The internal Aggregator uses a "Guard Rail" system to prevent memory leaks from unique log messages.
 * **The Tech**: 
     * **Message Tracking**: Top-10 lists are limited to the most frequent occurrences.
     * **Log History**: The internal cache is hard-trimmed to the latest 1,500 visible lines.
 * **The Result**: RAM usage stays under 30MB whether you have processed 1,000 logs or 10,000,000 logs.
 
-### 4. Malformed Log Protection (The "Log-Bomb" Shield)
-Production logs are messy. LOSU protects itself from oversized log entries (like base64 dumps or giant JSON blobs).
-* **The Tech**: Two-tier truncation (1,000 chars for list view, 5,000 chars for detail view).
-* **The Result**: Prevents the Terminal Emulator from hanging while trying to wrap astronomical line lengths.
-
 
 ---
 
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
+
+<details>
+<summary><b>March 27, 2026: The "SRE-Brain" & Forensic Incident Guard</b> (Click to expand)</summary>
+
+#### Phase 1: Tiered Forensic History & Signal Isolation
+* **Multilayered Context Strategy**: Re-engineered the Aggregator to maintain three distinct temporal buffers. By separating the **UI History** (50k lines), **Signal History** (10k Warning/Error-only lines), and **Hourly Trend Metadata**, the system now provides deep-dive forensics without polluting the real-time dashboard.
+* **Deterministic Fingerprinting & Cardinality Guard**: Optimized the clustering logic to strip variable data (Hex addresses, IDs) via pre-compiled regex. Implemented a **10,000-Unique-Pattern Ceiling** to prevent heap-bloat from "unbounded map growth," ensuring the memory profile remains flat even during high-cardinality log storms.
+* **Refined Anomaly Detection Logic**: Developed a dual-trigger mechanism that monitors **Total Traffic EPS** vs. **Error EPS**. By comparing current throughput against a 1-hour rolling average, the engine can now autonomously distinguish between "Expected Noise" and a genuine **3x Traffic Spike**.
+
+#### Phase 2: Async Incident Guard & Graceful State Persistence
+* **Non-Blocking Forensic Snapshots**: Offloaded heavy JSON serialization and disk I/O to a background worker pattern. Utilizing `bufio.Writer` and manual JSON construction, the system now captures a **30,000-line "Crime Scene"** during anomalies with zero impact on the primary ingestion pipeline latency.
+* **Atomic WaitGroup Synchronization**: Integrated `sync.WaitGroup` into the Aggregator’s lifecycle. This ensures that in-flight incident reports are fully flushed to disk during a shutdown signal, preventing the "Zero-Byte Corruption" typical of CLI tools that exit mid-I/O.
+* **Validation & Stress Benchmark**: Successfully verified the trigger via a simulated **200 EPS Log Storm**. Confirmed the generation of `incident_YYYY-MM-DD.json` containing synchronized `signal_history` (error context) and `full_context` (system state), validating the "SRE-Approved" safety net.
+
+</details>
 
 <details>
 <summary><b>March 26, 2026: The 5M Log Milestone & Atomic Buffer Pooling</b> (Click to expand)</summary>

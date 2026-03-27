@@ -47,7 +47,7 @@ func (t *Tailer) Run(ctx context.Context, changes <-chan struct{}) error {
 				return nil
 			}
 
-			// GREEDY READ: Don't stop at 100. Read until the file is empty (EOF).
+			//  Read until the file is empty (EOF).
 			for {
 				line, err := reader.ReadString('\n')
 
@@ -62,8 +62,8 @@ func (t *Tailer) Run(ctx context.Context, changes <-chan struct{}) error {
 
 				if err != nil {
 					if err == io.EOF {
-						// We finally caught up to the generator.
-						// Now we can go back to sleep and wait for the next signal.
+						// Caught up to the generator, now
+						// go back to sleep and wait for the next signal :P
 						break
 					}
 					return err
