@@ -64,6 +64,6 @@ func main() {
 		}
 
 		// 1ms = 1,000 EPS (Events Per Second)
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 	}
 }

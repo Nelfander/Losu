@@ -6,7 +6,7 @@ type MessageStat struct {
 	Count         int
 	Level         string
 	VariantCounts map[string]int
-	Timestamps    []time.Time // NEW: Store the last 50-100 timestamps for the detail view
+	Timestamps    []time.Time // Store the last 50-100 timestamps for the detail view
 }
 
 // RawLog is what the Tailer sends to the Parser

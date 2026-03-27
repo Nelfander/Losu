@@ -438,17 +438,11 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 				strings.Contains(strings.ToLower(event.Level), filterLower)
 
 			if match {
-				// --- PROTECTIVE CLAMP ---
-				displayMsg := event.Message
-				if len(displayMsg) > 1000 {
-					displayMsg = displayMsg[:1000] + "... [TRUNCATED]"
-				}
-
 				line := fmt.Sprintf("[%s][%s] %-5s -> [-]%s\n",
 					d.getColor(event.Level),
 					event.Timestamp.Format("15:04:05"),
 					event.Level,
-					tview.Escape(displayMsg))
+					tview.Escape(event.Message))
 
 				uiBatch.WriteString(line)
 				d.FilteredLogs = append(d.FilteredLogs, line)
@@ -468,12 +462,22 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 	}
 
 	// === CRITICAL: Force hard trim to prevent buffer explosion and garbage ===
+	const maxVisibleLines = 1500
 
-	// Keep the internal cache healthy (e.g., maxVisibleLines = 1500)
-	if len(d.FilteredLogs) > 2000 {
-		// Just slice the data. No Clear(), no Fprint() here.
-		// We let the final SetText() handle the visual update.
-		d.FilteredLogs = d.FilteredLogs[len(d.FilteredLogs)-1500:]
+	if len(d.FilteredLogs) > maxVisibleLines+500 {
+		// Keep only the newest lines
+		start := len(d.FilteredLogs) - maxVisibleLines
+		if start < 0 {
+			start = 0
+		}
+
+		d.LogView.Clear() // fastest way to reset internal buffer
+
+		for _, line := range d.FilteredLogs[start:] {
+			fmt.Fprint(d.LogView, line)
+		}
+
+		d.FilteredLogs = d.FilteredLogs[start:] // trim cache too
 	}
 	//d.LogView.SetText(d.LogView.GetText(false)) // forces full re-render (slow but cleans artifacts)
 	//d.LogView.ScrollToEnd()
@@ -514,7 +518,7 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 
 	d.renderBuf.Reset() // Clear the persistent buffer without deallocating memory
 
-	// Pre-allocate  (approx 100 chars per line * 1500 lines)
+	// Pre-allocate know the size (approx 100 chars per line * 1500 lines)
 	if d.renderBuf.Cap() < 150000 {
 		d.renderBuf.Grow(150000)
 	}
@@ -578,6 +582,7 @@ func getSparkline(data []int, height int) string {
 }
 
 // getStatusLabel provides a readable health status based on combined ERROR/WARN throughput
+// Should be changed accoring the app that implements Losu
 func getStatusLabel(eps float64) string {
 	switch {
 	case eps < 0.01:
@@ -657,39 +662,22 @@ func (d *Dashboard) getColor(level string) string {
 
 // Helper to make top10 err/warn clickable with popup detailed box!
 func (d *Dashboard) ShowInspector(title, content string) {
-	// --- SAFETY TRUNCATION ---
-	// We allow a larger buffer for the detail view (5000 chars) than the main list (1000 chars).
-	// This prevents the TUI from lagging when rendering "Log Bombs" or massive JSON blobs.
-	maxDetailLength := 5000
-	safeContent := content
-	if len(content) > maxDetailLength {
-		safeContent = content[:maxDetailLength] +
-			"\n\n[yellow][!!! MESSAGE TRUNCATED FOR UI PERFORMANCE !!!][-]" +
-			"\n[white]The full raw log remains safely in your log file on disk.[-]"
-	}
-
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
-		SetWrap(true). // Ensure text wraps so giant lines don't disappear off-screen
-		SetText("\n " + safeContent)
+		SetText("\n " + content)
 
 	// Helper to update the title based on scroll position
 	updatePopupTitle := func() {
 		offset, _ := textView.GetScrollOffset()
 		_, _, _, rectHeight := textView.GetInnerRect()
 
-		// Count total lines in the SAFE content
-		lines := strings.Split(safeContent, "\n")
+		// Count total lines in content
+		lines := strings.Split(content, "\n")
 		totalLines := len(lines)
 
 		if totalLines > rectHeight {
 			maxScroll := totalLines - rectHeight
-			if maxScroll <= 0 {
-				textView.SetTitle(fmt.Sprintf(" %s [white]| TOP ", title))
-				return
-			}
-
 			percent := (float64(offset) / float64(maxScroll)) * 100
 			if percent > 100 {
 				percent = 100
@@ -726,7 +714,6 @@ func (d *Dashboard) ShowInspector(title, content string) {
 					percentage = 1
 				}
 
-				// Calculate lines from the actual rendered text
 				totalLines := strings.Count(textView.GetText(false), "\n")
 				targetLine := int(percentage * float64(totalLines))
 

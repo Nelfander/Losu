@@ -34,10 +34,11 @@ type Aggregator struct {
 	history       []model.LogEvent // Used for "Latest Logs"
 	signalHistory []model.LogEvent // This bucket only moves for WARN/ERROR logs
 
-	CurrentSecCount      int   // Tracks logs in the CURRENT 1-second window
-	IncidentSecCount     int   // For the Total Traffic/Incident Report
-	TrendHistory         []int // Stores the last 50 snapshots of CurrentSecCount for UI Graph
-	IncidentTrendHistory []int // Exactly 3,600 points (1hr) for Incident Reports
+	CurrentSecCount      int       // Tracks logs in the CURRENT 1-second window
+	IncidentSecCount     int       // For the Total Traffic/Incident Report
+	TrendHistory         []int     // Stores the last 50 snapshots of CurrentSecCount for UI Graph
+	IncidentTrendHistory []int     // Exactly 3,600 points (1hr) for Incident Reports
+	lastPush             time.Time // Tracks time from last push
 
 	// --- State Management ---
 	RecentMessages map[string]*model.MessageStat // clears everytime AI succesfully reads it
@@ -59,7 +60,7 @@ type Aggregator struct {
 }
 
 func NewAggregator() *Aggregator {
-	return &Aggregator{
+	a := &Aggregator{
 		ErrorCounts:          make(map[string]int),
 		MessageCounts:        make(map[string]model.MessageStat),
 		history:              make([]model.LogEvent, 0, maxHistory),
@@ -74,6 +75,18 @@ func NewAggregator() *Aggregator {
 		}),
 		HourlyStartTime: time.Now(),
 	}
+
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			a.PushTrend()
+		}
+	}()
+
+	return a
+
 }
 
 // Update processes a single log event into the global state
@@ -86,7 +99,7 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 	}
 
 	// ALWAYS update counts - numbers must be accurate
-	a.IncidentSecCount++
+
 	a.TotalLines++
 	a.ErrorCounts[event.Level]++
 
@@ -129,11 +142,15 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 	if event.Level == "ERROR" || event.Level == "WARN" {
 		pattern := fingerprint(event.Message)
 
+		// Update graph counter
+		a.CurrentSecCount++
+		a.IncidentSecCount++
+
 		//  Safety Check: Don't grow the map forever
 		_, exists := a.MessageCounts[pattern]
 		if !exists && len(a.MessageCounts) > 10000 {
 			// Stop tracking new unique patterns but still make the graph to move
-			a.CurrentSecCount++
+
 		} else {
 
 			// Update Global MessageCounts (For the UI Top 10)
@@ -167,8 +184,6 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 			recentStat.Count++
 			recentStat.VariantCounts[event.Message]++
 
-			// Update Graph counter
-			a.CurrentSecCount++
 		}
 	}
 
@@ -296,23 +311,39 @@ func (a *Aggregator) PushTrend() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if float64(a.IncidentSecCount) > a.PeakEPS {
-		a.PeakEPS = float64(a.IncidentSecCount)
+	now := time.Now()
+	if a.lastPush.IsZero() {
+		a.lastPush = now
+		return
 	}
 
-	// UI Graph: Error/Warn only
-	a.TrendHistory = append(a.TrendHistory, a.CurrentSecCount)
-	if len(a.TrendHistory) > 50 {
+	elapsed := now.Sub(a.lastPush).Seconds()
+	if elapsed <= 0 {
+		elapsed = 1.0
+	}
+
+	// This is now "Error/Warn Per Second" because IncidentSecCount
+	// is only incremented for Errors/Warns in Update()
+	currentErrorEPS := float64(a.IncidentSecCount) / elapsed
+
+	// Update Peak
+	if currentErrorEPS > a.PeakEPS {
+		a.PeakEPS = currentErrorEPS
+	}
+
+	// Update UI Graph (Normalized for time)
+	a.TrendHistory = append(a.TrendHistory, int(currentErrorEPS))
+	if len(a.TrendHistory) > 60 { // Adjusted to 60 for your 1m window
 		a.TrendHistory = a.TrendHistory[1:]
 	}
 
-	// Forensic History: Total Traffic
-	a.IncidentTrendHistory = append(a.IncidentTrendHistory, a.IncidentSecCount)
+	// Forensic History (Also Error/Warn EPS)
+	a.IncidentTrendHistory = append(a.IncidentTrendHistory, int(currentErrorEPS))
 	if len(a.IncidentTrendHistory) > 3600 {
 		a.IncidentTrendHistory = a.IncidentTrendHistory[1:]
 	}
 
-	// Reset both
+	a.lastPush = now
 	a.CurrentSecCount = 0
 	a.IncidentSecCount = 0
 }
@@ -470,32 +501,26 @@ func (a *Aggregator) TriggerIncidentReport(reason string) {
 	}(fullContextCopy, signalHistoryCopy, trendCopy, reason, peak, total)
 }
 
+// When a report should be triggered.
+// Times must be changed depending on the app
+// Losu runs
 func (a *Aggregator) shouldTriggerReport(level string) bool {
-	// Cooldown 5-minute window
 	if time.Since(a.LastReportTime) < 5*time.Minute {
 		return false
 	}
-
-	// Immediate Triggers
 	if level == "FATAL" || level == "CRITICAL" {
 		return true
 	}
 
-	// Anomaly Detection (EPS Spike)
-	// We check against the TOTAL traffic (IncidentSecCount)
-	// vs the historical average.
-	if len(a.IncidentTrendHistory) > 30 {
+	if len(a.TrendHistory) > 0 {
 		avg := a.getAverageEPS()
-		current := float64(a.IncidentSecCount)
+		// Check the most recent completed second in the trend
+		lastFullSec := float64(a.TrendHistory[len(a.TrendHistory)-1])
 
-		// Trigger if:
-		// a) Current Total EPS > 20 (ignore tiny blips)
-		// b) Current Total EPS is 3x higher than the last hour's average
-		if current > 20 && current > (avg*3) {
+		if lastFullSec > 10 && lastFullSec > (avg*3) {
 			return true
 		}
 	}
-
 	return false
 }
 
