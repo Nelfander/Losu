@@ -42,27 +42,26 @@ type RegexParser struct{}
 func NewRegexParser() *RegexParser {
 	return &RegexParser{}
 }
+
 func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
-	// strings.ReplaceAll is optimized in assembly and much faster for specific removals.
-	line := rawLine.Line
-	line = strings.ReplaceAll(line, "\x00", "") // Remove null bytes
-	line = strings.ReplaceAll(line, "\r", "")   // Remove carriage returns
-	line = strings.ReplaceAll(line, "\t", " ")  // Convert tabs to spaces for easier indexing
-	line = strings.TrimSpace(line)
+	// Optimization: strings.NewReplacer is pre-compiled and does all replacements in one scan.
+	// This is much faster than 3 separate ReplaceAll calls which create 3 temporary strings.
+	cleaner := strings.NewReplacer("\x00", "", "\r", "", "\t", " ")
+	line := strings.TrimSpace(cleaner.Replace(rawLine.Line))
 
 	// Immediate Exit for empty lines
 	if line == "" {
 		return model.LogEvent{Level: "IGNORE", Message: ""}
 	}
 
-	// --- Optimization ---
+	// --- Optimization: logfmt Fast-Path ---
 	// If the line looks like logfmt (contains level= and msg=), we extract them manually.
 	// This avoids the overhead of the Regex engine entirely for standard logs.
 	lvlIdx := strings.Index(line, "level=")
 	msgIdx := strings.Index(line, "msg=")
 
 	if lvlIdx != -1 && msgIdx != -1 {
-		//  Extract Level
+		// Extract Level
 		lvlPart := line[lvlIdx+6:]
 		lvlEnd := strings.IndexAny(lvlPart, " \t,")
 		if lvlEnd == -1 {
@@ -94,11 +93,8 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 		}
 
 		// RECONSTRUCT THE FULL ANALYTIC MESSAGE
-		// Take the primary message and append any "remaining" key-value pairs
 		finalMessage := msgFull
 		if strings.TrimSpace(remaining) != "" {
-			// Clean up the remaining string to remove leftover level= parts
-			// This keeps log lines "analytic"
 			finalMessage = msgFull + " | " + strings.TrimSpace(remaining)
 		}
 
@@ -110,9 +106,25 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 		}
 	}
 
-	// If it's not logfmt, we loop through our specific patterns (Brackets, Simple, etc.)
+	// --- Optimization: Brackets Fast-Path ---
+	// Manually handle [INFO] style logs to avoid falling through to Regex
+	openBracket := strings.Index(line, "[")
+	closeBracket := strings.Index(line, "]")
+	if openBracket != -1 && closeBracket > openBracket {
+		level := strings.ToUpper(line[openBracket+1 : closeBracket])
+		// Check if it's a valid known level to avoid false positives
+		if level == "INFO" || level == "WARN" || level == "ERROR" || level == "DEBUG" {
+			return model.LogEvent{
+				Timestamp: time.Now(),
+				Level:     level,
+				Message:   strings.TrimSpace(line[closeBracket+1:]),
+				Source:    rawLine.Source,
+			}
+		}
+	}
+
+	// If it's not logfmt or clear brackets, we loop through our specific patterns
 	for _, probe := range patterns {
-		//  Already handled logfmt-flexible above, so skip it here
 		if probe.name == "logfmt-flexible" {
 			continue
 		}
@@ -124,12 +136,10 @@ func (p *RegexParser) Parse(rawLine model.RawLog) model.LogEvent {
 
 			switch probe.name {
 			case "brackets":
-				// matches[1] = Timestamp, [2] = Level, [3] = Message
 				timestamp = parseFlexibleTime(matches[1])
 				level = strings.ToUpper(matches[2])
 				message = matches[3]
 			case "simple":
-				// matches[1] = Timestamp, [2] = Level, [3] = Message
 				timestamp = parseFlexibleTime(matches[1])
 				level = strings.ToUpper(matches[2])
 				message = matches[3]

@@ -49,14 +49,23 @@ func (t *Tailer) Run(ctx context.Context, changes <-chan struct{}) error {
 
 			//  Read until the file is empty (EOF).
 			for {
+				// Don't get stuck in the tsunami if the app is closing
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+					// Carry on with the work
+				}
 				line, err := reader.ReadString('\n')
 
 				// Check for content immediately
 				cleanLine := strings.TrimSpace(line)
 				if cleanLine != "" {
-					t.results <- model.RawLog{
-						Source: t.path,
-						Line:   cleanLine,
+					// Ensure we don't send to a closed channel
+					select {
+					case t.results <- model.RawLog{Source: t.path, Line: cleanLine}:
+					case <-ctx.Done():
+						return ctx.Err()
 					}
 				}
 

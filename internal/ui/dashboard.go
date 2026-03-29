@@ -302,11 +302,20 @@ func NewDashboard() *Dashboard {
 
 					// 100-timestamp timeline!
 					sb.WriteString("\n[cyan]🕒 Recent Timeline (Last 100):\n")
-					for i := len(stat.Timestamps) - 1; i >= 0; i-- {
-						ts := stat.Timestamps[i]
+					orderedTimestamps := stat.GetSortedTimestamps()
+
+					// Loop through the ORDERED timestamps backwards (newest at the top)
+					for i := len(orderedTimestamps) - 1; i >= 0; i-- {
+						ts := orderedTimestamps[i]
+						timeDiff := time.Since(ts).Truncate(time.Second)
+						diffStr := timeDiff.String()
+						if timeDiff < time.Second {
+							diffStr = "< 1s"
+						}
+
 						sb.WriteString(fmt.Sprintf(" [white]%s [gray](%s ago)\n",
-							ts.Format("15:04:05:000"),
-							time.Since(ts).Truncate(time.Second)))
+							ts.Format("15:04:05.000"),
+							diffStr))
 					}
 
 					sb.WriteString("\n[yellow]📝 Unique Variations in this Cluster:\n")

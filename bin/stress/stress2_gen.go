@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"math/rand"
 	"os"
@@ -41,13 +42,13 @@ func main() {
 	fmt.Println("🏗 Production Simulation started (1,000 logs/sec).")
 	fmt.Println("📊 Probability: 99.5% INFO | 0.5% ERROR/WARN")
 
+	writer := bufio.NewWriterSize(f, 1<<20)
+
 	for {
 		timestamp := time.Now().Format("2006-01-02T15:04:05Z")
 		val := rand.Intn(1000)
-		var logLine string
 
-		// Probability Check
-		// 0.005 = 0.5% chance of an ERROR or WARN
+		var logLine string
 		if rand.Float64() < 0.005 {
 			template := incidents[rand.Intn(len(incidents))]
 			logLine = fmt.Sprintf(template, timestamp, val)
@@ -56,14 +57,6 @@ func main() {
 			logLine = fmt.Sprintf(template, timestamp, val)
 		}
 
-		f.WriteString(logLine)
-
-		// Syncing every single line at 1000/sec can actually slow down the OS
-		if val%100 == 0 {
-			f.Sync()
-		}
-
-		// 1ms = 1,000 EPS (Events Per Second)
-		time.Sleep(20 * time.Millisecond)
+		writer.WriteString(logLine)
 	}
 }

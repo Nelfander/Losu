@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,14 +15,19 @@ import (
 )
 
 const maxHistory = 50000 // keep 50000 last logs for now its enough
+
 var (
-	reDigits = regexp.MustCompile(`\d+`)
 	reHex    = regexp.MustCompile(`0x[0-9a-fA-F]+`)
+	reDigits = regexp.MustCompile(`\d+`)
 )
 
 func fingerprint(msg string) string {
-	msg = reHex.ReplaceAllString(msg, "0x*")
-	return reDigits.ReplaceAllString(msg, "")
+	//  Replace Hex first with a unique placeholder
+	msg = reHex.ReplaceAllString(msg, "HEX_PLACEHOLDER")
+	//  Remove all other digits
+	msg = reDigits.ReplaceAllString(msg, "")
+	//  Put back the clean 0x*
+	return strings.ReplaceAll(msg, "HEX_PLACEHOLDER", "0x*")
 }
 
 type Aggregator struct {
@@ -30,6 +36,8 @@ type Aggregator struct {
 	TotalLines    int                          `json:"total_lines"`
 	ErrorCounts   map[string]int               `json:"error_counts"`
 	MessageCounts map[string]model.MessageStat `json:"message_counts"` // Message frequency
+	lastMsg       string
+	lastPattern   string
 
 	history       []model.LogEvent // Used for "Latest Logs"
 	signalHistory []model.LogEvent // This bucket only moves for WARN/ERROR logs
@@ -140,7 +148,14 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 
 	// Cluster unique messages (focusing on ERROR/WARN)
 	if event.Level == "ERROR" || event.Level == "WARN" {
-		pattern := fingerprint(event.Message)
+		var pattern string
+		if event.Message == a.lastMsg {
+			pattern = a.lastPattern
+		} else {
+			pattern = fingerprint(event.Message)
+			a.lastMsg = event.Message
+			a.lastPattern = pattern
+		}
 
 		// Update graph counter
 		a.CurrentSecCount++
@@ -159,17 +174,16 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 				stat = model.MessageStat{
 					Level:         event.Level,
 					VariantCounts: make(map[string]int),
-					Timestamps:    make([]time.Time, 0, 100),
 				}
 			}
 			stat.Count++
 			stat.VariantCounts[event.Message]++
 
-			// Add the timestamp to the slice, keeping only the last 100
-			stat.Timestamps = append(stat.Timestamps, event.Timestamp)
-			if len(stat.Timestamps) > 100 {
-				stat.Timestamps = stat.Timestamps[1:]
-			}
+			// Zero-Allocation Circular Buffer for Timestamps
+			// Instead of append + reslice, just overwrite the next slot
+			stat.Timestamps[stat.Cursor%100] = event.Timestamp
+			stat.Cursor++
+
 			a.MessageCounts[pattern] = stat
 
 			// Update RecentMessages (AI short memory)
@@ -347,22 +361,6 @@ func (a *Aggregator) PushTrend() {
 	a.CurrentSecCount = 0
 	a.IncidentSecCount = 0
 }
-
-/*
-// fingerprint simplifies a message by replacing variable data (numbers, hex) with '*'
-
-	func fingerprint(msg string) string {
-		// Match digits (IDs, database numbers, etc.)
-		reDigits := regexp.MustCompile(`\d+`)
-		// Match hex sequences (Memory addresses like 0x7ffd...)
-		reHex := regexp.MustCompile(`0x[0-9a-fA-F]+`)
-
-		msg = reHex.ReplaceAllString(msg, "0x*")
-		msg = reDigits.ReplaceAllString(msg, "")
-
-		return msg
-	}
-*/
 
 func (a *Aggregator) GetRecentSnapshot() map[string]model.MessageStat {
 	a.mu.Lock()
