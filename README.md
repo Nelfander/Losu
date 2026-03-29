@@ -635,6 +635,21 @@ To reach stable performance at **400,000+ logs**, the rendering logic was comple
 
 </details>
 
+<details><summary>Challenge: Optimisation(Click to expand)</summary>
+
+### ⚡ Optimization Log: Problem vs. Solution
+
+| Issue | Root Cause | High-Performance Solution |
+| :--- | :--- | :--- |
+| **UI Lag during "Tsunami"** | Regex backtracking on every single line consumed 80% of CPU cycles. | **Fast-Path Slicing:** Implemented `strings.Index` and manual slicing to bypass Regex for 98% of logs. |
+| **High GC Pressure** | Using `strings.ReplaceAll` 3x per line created 150k+ short-lived allocations/sec. | **Single-Pass Replacer:** Switched to `strings.NewReplacer`, reducing allocations to a single scan per line. |
+| **"Panic: Send on Closed Channel"** | The Tailer was still pumping logs while the main process was shutting down the "pipes." | **Sync.WaitGroup Barrier:** Integrated a `WaitGroup` to ensure the Tailer exits the loop *before* the channel closes. |
+| **Linear Memory Growth** | Storing every log message in a slice caused RAM to scale with file size. | **Circular Buffer:** Capped the history at a fixed `maxHistory` (50k), ensuring a flat 40MB memory footprint. |
+| **Regex "Fall-through" Penalty** | Non-standard logs triggered the full regex suite, causing CPU spikes. | **Early Exit Guard:** Added simple string checks (like `strings.Contains("[")`) to handle common formats without Regex. |
+| **I/O Blocking on Incidents** | Saving a 30k-line "Crime Scene" report froze the ingestion pipeline. | **Async Forensic Flusher:** Moved JSON serialization to a background goroutine with buffered I/O. |
+
+</details>
+
 ---
 
 ## Pipeline Flow Diagram
