@@ -241,29 +241,6 @@ make test-stress
 
 ---
 
-## 🏗️ Internal Architecture
-
-LOSU is designed as a decoupled, concurrent data pipeline. Each component is isolated to ensure high throughput and memory stability.
-
-| Component | Package | Responsibility |
-| :--- | :--- | :--- |
-| **The Watcher** | `/internal/watcher` | **Signal**: Low-level FS events via `fsnotify`. |
-| **The Tailer** | `/internal/tailer` | **I/O**: Streams raw bytes from disk into the pipeline. |
-| **The Pipeline** | `/internal/pipeline` | **Concurrency**: A worker pool that parallelizes log processing. |
-| **The Parser** | `/internal/parser` | **Transformation**: Translates raw strings into structured `LogEvent` objects. |
-| **The Aggregator** | `/internal/aggregator` | **State**: Tracks real-time metrics, trends, and error cardinality. |
-| **The UI** | `/internal/ui` | **Visualization**: A high-performance TUI with atomic buffer rendering. |
-| **The AI** | `/internal/ai` | **Intelligence**: Automated incident analysis via local LLM integration. |
-| **The Alerts** | `/internal/alerts` | **Notification**: Rate-limited alerting via Desktop, Mobile (ntfy), or Audio. |
-
-### 🔄 The Data Flow
-1. **Ingest**: `Watcher` signals the `Tailer` to read new bytes.
-2. **Process**: `Pipeline` fans out raw lines to multiple `Parser` workers.
-3. **Analyze**: `Aggregator` updates the global state with structured data.
-4. **Render**: `UI` pulls a point-in-time snapshot for flicker-free display.
-
----
-
 ## 🏗️ Architecture & Performance Design
 
 LOSU is engineered for high-throughput environments using a decoupled, concurrent data pipeline and a "Flat-Line" memory profile.
@@ -338,6 +315,8 @@ These tests focus on the "brain" of the application, ensuring that 6GB files are
 * **Detail Preservation**: `TestGroupingAndDetailPreservation` ensures that while logs are grouped by pattern, unique metadata (like specific S3 bucket keys) is preserved in `VariantCounts`.
 * **Circular Buffer Stability**: `TestCircularBufferStability` confirms the aggregator never exceeds `maxHistory`, performing a "circular shift" to drop old logs and keep memory usage flat.
 * **Performance Benchmarking**: Includes `BenchmarkAggregatorUpdate` to measure the nanosecond cost of processing a single log event.
+
+</details>
 
 ---
 
