@@ -30,7 +30,7 @@ type Snapshot struct {
 	ErrorCounts    map[string]int
 	BacklogSize    int
 	History        []LogEvent
-	TopMessages    map[string]MessageStat
+	TopMessages    []MessageStat
 	RecentMessages map[string]MessageStat
 	Trend          []int
 	LastErrorTime  time.Time

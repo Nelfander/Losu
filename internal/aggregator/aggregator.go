@@ -20,14 +20,65 @@ var (
 	reHex    = regexp.MustCompile(`0x[0-9a-fA-F]+`)
 	reDigits = regexp.MustCompile(`\d+`)
 )
+var builderPool = sync.Pool{
+	New: func() any {
+		return &strings.Builder{}
+	},
+}
 
 func fingerprint(msg string) string {
-	//  Replace Hex first with a unique placeholder
-	msg = reHex.ReplaceAllString(msg, "HEX_PLACEHOLDER")
-	//  Remove all other digits
-	msg = reDigits.ReplaceAllString(msg, "")
-	//  Put back the clean 0x*
-	return strings.ReplaceAll(msg, "HEX_PLACEHOLDER", "0x*")
+	if len(msg) == 0 {
+		return ""
+	}
+
+	//  Get a builder from the pool to avoid new allocations
+	b := builderPool.Get().(*strings.Builder)
+	b.Reset()
+
+	//  Pre-allocate capacity to the original message length
+	// This prevents the strings.(*Builder).grow node in pprof
+	b.Grow(len(msg))
+
+	// We use a defer to ensure the builder always goes back to the pool,
+	// but be careful: we can't return b.String() AFTER putting it back.
+	// We'll handle the Put manually at the end for safety.
+
+	inToken := false
+	for i := 0; i < len(msg); i++ {
+		c := msg[i]
+
+		// Check if character is a digit or hex (a-f, A-F)
+		isHexDigit := (c >= '0' && c <= '9') ||
+			(c >= 'a' && c <= 'f') ||
+			(c >= 'A' && c <= 'F')
+
+		if isHexDigit {
+			if !inToken {
+				b.WriteByte('*')
+				inToken = true
+			}
+			continue
+		}
+
+		// Reset token state on separators (space, equals, brackets, etc.)
+		if c == ' ' || c == '=' || c == '[' || c == ']' || c == ':' || c == '"' || c == '/' {
+			inToken = false
+		}
+
+		// If we were in a token and hit a non-hex letter (like 'g'), reset
+		if inToken && !isHexDigit {
+			inToken = false
+		}
+
+		b.WriteByte(c)
+	}
+
+	result := b.String()
+
+	//  Return the builder to the pool for the next log line
+	builderPool.Put(b)
+
+	return result
 }
 
 type Aggregator struct {
@@ -38,6 +89,7 @@ type Aggregator struct {
 	MessageCounts map[string]model.MessageStat `json:"message_counts"` // Message frequency
 	lastMsg       string
 	lastPattern   string
+	AverageEPS    float64
 
 	history       []model.LogEvent // Used for "Latest Logs"
 	signalHistory []model.LogEvent // This bucket only moves for WARN/ERROR logs
@@ -73,7 +125,7 @@ func NewAggregator() *Aggregator {
 		MessageCounts:        make(map[string]model.MessageStat),
 		history:              make([]model.LogEvent, 0, maxHistory),
 		signalHistory:        make([]model.LogEvent, 0, 10000),
-		TrendHistory:         make([]int, 0, 50),   // Initialize with space for 50 second
+		TrendHistory:         make([]int, 0, 60),   // Initialize with space for 60 second
 		IncidentTrendHistory: make([]int, 0, 3600), // Initialize for forensics for  1 hour
 		RecentMessages:       make(map[string]*model.MessageStat),
 		HourlyCounts:         make(map[string]int),
@@ -224,7 +276,8 @@ func (a *Aggregator) Snapshot() model.Snapshot {
 	defer a.mu.RUnlock()
 
 	// Copy the map so the UI doesn't race with the Workers
-	counts := make(map[string]int)
+
+	counts := make(map[string]int, len(a.ErrorCounts))
 	for k, v := range a.ErrorCounts {
 		counts[k] = v
 	}
@@ -237,16 +290,6 @@ func (a *Aggregator) Snapshot() model.Snapshot {
 	historyCopy := make([]model.LogEvent, len(a.history))
 	copy(historyCopy, a.history)
 
-	// Average eps calculation
-	avg := 0.0
-	if len(a.TrendHistory) > 0 {
-		total := 0
-		for _, v := range a.TrendHistory {
-			total += v
-		}
-		avg = float64(total) / float64(len(a.TrendHistory))
-	}
-
 	return model.Snapshot{
 		TotalLines:    a.TotalLines,
 		ErrorCounts:   counts,
@@ -255,7 +298,7 @@ func (a *Aggregator) Snapshot() model.Snapshot {
 		Trend:         trendCopy,
 		LastErrorTime: a.LastErrorTime,
 		LastWarnTime:  a.LastWarnTime,
-		AverageEPS:    avg,
+		AverageEPS:    a.AverageEPS,
 		PeakEPS:       a.PeakEPS,
 	}
 }
@@ -295,32 +338,30 @@ func (a *Aggregator) Load(filepath string) error {
 }
 
 // Gets the top N most frequent messages
-func (a *Aggregator) getTopMessages(n int) map[string]model.MessageStat {
-	type kv struct {
-		Key  string
-		Stat model.MessageStat
-	}
-	var ss []kv
-	for k, v := range a.MessageCounts {
-		ss = append(ss, kv{k, v})
+func (a *Aggregator) getTopMessages(n int) []model.MessageStat {
+	//  Pre-allocate slice to prevent 'grow' during the loop
+	ss := make([]model.MessageStat, 0, len(a.MessageCounts))
+
+	for _, v := range a.MessageCounts {
+		ss = append(ss, v)
 	}
 
+	//  Sort by count descending
 	sort.Slice(ss, func(i, j int) bool {
-		// Hits (Primary)
-		if ss[i].Stat.Count != ss[j].Stat.Count {
-			return ss[i].Stat.Count > ss[j].Stat.Count
+		if ss[i].Count != ss[j].Count {
+			return ss[i].Count > ss[j].Count
 		}
-		// Alphabetical (Tie-breaker)
-		// This ensures the slice sent to the UI is ALWAYS in the same order
-		return ss[i].Key < ss[j].Key
+		// Consistent tie-breaker
+		return ss[i].Level < ss[j].Level
 	})
 
-	top := make(map[string]model.MessageStat)
-	for i := 0; i < n && i < len(ss); i++ {
-		top[ss[i].Key] = ss[i].Stat
+	//  Return the sub-slice
+	if len(ss) > n {
+		return ss[:n]
 	}
-	return top
+	return ss
 }
+
 func (a *Aggregator) PushTrend() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -355,6 +396,15 @@ func (a *Aggregator) PushTrend() {
 	a.IncidentTrendHistory = append(a.IncidentTrendHistory, int(currentErrorEPS))
 	if len(a.IncidentTrendHistory) > 3600 {
 		a.IncidentTrendHistory = a.IncidentTrendHistory[1:]
+	}
+
+	// --- NEW: Calculate Average HERE, not in Snapshot ---
+	if len(a.TrendHistory) > 0 {
+		total := 0
+		for _, v := range a.TrendHistory {
+			total += v
+		}
+		a.AverageEPS = float64(total) / float64(len(a.TrendHistory))
 	}
 
 	a.lastPush = now

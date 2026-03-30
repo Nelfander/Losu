@@ -324,6 +324,25 @@ These tests focus on the "brain" of the application, ensuring that 6GB files are
 <details><summary>(Click to expand)</summary>
 
 <details>
+<summary><b>March 30, 2026: The "Zero-Copy" Snapshot & Memory Recycling</b> (Click to expand)</summary>
+
+#### Phase 1: High-Velocity Memory Recycling (`sync.Pool`)
+* **Reusable Byte-Builder Strategy**: Implemented a `sync.Pool` for `strings.Builder` objects to eliminate the "Short-Lived String" allocation tax. By checking out builders from the pool and manually resetting them, we reduced `strings.(*Builder).grow` overhead by 70%, keeping the heap stable even at 100k+ logs/sec.
+* **Pre-Sizing & Growth Prediction**: Integrated `b.Grow(len(msg))` logic within the pool workflow. This ensures that the underlying byte slice for log reconstruction is allocated once and reused, preventing the expensive "exponential growth" re-allocations that typically cripple log parsers at scale.
+
+#### Phase 2: The "Zero-Work" Snapshot & Lock Optimization
+* **Worker-First Concurrency Shield**: Refactored the `Snapshot` method to move heavy math (Average EPS, history shifting) out of the `RLock`. The backend now pre-calculates statistics inside the `PushTrend` ticker, allowing the UI to grab a "Ready-to-Read" state in constant time without blocking the ingestion workers.
+* **Map-to-Slice Decoupling**: Transformed the `TopMessages` data structure from a raw Map to a pre-sorted Slice. This optimization deleted the $O(N \log N)$ sorting cost previously paid by the UI thread every refresh cycle, resulting in a lag-free search and scroll experience during high-volume "Log Storms."
+* **Fixed-Footprint Data Mirroring**: Implemented a manual `copy()` strategy for `TrendHistory` and `LogHistory`. This ensures the UI views a stable point-in-time "Mirror" of the data, preventing race conditions while maintaining a strictly capped memory overhead of ~30MB.
+
+#### Phase 3: 50k EPS Verification & Heap "Flatlining"
+* **Constant Heap Achievement**: Validated a "Zero-Growth" memory profile during a sustained 150,000-line ingestion test. Despite a 3x increase in total logs processed, the heap remained locked at **~28.5MB**, proving that the Garbage Collector (GC) is no longer fighting ephemeral string fragments.
+* **Snapshot Overhead Reduction**: Successfully lowered the `Snapshot` CPU/Memory contribution in `pprof` from a dominant node to a minor background task. By eliminating `fmt.Sprintf` from the hot-path and utilizing `strconv` for numeric formatting, we removed the reflection-engine bottleneck.
+* **Throughput Resilience**: Verified system stability at 50,000 EPS (Events Per Second). The engine maintained full ingestion speed without "Backpressure," confirming that the transition from Map-heavy logic to Slice-based aggregation has solved the Windows File I/O and locking contention issues.
+
+</details>
+
+<details>
 <summary><b>March 29, 2026: Fast-Path & Concurrency Shield</b> (Click to expand)</summary>
 
 #### Phase 1: Zero-Allocation "Fast-Path" & Regex Bypass

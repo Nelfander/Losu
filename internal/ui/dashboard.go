@@ -362,39 +362,29 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 
 	d.GraphView.SetText(graphBody.String())
 
-	//  --- Top 10 Errors/Warns ---
-	type kv struct {
-		Key  string
-		Stat model.MessageStat
-	}
-	var sortedTop []kv
-	for k, v := range snap.TopMessages {
-		sortedTop = append(sortedTop, kv{k, v})
-	}
-
-	sort.Slice(sortedTop, func(i, j int) bool {
-		if sortedTop[i].Stat.Count != sortedTop[j].Stat.Count {
-			return sortedTop[i].Stat.Count > sortedTop[j].Stat.Count
-		}
-		return sortedTop[i].Key < sortedTop[j].Key
-	})
-
+	// --- Top 10 Errors/Warns ---
 	var topStr strings.Builder
 	topStr.WriteString("\n")
 
-	//Clear the lookup slice every update
+	// Clear the lookup slice every update
 	d.StatLookup = nil
+
+	// snap.TopMessages is now []model.MessageStat
+	sortedTop := snap.TopMessages
 
 	for i := 0; i < 5; i++ {
 		getRow := func(idx int) string {
 			if idx >= len(sortedTop) {
 				return strings.Repeat(" ", 45)
 			}
+
+			// sortedTop[idx] is now a model.MessageStat directly
 			item := sortedTop[idx]
 
+			// Find the best message variant to display
 			bestMsg := ""
 			maxSubCount := -1
-			for msg, count := range item.Stat.VariantCounts {
+			for msg, count := range item.VariantCounts {
 				if count > maxSubCount {
 					maxSubCount = count
 					bestMsg = msg
@@ -403,21 +393,24 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 				}
 			}
 
-			d.StatLookup = append(d.StatLookup, item.Stat)
+			// Store in lookup for clickability
+			d.StatLookup = append(d.StatLookup, item)
 			lookupIdx := len(d.StatLookup) - 1
 
 			color := "red"
-			if item.Stat.Level == "WARN" {
+			if item.Level == "WARN" {
 				color = "yellow"
 			}
 
-			// wrap it in a ["top_X"] region so its clickable!
+			// Wrap in region tag for tview interactivity
 			return fmt.Sprintf(`["top_%d"][%s]%5d [white]| %-35s[""]`,
 				lookupIdx,
 				color,
-				item.Stat.Count,
+				item.Count,
 				truncate(bestMsg, 35))
 		}
+
+		// Render two columns (0 & 5, 1 & 6, etc.)
 		topStr.WriteString(fmt.Sprintf(" %s   %s\n", getRow(i), getRow(i+5)))
 	}
 	d.TopErrorsView.SetText(topStr.String())
