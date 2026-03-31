@@ -2,90 +2,125 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"math/rand"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
 )
 
+const (
+	logsPerSecond = 50000 // Reduced slightly for OS stability; ramp up once verified
+	batchSize     = 250   // Larger batches = fewer channel operations
+	channelSize   = 50    // Enough buffer to handle disk spikes
+)
+
 func main() {
 	_ = godotenv.Load()
+
 	logFile := os.Getenv("LOSU_LOG_PATH")
 	if logFile == "" {
 		logFile = "test.log"
 	}
 
-	// Templates categorized by health
-	healthyLogs := []string{
-		"time=%s level=INFO msg=\"User logged in\" user_id=%d\n",
-		"time=%s level=DEBUG msg=\"Cache hit\" key=\"user_profile_%d\"\n",
-		"time=%s level=INFO msg=\"HTTP request finished\" status=200 duration=%dms\n",
-		"time=%s level=INFO msg=\"Order processed\" amount=$%d.99 currency=\"USD\"\n",
-	}
-
-	warningLogs := []string{
-		"time=%s level=WARN msg=\"Failed login attempt\" ip=192.168.1.%d user=\"admin\"\n",
-		"time=%s level=WARN msg=\"High memory usage\" threshold=%d%%\n",
-	}
-
-	errorLogs := []string{
-		"time=%s level=ERROR msg=\"Query timeout\" duration=%dms query_id=q_99\n",
-		"time=%s level=ERROR msg=\"S3 upload failed\" bucket=\"assets\" key=\"img_%d.png\"\n",
-	}
-
+	// Open with O_SYNC or O_DSYNC removed to allow OS-level write caching
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(err)
 	}
 	defer f.Close()
 
-	// Use a buffered writer to handle high throughput
-	writer := bufio.NewWriterSize(f, 1024*1024) // 1MB buffer
+	// 1MB buffer is the "Sweet Spot" for modern SSDs
+	writer := bufio.NewWriterSize(f, 1024*1024)
 	defer writer.Flush()
 
-	fmt.Println("🚀 Nitro Log Generator: Aiming for 50k logs/sec")
-	fmt.Println("Press Ctrl+C to stop.")
+	logChan := make(chan []byte, channelSize)
 
-	// Statistics for the generator
-	totalGenerated := 0
-	//startTime := time.Now()
+	// --- WRITER GOROUTINE ---
+	// This goroutine's only job is to move bytes from RAM to Disk
+	go func() {
+		// Flush much more frequently to "push" data into the OS buffer
+		flushTicker := time.NewTicker(50 * time.Millisecond)
+		defer flushTicker.Stop()
 
-	// Ticker for stats output
-	statsTicker := time.NewTicker(time.Second)
-	defer statsTicker.Stop()
+		for {
+			select {
+			case batch := <-logChan:
+				_, _ = writer.Write(batch)
+			case <-flushTicker.C:
+				_ = writer.Flush()
+				// CRITICAL: This gives the OS a tiny window to let
+				// other processes (Losu) read the file.
+				time.Sleep(1 * time.Millisecond)
+			}
+		}
+	}()
+
+	// --- DATA TEMPLATES ---
+	healthy := [][]byte{
+		[]byte(" level=INFO msg=\"User logged in\" user_id="),
+		[]byte(" level=DEBUG msg=\"Cache hit\" key=\"user_profile_"),
+		[]byte(" level=INFO msg=\"HTTP request finished\" status=200 duration="),
+		[]byte(" level=INFO msg=\"Order processed\" amount=$"),
+	}
+	warn := [][]byte{
+		[]byte(" level=WARN msg=\"Failed login attempt\" ip=192.168.1."),
+		[]byte(" level=WARN msg=\"High memory usage\" threshold="),
+	}
+	errs := [][]byte{
+		[]byte(" level=ERROR msg=\"Query timeout\" duration="),
+		[]byte(" level=ERROR msg=\"S3 upload failed\" key=\"img_"),
+	}
+
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	// Calculate the necessary sleep to maintain the rate
+	// (1 sec / (total logs / batch size))
+	interval := time.Second / (logsPerSecond / batchSize)
+
+	println("🚀 Generator active. Rate:", logsPerSecond, "logs/sec")
 
 	for {
-		// Batch processing: write 500 logs per small sleep to hit the target
-		// This reduces the overhead of time.Sleep and time.Now()
-		for {
-			// Increase batch to 2500, but sleep longer (50ms)
-			// 2500 logs / 0.05 seconds = 50,000 logs/sec
-			for i := 0; i < 2500; i++ {
-				timestamp := time.Now().Format("2006-01-02T15:04:05Z")
-				val := rand.Intn(1000)
+		start := time.Now()
+		ts := start.Format("2006-01-02T15:04:05Z")
 
-				chance := rand.Intn(1000) // Using 1000 for finer control
-				var template string
+		// One allocation per batch
+		buf := make([]byte, 0, 128*batchSize)
 
-				if chance < 995 { // 99.5% Healthy
-					template = healthyLogs[rand.Intn(len(healthyLogs))]
-				} else if chance < 999 { // 0.4% Warning
-					template = warningLogs[rand.Intn(len(warningLogs))]
-				} else { // 0.1% Error (A real needle in a haystack)
-					template = errorLogs[rand.Intn(len(errorLogs))]
-				}
+		for i := 0; i < batchSize; i++ {
+			val := rng.Intn(1000)
+			chance := rng.Intn(1000)
 
-				fmt.Fprintf(writer, template, timestamp, val)
-				totalGenerated++
+			var msg []byte
+			if chance < 995 {
+				msg = healthy[rng.Intn(len(healthy))]
+			} else if chance < 999 {
+				msg = warn[rng.Intn(len(warn))]
+			} else {
+				msg = errs[rng.Intn(len(errs))]
 			}
 
-			// Flush less often to give the OS a break
-			writer.Flush()
+			buf = append(buf, "time="...)
+			buf = append(buf, ts...)
+			buf = append(buf, msg...)
+			buf = append(buf, strconv.Itoa(val)...)
+			buf = append(buf, '\n')
+		}
 
-			// 50ms gives the UI/Tailer a chance to grab the CPU
-			time.Sleep(500 * time.Millisecond)
+		// NON-BLOCKING SEND
+		select {
+		case logChan <- buf:
+		default:
+			// If channel is full, disk is saturated.
+			// We skip this batch and sleep extra to let the OS catch up.
+			time.Sleep(10 * time.Millisecond)
+		}
+
+		// Pacing logic to ensure we don't melt the CPU
+		elapsed := time.Since(start)
+		if elapsed < interval {
+			time.Sleep(interval - elapsed)
 		}
 	}
 }

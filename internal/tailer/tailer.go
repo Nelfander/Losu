@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/nelfander/losu/internal/model"
 )
@@ -21,63 +22,56 @@ func NewTailer(path string, results chan<- model.RawLog) *Tailer {
 		results: results,
 	}
 }
-
 func (t *Tailer) Run(ctx context.Context, changes <-chan struct{}) error {
-	//  Open the file
 	file, err := os.Open(t.path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	// Seek to the end (don't read the whole past history)
-	_, err = file.Seek(0, io.SeekEnd)
-	if err != nil {
-		return err
-	}
-
+	// Seek to end to start fresh
+	_, _ = file.Seek(0, io.SeekEnd)
 	reader := bufio.NewReader(file)
+
+	// We'll use a ticker to "force" a check if the signal is being swallowed by the OS
+	pollTicker := time.NewTicker(100 * time.Millisecond)
+	defer pollTicker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case _, ok := <-changes:
-			if !ok {
-				return nil
-			}
+		case <-pollTicker.C:
+			// This is the "Windows Kick":
+			// Calling Stat() forces the OS to update the file size metadata
+			_, _ = file.Stat()
 
-			//  Read until the file is empty (EOF).
+			// Now try to drain everything available
 			for {
-				// Don't get stuck in the tsunami if the app is closing
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
-					// Carry on with the work
-				}
 				line, err := reader.ReadString('\n')
 
-				// Check for content immediately
-				cleanLine := strings.TrimSpace(line)
-				if cleanLine != "" {
-					// Ensure we don't send to a closed channel
-					select {
-					case t.results <- model.RawLog{Source: t.path, Line: cleanLine}:
-					case <-ctx.Done():
-						return ctx.Err()
+				if line != "" {
+					cleanLine := strings.TrimSpace(line)
+					if cleanLine != "" {
+						select {
+						case t.results <- model.RawLog{Source: t.path, Line: cleanLine}:
+						case <-ctx.Done():
+							return ctx.Err()
+						default:
+							// If the aggregator is full, don't block the tailer
+						}
 					}
 				}
 
 				if err != nil {
 					if err == io.EOF {
-						// Caught up to the generator, now
-						// go back to sleep and wait for the next signal :P
-						break
+						break // Back to waiting for the next tick
 					}
 					return err
 				}
 			}
+		case <-changes:
+			// We keep this for reactivity, but the Ticker above is our safety net
 		}
 	}
 }
