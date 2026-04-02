@@ -420,11 +420,11 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 	historyFull := len(snap.History) >= 50000
 
 	if filterChanged || historyFull {
-		d.FilteredLogs = d.FilteredLogs[:0]
-		d.LastHistoryLen = 0
-		d.LastSearchFilter = d.SearchFilter
-		d.LogView.Clear()
-		d.isAutoScroll = true // Reset auto-scroll when starting a new search
+		d.FilteredLogs = d.FilteredLogs[:0] // clear cache
+		d.LastHistoryLen = 0                // reset pointer to start of history
+		d.LastSearchFilter = d.SearchFilter // sync the state
+		d.LogView.Clear()                   // wipe ui
+		d.isAutoScroll = true               // reset auto-scroll when starting a new search
 	}
 
 	if len(snap.History) > d.LastHistoryLen {

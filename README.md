@@ -300,31 +300,52 @@ The internal Aggregator uses a "Guard Rail" system to prevent memory leaks from 
 
 ## 🧪 Testing
 
+## 🧪 Testing
+
 <details>
 <summary>Click to expand testing section</summary>
 
-The project employs a high-velocity testing strategy using Go's native toolchain to ensure **Losu** can handle massive log volumes without memory leaks or race conditions. We prioritize **Thread-Safe** telemetry aggregation and **Context-Aware** resource cleanup.
+The project employs a high-velocity testing strategy using Go's native toolchain to ensure **Losu** can handle massive log volumes without memory leaks or race conditions. We prioritize **Thread-Safe** telemetry aggregation, **Zero-Allocation** parsing, and **High-Performance** UI state management.
 
-### 🏎️ Concurrency & Race Safety
+### 🏎️ Concurrency & Race Safety (`$env:CGO_ENABLED = "1"; go test -race ./...`)
 
 Since Losu operates as a multi-threaded pipeline, the aggregator is verified using the **Go Race Detector** to ensure no two goroutines fight over the same telemetry data.
 
 * **High-Stress Simulation:** `TestAggregatorConcurrency` spins up 50 writer goroutines (50,000 logs) and 50 reader goroutines (UI snapshots) simultaneously to verify zero data loss.
 * **Thread-Safe Stats:** Aggregator utilizes `sync.RWMutex` to allow the UI to take snapshots while workers are simultaneously updating log counts.
-* **Verification:** Run the full race-detection suite with:
+* **Verification:** Use the race flag in your terminal to catch unsynchronized memory access during peak loads.
 
-```powershell
-$env:CGO_ENABLED = "1"; go test -race ./...
-```
-### 🧩 Domain & Unit Testing (Aggregator Layer) — `go test -v ./internal/aggregator`
+### 📡 I/O & File Persistence — `go test -v ./internal/tailer`
 
-These tests focus on the "brain" of the application, ensuring that 6GB files are summarized into intelligent, actionable insights.
+The Tailer is the nervous system of Losu, ensuring a continuous stream of data even during OS-level file events.
 
-* **Incident Trigger & Recovery**: `TestIncidentTrigger` simulates a log anomaly and uses a "Retry Loop" (optimized for CI/CD) to verify that incident report files are generated and cleaned up correctly.
-* **Intelligent Fingerprinting**: `TestFingerprint` uses table-driven tests to verify that dynamic data (IDs, Hex addresses, IPs) is stripped from logs to group them into logical "patterns."
-* **Detail Preservation**: `TestGroupingAndDetailPreservation` ensures that while logs are grouped by pattern, unique metadata (like specific S3 bucket keys) is preserved in `VariantCounts`.
-* **Circular Buffer Stability**: `TestCircularBufferStability` confirms the aggregator never exceeds `maxHistory`, performing a "circular shift" to drop old logs and keep memory usage flat.
-* **Performance Benchmarking**: Includes `BenchmarkAggregatorUpdate` to measure the nanosecond cost of processing a single log event.
+* **Rotation Resilience:** `TestTailer_Rotation` verifies that when a log file is rotated (e.g., `app.log` becomes `app.log.1`), the tailer detects the new inode and seamlessly resumes streaming.
+* **Truncation Handling:** `TestTailer_Truncate` ensures that if a file is cleared or truncated, the tailer correctly resets its offset to 0 rather than hanging.
+* **Event-Driven Tailing:** Confirms `fsnotify` integration, ensuring we sleep during idle periods and wake instantly on write events without CPU-heavy polling.
+
+### ⚡ Zero-Copy Parsing — `go test -v ./internal/parser`
+
+The parser is the entry point for all data. We use **Fast-Path** optimizations to bypass Regex for common log formats, reducing CPU overhead.
+
+* **Fast-Path Validation:** `TestRegexParser_LogfmtFastPath` and `TestRegexParser_Brackets` verify that manual string slicing correctly extracts levels and messages.
+* **Timestamp Preservation:** Ensures that `time=` fields or leading timestamps are parsed into `time.Time` objects rather than defaulting to `time.Now()`.
+* **Junk Cleaning:** `TestRegexParser_Cleaning` confirms that null bytes (`\x00`), carriage returns (`\r`), and tabs are stripped via a package-level pre-compiled `strings.Replacer`.
+
+### 🖥️ UI Logic & State — `go test -v ./internal/ui`
+
+While TUIs are visual, our tests verify the underlying state transitions that drive the dashboard to ensure the interface stays snappy.
+
+* **Dynamic Filtering:** `TestDashboard_Filtering` ensures that when a user types a search query, the `LastHistoryLen` resets to 0, triggering a full re-scan of history to populate the cache.
+* **Memory Ceiling:** `TestDashboard_BufferManagement` confirms that the UI hard-trims its internal buffer at 1,500 lines to prevent the terminal emulator from slowing down.
+* **AI Context Preparation:** `TestDashboard_AISummary` verifies the logic used to condense the most frequent errors and warnings into a structured format for AI analysis.
+
+### 🧩 Aggregator Intelligence — `go test -v ./internal/aggregator`
+
+These tests focus on the "brain" of the application, ensuring raw streams are converted into actionable telemetry.
+
+* **Intelligent Fingerprinting:** `TestFingerprint` uses table-driven tests to verify that dynamic data (IDs, Hex addresses, IPs) is stripped to group logs into logical "patterns."
+* **Detail Preservation:** `TestGroupingAndDetailPreservation` ensures that unique metadata (like specific S3 keys) is preserved in `VariantCounts` even when logs are grouped.
+* **Circular Buffer Stability:** `TestCircularBufferStability` confirms the aggregator never exceeds `maxHistory`, performing a "circular shift" to keep memory usage flat.
 
 </details>
 

@@ -37,24 +37,37 @@ func fingerprint(msg string) string {
 	inToken := false
 	for i := 0; i < len(msg); i++ {
 		c := msg[i]
-		isHexDigit := (c >= '0' && c <= '9') ||
-			(c >= 'a' && c <= 'f') ||
-			(c >= 'A' && c <= 'F')
 
-		if isHexDigit {
+		isDigit := (c >= '0' && c <= '9')
+		isHex := (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+		// Special case for hex prefix 0x
+		isHexPrefix := (c == 'x' || c == 'X') && i > 0 && msg[i-1] == '0'
+
+		if isDigit || (inToken && (isHex || isHexPrefix)) {
 			if !inToken {
+				// If it's 0x..., write the 0 and start the token at x
+				if i+1 < len(msg) && (msg[i+1] == 'x' || msg[i+1] == 'X') {
+					b.WriteByte(c) // Write the '0'
+					continue       // Let the next iteration handle the 'x'
+				}
 				b.WriteByte('*')
 				inToken = true
 			}
 			continue
 		}
-		if c == ' ' || c == '=' || c == '[' || c == ']' || c == ':' || c == '"' || c == '/' {
+
+		// Standard separators
+		if c == ' ' || c == '=' || c == '[' || c == ']' || c == ':' || c == '"' || c == '/' || c == '-' || c == '.' {
 			inToken = false
 		}
-		if inToken && !isHexDigit {
+
+		if inToken && !isDigit && !isHex && !isHexPrefix {
 			inToken = false
 		}
-		b.WriteByte(c)
+
+		if !inToken {
+			b.WriteByte(c)
+		}
 	}
 
 	result := b.String()
