@@ -1,109 +1,143 @@
 # 🐺 LOSU (Log Observer & Summary Unit)
-
+ 
 **LOSU** is a high-performance, zero-dependency log tailing + intelligent analysis tool built in Go.  
-It turns noisy log streams into actionable SRE intelligence — delivered straight to your terminal, desktop, **and pocket**.
-
+It turns noisy log streams into actionable SRE intelligence — delivered straight to your terminal, browser, **and pocket**.
+ 
 ## 🚀 What LOSU Actually Does 
-
+ 
 LOSU monitors application logs in real time and:
 - detects errors and anomalies instantly
 - groups similar issues automatically
 - sends alerts to your phone or desktop
 - suggests possible root causes (optional AI)
-- creates incident reports 
-
+- creates incident reports
+- serves a live web dashboard at `localhost:8080`
+ 
 It helps developers debug production systems faster
-
+ 
 ## ✨ Highlights
-
+ 
 - Single static Go binary — **no runtime dependencies**
-- Real-time TUI dashboard with sparkline EPS graphs
+- Real-time TUI dashboard with sparkline EPS/WPS graphs
+- **Built-in web dashboard** — React UI served from the binary, no Node.js required
 - Intelligent log pattern fingerprinting & clustering
+- **Two-level forensic drill-down** — per-variant hit timelines for every error cluster
 - Optional **local AI root-cause analysis** (Ollama + Llama 3 / Phi-3)
 - Mobile heartbeat summaries via **ntfy.sh**
 - Desktop notifications via **beeep**
 - Smart alert rate-limiting to prevent fatigue
 - Memory-safe, high-concurrency pipeline
-
+ 
 ## 🚀 Key Features
-
+ 
 ### Core Monitoring
 - **Dynamic pattern grouping** — turns millions of near-identical log lines into clean, readable clusters
-- Real-time **60-second sparkline** showing Errors-Per-Second (EPS) anomalies
+- Real-time **60-second sparkline** showing independent **EPS** (Errors/sec) and **WPS** (Warns/sec)
 - **Error-first prioritization** — most frequent ERROR always surfaces as "Top Issue"
+- **Configurable alert thresholds** via env vars — tune to your app's normal baseline without recompiling
+- **Pre-Incident Warning states** — catches warn spikes before errors arrive (`⚠ Pressure Building`, `⚠ Suspicious Activity`, `⚠ Pre-Incident Warning`)
 - Zero-data / low-activity awareness with clear delta counters (Errors, Warnings, Info)
-- **Malformed Log Protection** - Automatically truncates extreme log lines (>1000 chars) to ensure UI responsiveness and prevent memory spikes from "chatty" services
-
+- **Malformed Log Protection** — automatically truncates extreme log lines (>1000 chars) to ensure UI responsiveness and prevent memory spikes from "chatty" services
+ 
+### 🌐 Web Dashboard (localhost)
+ 
+LOSU includes a built-in web dashboard served directly from the binary — no Node.js, no npm, no separate assets.
+ 
+```bash
+./losu --ui=web    # web only, open http://localhost:8080
+./losu --ui=both   # TUI + web simultaneously from the same binary
+./losu --ui=tui    # terminal only (default, full backward compatibility)
+```
+ 
+**Dashboard Panels:**
+- **Stats Breakdown** — total processed, ERROR/WARN/INFO/DEBUG counts, live health status badge
+- **Top Errors/Warns** — top 10 clustered patterns, clickable for forensic drill-down
+- **Live Log Stream** — real-time feed with search/filter and drag-to-scroll
+- **EPS / WPS Graph** — independent 60-second area charts, log-scale so spikes stay visible at high throughput
+- **AI Insights** — live AI analysis panel, synced from the same observer that powers the TUI
+ 
+**Two-Level Error Inspector:**
+ 
+Click any row in the Top Errors panel to open a forensic drill-down:
+- **Level 1** — all unique variants for that pattern, sorted by hit count, with most-recent hit timestamp
+- **Level 2** — click any variant to see its full per-variant hit timeline — distinguish active attacks from one-off failures instantly
+ 
+> The entire frontend is a single HTML file embedded in the binary via `go:embed`. Deploying LOSU with a web UI is identical to deploying without one — copy the binary, run it.
+ 
 ### Executive Heartbeat (SRE Reporting)
 LOSU doesn't just tail — it **summarizes system health** and pushes concise status reports to your phone.
-
+ 
 - Configurable reporting window (`LOSU_REPORT_WINDOW`)
 - **Error-first "Top Issue"** promotion
 - Counts + delta over the window
 - Beautiful, emoji-enhanced mobile notifications via **ntfy.sh**
-
+ 
 ### 🧠 Optional AI Layer ("Pluggable Brain")
 If a local Ollama instance is available:
-
-- Dedicated "SRE Take" section in heartbeat & TUI
+ 
+- Dedicated "SRE Take" section in heartbeat, TUI, and web dashboard
 - Root-cause hypothesis + concrete mitigation suggestions  
   (e.g. "Redis connection pool exhaustion — flush + increase max connections")
 - Fully local, private, zero-cost, offline
-
+- AI observer runs independently of UI mode — results are shared between TUI and web from a single analysis source
+ 
 When AI is unavailable → falls back gracefully to statistical summaries.
-
+ 
 ### Forensic Incident Guard 
 LOSU acts as an automated SRE that never sleeps. When a system-wide anomaly is detected, it freezes the state for post-mortem analysis.
-
+ 
 - **Automated Anomaly Snapshots**: Detects 3x traffic spikes or ERROR storms and immediately dumps a "Forensic JSON" to disk.
 - **Crime Scene Context**: Each report captures 30,000 lines of data, including:
     - `signal_history`: A filtered view of the exact errors that triggered the spike.
     - `full_context`: The raw system state leading up to the crash.
-    - `hourly_trend`: Statistical metadata for long-term trend analysis.
+    - `hourly_trend_errors` / `hourly_trend_warns`: Independent 1-hour trend arrays for errors and warns — distinguishes "error spike" from "warn buildup that preceded errors."
 - **Non-Blocking I/O**: Snapshots are serialized and written in a background goroutine, ensuring zero impact on your monitoring latency.
-
+ 
 ### Alerting
 - **Desktop** — native OS notifications (`beeep`)
 - **Mobile** — instant push via `ntfy.sh` (no account needed)
 - **Smart cooldown** — 20-second per-pattern rate limit
-
+ 
 ## 🛠 Tech Stack
-
+ 
 - **Language**: Go (Golang)
 - **TUI**: `tview` + `tcell`
+- **Web UI**: React 18 + `htm` (via CDN, no build step) + pure SVG charts, served via Echo + `go:embed`
 - **AI**: Ollama (local HTTP API)
 - **Notifications**: `beeep` (desktop), `ntfy` (mobile/HTTP)
 - **Concurrency**: context-aware worker pools, atomic counters, mutex snapshots, bounded channels
-
+ 
 ## ⚙️ How It Works
-
+ 
 Losu operates as a high-throughput pipeline designed to bridge the gap between "noisy" raw logs and "actionable" AI insights.
-
+ 
 1. **Structured Ingestion**: The `Tailer` package utilizes OS-level signals to follow log files, passing data to a `Regex Parser` that extracts Timestamps, Levels, and Messages.
-2. **State Aggregation**: The `Aggregator` maintains a thread-safe global state, calculating Errors Per Second (EPS) and clustering similar log patterns via cryptographic-style fingerprinting.
-3. **Asynchronous Analysis**: A dedicated `Observer` routine periodically snapshots the aggregator state and prompts a local **Ollama** instance to perform root-cause analysis without blocking the UI.
-4. **Reactive TUI**: Built with `tview`, the interface provides a real-time dashboard with interactive search filtering, mouse support, and a dynamic sparkline graph for throughput visualization.
-5. **Incident Orchestration**: A background "Observer" monitors the Delta between the rolling hourly average and current EPS. If a threshold is crossed, it triggers a `sync.WaitGroup`-protected writer that flushes a forensic snapshot to disk, ensuring data integrity even during a forced shutdown.
-
+2. **State Aggregation**: The `Aggregator` maintains a thread-safe global state, calculating independent EPS and WPS metrics and clustering similar log patterns via cryptographic-style fingerprinting.
+3. **Asynchronous Analysis**: A dedicated `Observer` routine periodically snapshots the aggregator state and prompts a local **Ollama** instance to perform root-cause analysis without blocking the UI. Results are stored in the aggregator and consumed by both TUI and web UI simultaneously.
+4. **Reactive TUI**: Built with `tview`, the interface provides a real-time dashboard with interactive search filtering, mouse support, and independent EPS/WPS sparkline graphs.
+5. **Web Dashboard**: An Echo HTTP server serves a self-contained React dashboard embedded in the binary. A 500ms WebSocket broadcaster fans out `WebSnapshot` payloads to all connected clients via a non-blocking hub.
+6. **Incident Orchestration**: A background "Observer" monitors the delta between the rolling hourly average and current EPS. If a threshold is crossed, it triggers a `sync.WaitGroup`-protected writer that flushes a forensic snapshot to disk, ensuring data integrity even during a forced shutdown.
+ 
 ## 🚀 Extreme Performance & Stress Testing
-
+ 
 The following metrics were captured during an intensive **50,000,000+ log** continuous stress test.
-
+ 
 ### 📊 50,000,000+ Log Benchmark (v1.1 Ultra-Stable)
 * **Total Logs Processed**: 50,741,750 (and climbing)
 * **Throughput**: 50,000+ EPS (Events Per Second) sustained
 * **Peak Intensity**: 452.9 Err+Warn/s (Extreme Log-Bomb Simulation)
 * **Memory Footprint**: **~41.6 MB** (Flat-line Steady State)
 * **CPU Usage**: Minimal overhead on modern kernels even during 50k EPS spikes.
-
+ 
 ### 🛠️ Optimization Highlights
 To achieve "Zero-Overload" on host servers, LOSU utilizes several advanced Go-specific optimizations:
-
+ 
 * **GPU-Accelerated Rendering**: Optimized for high-speed terminal emulators (like Alacritty), offloading text UI composition to the GPU to prevent ANSI fragmentation ("Symbol Walls").
 * **UI Decoupling & Throttling**: Utilizes a 100ms-500ms asynchronous UI refresh ticker, shielding the display from backend ingestion tsunamis and preventing terminal buffer saturation.
 * **O(1) Memory Architecture**: Aggregator history uses fixed-cap circular buffers and `sync.Pool` allocation patterns, ensuring RAM usage remains flat regardless of total log volume.
 * **Snapshot Concurrency**: State is captured via non-blocking snapshots, allowing the UI to render a consistent view of millions of logs without ever pausing the ingestion pipeline.
-
+* **Bandwidth-Safe WebSocket Stream**: The `WebSnapshot` payload caps sample logs at 50 events and strips timestamp arrays, ensuring the web dashboard never becomes a bottleneck even at 50k EPS.
+ 
 ### ⚖️ Resource Stability (The "Flat-Line" Profile)
 | Metric | 1M Logs | 25M Logs | 50M+ Logs |
 | :--- | :--- | :--- | :--- |
@@ -111,36 +145,42 @@ To achieve "Zero-Overload" on host servers, LOSU utilizes several advanced Go-sp
 | **Throughput** | 50k EPS | 50k EPS | 50k EPS |
 | **UI Latency** | <1ms | <1ms | <1ms |
 | **Search Speed** | Instant | Instant | Instant |
-
+ 
 > **The "Constant-Space" Guarantee**: LOSU's memory profile is **State-Independent**. Whether it has processed 1,000 logs or 100,000,000 logs, the heap remains stabilized (typically under 50MB). This makes it the safest choice for low-spec production nodes, sidecar containers, and mission-critical infrastructure monitoring.
-
+ 
 ## 📦 Installation, Setup and Testing!
 <details><summary><b>The Docker Way!</b>(Click to expand)</summary>
-
+ 
 Follow these steps to get the monitor, the AI, and the log generator running in sync.
-
+ 
 ### 1. Clone the repository
 git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
 & cd losu
-
+ 
 ### 2. Spin up the Infrastructure
 This starts the UI container and the AI engine in the background.
 ```bash
 docker-compose up -d
 ```
-
+ 
 ### 3. Prepare the AI (One-Time Setup)
 Run this to download the Llama3 model into your local Docker volume. You only need to do this once:
 ```bash
 docker-compose exec ollama ollama run llama3
 ```
-
-### 4. Launch the Monitor (UI)
-To enter the interactive dashboard (with search and scroll support), run:
+ 
+### 4. Launch the Monitor
 ```bash
+# Terminal dashboard (default)
 docker exec -it losu-losu-1 ./losu
+ 
+# Web dashboard — open http://localhost:8080
+docker exec -it losu-losu-1 ./losu --ui=web
+ 
+# Both simultaneously
+docker exec -it losu-losu-1 ./losu --ui=both
 ```
-
+ 
 ### 5. Start the Log Generator
 In a new <b>terminal window</b>, start the stream of simulated logs:
 ```bash
@@ -151,34 +191,34 @@ docker-compose exec -d losu ./stress_gen ./logs/test.log
 # For Normal test (Warn: 10% chance | Error: 3% chance)
 docker-compose exec -d losu ./normal_gen ./logs/test.log
 ```
-
-
+ 
+ 
 ### 🛠️ Useful Commands
-
+ 
 | Action | Command |
 | :--- | :--- |
 | **Stop Logs** | `docker-compose exec losu pkill stress_gen` |
 | **View Raw Logs** | `tail -f ./logs/test.log` |
 | **Shutdown All** | `docker-compose down` |
 | **Reset Stats** | `docker exec -it losu-losu-1 ./losu -reset` |
-
-
+ 
+ 
 </details>
-
+ 
 ---
-
+ 
 <details><summary><b>The GO Way!</b>(Click to expand)</summary>
-
+ 
 ### 1. Clone the repository
 git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
 & cd losu
-
+ 
 ### 2. Prerequisites
 Install [Ollama](https://ollama.com) and pull the high-performance Llama 3 model:
 ```bash
 ollama pull llama3
 ```
-
+ 
 ### 3. Configuration
 Create a `.env` file in the root directory(Check .env.example):
 | Environment Variable | Description | Default |
@@ -187,7 +227,15 @@ Create a `.env` file in the root directory(Check .env.example):
 | `LOSU_MIN_LEVEL` | Minimum severity (DEBUG/INFO/WARN/ERROR). | `INFO` |
 | `LOSU_NTFY_TOPIC` | Unique ntfy.sh topic for phone alerts. | `losu-monitor-default` |
 | `LOSU_AI_MODEL` | The Ollama model for analysis. | `llama3` |
-
+| `LOSU_WEB_ADDR` | Web dashboard listen address. | `:8080` |
+| `LOSU_EPS_CRITICAL` | EPS threshold for CRITICAL SPIKE status. | `20.0` |
+| `LOSU_EPS_SUSTAINED` | EPS threshold for Sustained Errors status. | `5.0` |
+| `LOSU_EPS_UNSTABLE` | EPS threshold for Unstable status. | `1.0` |
+| `LOSU_EPS_MINOR` | EPS threshold for Minor Issues status. | `0.1` |
+| `LOSU_WPS_PREINCIDENT` | WPS threshold for Pre-Incident Warning. | `200.0` |
+| `LOSU_WPS_SUSPICIOUS` | WPS threshold for Suspicious Activity. | `100.0` |
+| `LOSU_WPS_PRESSURE` | WPS threshold for Pressure Building. | `50.0` |
+ 
 ### 4. Mobile Alerts Setup
 1. Download the **ntfy** app (iOS/Android).
 2. Click **"Subscribe to topic"** and enter a unique, private name (e.g., `losu-monitor-5437`).
@@ -195,45 +243,60 @@ Create a `.env` file in the root directory(Check .env.example):
    ```go
    NTFY_TOPIC=losu-monitor-5437
 4. Instant push notifications will now bypass your desktop and hit your pocket for all ERROR level events.
-
-
+ 
+ 
 ### 5. ▹Run the app 
 <details><summary><b>Windows way!</b>(Click to expand)</summary>
--Run with default INFO filter
-
+ 
+-Run with default INFO filter (TUI only)
 ```bash
 go run cmd/logsum/main.go
 ```
-
+ 
+-Run with web dashboard
+```bash
+go run cmd/logsum/main.go --ui=web
+```
+ 
+-Run with both TUI and web dashboard
+```bash
+go run cmd/logsum/main.go --ui=both
+```
+ 
 -Run and wipe previous session stats
-
 ```bash
 go run cmd/logsum/main.go -reset
 ```
-
+ 
 ### 6a. 🧪 Testing with Chaos. (Populates test.log!)
 -LOSU includes a built-in Chaos Generator to simulate production-grade failures, including high-memory spikes, database timeouts, and security anomalies:
-
+ 
 -In a separate terminal (Change time.Sleep depending on how chaotic you want it! It can handle 1k logs/sec). 
 ```bash
 go run bin/stress/stress_gen.go
 ```
-
+ 
 ### 6b. 🧪 Testing without Chaos. (Populates test.log!)
 -In a separate terminal
 ```bash
 go run bin/normal/normal_gen.go
 ```
 </details>
-
+ 
 <details><summary><b>Makefile way!</b>(Click to expand)</summary>
 You can use the provided **Makefile** for easy execution:
-
+ 
 ```bash
-# Run the monitor
+# Run the monitor (TUI)
 make run
+ 
+# Run with web dashboard
+make run-web
+ 
+# Run with both TUI and web
+make run-both
 ```
-
+ 
 ### 6. 🧪 Testing 
 -<b>Normal steady traffic</b>
 ```bash
@@ -246,18 +309,18 @@ make test-normal
 make test-stress
 ```
 </details>
-
+ 
 </details>
-
+ 
 ---
-
+ 
 ## 🏗️ Architecture & Performance Design
-
+ 
 LOSU is engineered for high-throughput environments using a decoupled, concurrent data pipeline and a "Flat-Line" memory profile.
-
+ 
 ### 1. System Topology & Responsibilities
 The application is divided into specialized modules to ensure a clear **Separation of Concerns**.
-
+ 
 | Component | Package | Responsibility |
 | :--- | :--- | :--- |
 | **The Watcher** | `/internal/watcher` | **Signal**: Monitors file changes via `fsnotify` and emits non-blocking update signals. |
@@ -265,40 +328,44 @@ The application is divided into specialized modules to ensure a clear **Separati
 | **The Pipeline** | `/internal/pipeline` | **Concurrency**: A worker pool that parallelizes parsing across multiple goroutines. |
 | **The Parser** | `/internal/parser` | **Transformation**: Detects formats (logfmt, bracketed, etc.) and translates raw lines into structured `LogEvent` objects. |
 | **The Aggregator** | `/internal/aggregator` | **State**: A stateful engine that builds real-time metrics, trends, and error cardinality. Also triggers forensic snapshots via sync.WaitGroup |
+| **The Hub** | `/internal/hub` | **WebSocket**: Non-blocking fan-out hub managing all connected browser clients. Slow clients are dropped rather than stalling the broadcast goroutine. |
+| **The Server** | `/internal/server` | **HTTP**: Echo-based server serving the embedded web dashboard and WebSocket stream. Exposes `/ws/stream`, `/api/snapshot`, and `/api/inspect`. |
 | **The UI** | `/internal/ui` | **Visualization**: A high-performance TUI utilizing atomic buffer rendering for flicker-free display. |
 | **The AI** | `/internal/ai` | **Intelligence**: Automated incident analysis and SRE-style reporting via local LLM integration. |
 | **The Alerts** | `/internal/alerts` | **Notification**: Rate-limited alerting via Desktop, Mobile (ntfy), or Audio notifications. |
-
+ 
 ### 2. Core Engineering Pillars
 The architecture maintains **State-Independent Resource Usage**, ensuring stability regardless of log volume or uptime.
-
+ 
 #### 🔍 Tiered History Strategy
 To balance "Deep Forensics" with "Low RAM," LOSU utilizes a three-tier memory architecture:
 * **Tier 1 (UI)**: A 1,500-line virtualized window for real-time rendering.
 * **Tier 2 (Forensics)**: A 50,000-line circular buffer for on-demand incident reports.
 * **Tier 3 (Signals)**: A dedicated 10,000-line high-priority buffer that isolates WARNINGS and ERRORS from the background "INFO" noise.
-
+ 
 #### ⚡ Persistent Buffer Pooling
 To eliminate the overhead of Go's Garbage Collector (GC), the UI does not create new strings for every frame. 
 * **The Tech**: Uses a persistent `strings.Builder` with `Reset()` and `Grow()`.
 * **The Result**: Memory is recycled instead of re-allocated, dropping UI churn by ~60% in high-velocity environments.
-
+ 
 #### 🧊 Atomic Viewport Rendering
 Traditional TUI updates often suffer from "Screen Tearing" or "ANSI Fragmentation" when processing thousands of updates per second.
 * **The Tech**: LOSU utilizes a double-buffered rendering approach, where a full frame is constructed in memory and pushed to the terminal in a single `SetText` operation.
 * **The Result**: 100% flicker-free UI and zero "Symbol Wall" artifacts, even during 50KB+ log bursts.
-
+ 
 #### 🛡️ Hard-Capped Cardinality & History
 The internal Aggregator uses a "Guard Rail" system to prevent memory leaks from unique log messages.
 * **The Tech**: 
     * **Message Tracking**: Top-10 lists are limited to the most frequent occurrences.
     * **Log History**: The internal cache is hard-trimmed to the latest 1,500 visible lines.
 * **The Result**: RAM usage stays under 30MB whether you have processed 1,000 logs or 10,000,000 logs.
-
-
+ 
+#### 🌐 Bandwidth-Safe WebSocket Architecture
+The web dashboard must never become a bottleneck for the ingestion pipeline.
+* **The Tech**: A dedicated `WebSnapshot` type is served at 500ms intervals, capping sample logs at 50 events and stripping timestamp arrays from `MessageStat`. A non-blocking hub with per-client buffered channels (8 slots) drops slow clients rather than stalling the broadcaster.
+* **The Result**: Adding a browser tab to a running LOSU instance has zero measurable impact on TUI performance or ingestion throughput.
+ 
 ---
-
-## 🧪 Testing
 
 ## 🧪 Testing
 
@@ -353,6 +420,37 @@ These tests focus on the "brain" of the application, ensuring raw streams are co
 
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
+
+<details>
+<summary><b>April 3, 2026: Full-Stack Observability & Web UI Overhaul</b> 🌐🔬⚡ (Click to expand)</summary>
+
+#### Phase 1: Decoupled Signal Architecture (EPS/WPS Split)
+* **Separated Error & Warn Signals**: Replaced the single combined `trendRing` with two independent `errorTrendRing` and `warnTrendRing` circular buffers. The old "Err+Warn/s" metric was misleading — a warn flood and an error spike look identical when merged. Now EPS (Errors/sec) and WPS (Warns/sec) are tracked, graphed, and alarmed independently.
+* **Dual Forensic Rings**: Extended the 3600-slot incident forensic ring into two (`errorIncidentRing` + `warnIncidentRing`), each tracking a full hour of independent signal history. Incident JSON reports now contain `hourly_trend_errors` and `hourly_trend_warns` separately, enabling post-mortem root cause analysis that distinguishes "error spike" from "warn buildup that preceded errors."
+* **Configurable Thresholds via Env**: Replaced all hardcoded EPS/WPS alert thresholds with environment variables (`LOSU_EPS_CRITICAL`, `LOSU_WPS_SUSPICIOUS`, etc.). Each application deployment can tune its own "normal" baseline without recompiling — a payment processor and a game server have fundamentally different error tolerances.
+* **Pre-Incident Warning States**: Added warn-based status labels (`⚠ Pressure Building`, `⚠ Suspicious Activity`, `⚠ Pre-Incident Warning`) that surface only when errors are healthy but warns are spiking. This catches the classic incident pattern — warns spike first, errors follow — before the errors actually arrive.
+
+#### Phase 2: Parser Hardening & Timestamp Recovery
+* **Package-Level Cleaner**: Moved `strings.NewReplacer` from inside `Parse()` to package scope. The original was re-allocated on every call, defeating its own stated optimization. Now it is truly shared across all parse calls.
+* **Fast-Path Timestamp Recovery**: The logfmt and bracket fast-paths previously discarded the real `time=` timestamp and silently substituted `time.Now()`. Fixed both paths to extract and parse the actual timestamp, restoring accurate event timing in `LogEvent.Timestamp`.
+* **`catch-all` Pattern Fix**: The catch-all regex only captures 1 group but the loop checked `len(matches) >= 3`, so it never fired — every unmatched line fell through to the bottom fallback silently. Fixed the guard to `len(matches) == 0` and handled the single capture group correctly.
+
+#### Phase 3: Per-Variant Forensic Timestamps
+* **`VariantTimestamps` Ring**: Added a 20-slot circular timestamp buffer per unique message variant inside `MessageStat`. At 10-20k logs/sec a hot variant hits 1-5/sec, making 20 entries sufficient to distinguish burst vs sustained patterns while keeping total memory overhead under 1MB across all patterns.
+* **Two-Level Drill-Down**: The inspector (both TUI and Web) now supports a two-level click path: Pattern → Variant list (with last-hit time + count) → Variant timeline (full 20-timestamp history for that specific IP/user/key). This turns "Failed login attempt — 412 hits" into forensic-grade data: which IPs are attacking, at what rate, since when.
+* **Aggregator `GetInspect()` API**: Added an on-demand `GetInspect(pattern string)` method that returns the full `InspectResult` including per-variant detail. This is only called when a user clicks a row — never included in the 500ms WebSocket stream — keeping the hot path completely unaffected.
+
+#### Phase 4: Web UI (localhost Dashboard)
+* **Event Bus & WebSocket Hub**: Introduced `internal/hub` — a non-blocking fan-out hub that manages WebSocket clients. Each client owns a buffered send channel (8 slots). Slow or dead clients are dropped rather than blocking the broadcast goroutine, protecting pipeline throughput.
+* **`WebSnapshot` — Bandwidth-Safe Payload**: Defined a separate `WebSnapshot` type served at 500ms intervals. Unlike the full `Snapshot` used by the TUI (which carries 50k `LogEvent` objects), `WebSnapshot` caps sample logs at 50 events, strips timestamp arrays from `MessageStat`, and serializes only what the browser needs to render.
+* **Echo HTTP Server with `go:embed`**: The web server (`internal/server`) embeds `index.html` at compile time via `//go:embed static/index.html`. The binary remains fully self-contained — no Node.js, no npm, no separate assets. Running `./losu --ui=web` serves the full dashboard at `localhost:8080` with zero external dependencies.
+* **`--ui` Flag**: Added `--ui=tui|web|both` flag. Default is `tui` for full backward compatibility. `--ui=both` runs the terminal dashboard and web server simultaneously from the same binary and the same aggregator state.
+* **React via CDN + `htm`**: The frontend uses React 18 and `htm` loaded from CDN — no build step, no compiler, no toolchain. `htm` provides JSX-like syntax in plain JavaScript using tagged template literals. The entire frontend is a single HTML file.
+* **Pure SVG Sparklines with Log Scale**: Replaced Recharts (which had CDN loading issues) with hand-rolled SVG area charts. Applied `Math.log1p()` scaling so spikes remain visible at high throughput instead of producing a solid wall of blocks.
+* **`/api/inspect` Endpoint**: Added a query-parameter REST endpoint (`GET /api/inspect?pattern=...`) for on-demand pattern detail. Uses a query parameter instead of a path parameter because fingerprint patterns contain `*` and `.` characters that Echo's router interprets as wildcards in path segments.
+* **AI Observer Decoupled from UI Mode**: Moved the AI analysis goroutine outside the TUI block so it runs regardless of `--ui` mode. Results are stored in the aggregator via `SetAIAnalysis()` and served through `WebSnapshot.AIAnalysis`. The TUI reads the same field via a lightweight polling goroutine every 2 seconds, keeping both UIs in sync from a single analysis source.
+
+</details>
 
 <details>
 <summary><b>March 31, 2026: The "Mechanical Sympathy" & Ring-Buffer Overhaul</b>⚡⚡⚡ (Click to expand)</summary> 
@@ -664,6 +762,40 @@ These tests focus on the "brain" of the application, ensuring raw streams are co
 ---
 
 ## Problems & How I Solved Them
+
+<details><summary>Challenge: Web UI Without Breaking the Single Binary Philosophy(Click to expand)</summary>
+
+### 🌐 Challenge: Web UI Without Breaking the Single Binary Philosophy
+
+**Problem:** Adding a web dashboard creates an immediate architectural conflict. A traditional web stack requires Node.js, npm, a build step, compiled JS bundles, and separate asset files deployed alongside the binary. This directly contradicts LOSU's core design principle: one binary, zero runtime dependencies, drop it anywhere and run it.
+
+A secondary problem emerged during implementation — Recharts (the charting library) failed to load correctly from CDN, producing `Uncaught ReferenceError: Recharts is not defined` and crashing the entire React tree. Standard CDN-loaded libraries expose themselves as globals inconsistently across hosts, making them unreliable for a tool that needs to work in any environment.
+
+**Solution: `go:embed` + `htm` + Pure SVG**
+
+Three decisions solved both problems simultaneously:
+
+* **`go:embed` for zero-dependency serving**: The entire frontend (`index.html`) is compiled directly into the Go binary at build time using the `//go:embed` directive. No external files, no static asset folders, no deployment complexity. `./losu --ui=web` is completely self-contained — the binary serves its own UI from memory.
+
+* **`htm` instead of JSX**: React normally requires a compiler (Babel/TypeScript) to process JSX syntax. `htm` is a 500-byte library that provides identical syntax using JavaScript tagged template literals — no compiler needed, loads from a single CDN script tag. This keeps the entire frontend in one plain HTML file with no build step.
+
+* **Hand-rolled SVG sparklines instead of Recharts**: Rather than fighting CDN inconsistencies, the EPS/WPS graphs were implemented as pure SVG path elements computed in JavaScript. `Math.log1p()` provides log-scale compression so spikes remain visible at high throughput. Zero library dependencies, zero CDN risk, and the rendering is faster than any chart library since it generates only two `<path>` elements per graph.
+
+The result: the web dashboard is a single 25KB HTML file baked into the binary. Deploying LOSU with a web UI is identical to deploying without one — copy the binary, run it.
+
+</details>
+
+<details><summary>Challenge: The "Star Wildcard" Router Collision(Click to expand)</summary>
+
+### 🔬 Challenge: The "Star Wildcard" Router Collision
+
+**Problem:** The `/api/inspect/:pattern` endpoint returned 404 for every request. The fingerprint patterns that LOSU generates — e.g. `Failed login attempt | ip=*.*.*.*` — contain `*` and `.` characters. Echo's HTTP router interprets `*` as a wildcard glob in URL path segments, so the route never matched and the request was silently dropped.
+
+**Solution: Query parameters over path parameters**
+
+Moved the pattern from the URL path to a query parameter: `GET /api/inspect?pattern=Failed+login+attempt+%7C+ip%3D*.*.*.*`. Query parameters bypass the router's pattern matching entirely — they are read after routing is complete, so special characters are treated as literal data. The fingerprint string is URL-encoded by the browser (`encodeURIComponent`) and decoded server-side by Echo's `c.QueryParam()`. One-line fix, zero router configuration needed.
+
+</details>
 
 <details><summary>Challenge: The Symbol Wall(Click to expand)</summary>
 

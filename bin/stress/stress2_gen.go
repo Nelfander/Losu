@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	logsPerSecond = 50000 // Reduced slightly for OS stability; ramp up once verified
-	batchSize     = 250   // Larger batches = fewer channel operations
-	channelSize   = 50    // Enough buffer to handle disk spikes
+	logsPerSecond = 5000 // Reduced slightly for OS stability; ramp up once verified
+	batchSize     = 250  // Larger batches = fewer channel operations
+	channelSize   = 50   // Enough buffer to handle disk spikes
 )
 
 func main() {

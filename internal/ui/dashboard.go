@@ -2,7 +2,10 @@ package ui
 
 import (
 	"fmt"
+	"math"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,54 +37,46 @@ type Dashboard struct {
 func NewDashboard() *Dashboard {
 	app := tview.NewApplication()
 
-	// Create the views FIRST so they keep their type
 	stats := tview.NewTextView()
 	topErrors := tview.NewTextView()
 	logs := tview.NewTextView()
 	graph := tview.NewTextView()
 	ai := tview.NewTextView()
 
-	// Configure Stats
 	stats.SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
 		SetBorder(true).
 		SetTitle(" [yellow]Stats Breakdown ")
 
-	// Configure Top Errors/Warns
 	topErrors.SetDynamicColors(true).
 		SetRegions(true).
 		SetBorder(true).
 		SetTitle(" [red]Top 10 Error/Warn Messages ")
 
-	// Prevent losing focus when clicking or hitting Enter
 	topErrors.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyTab {
-			app.SetFocus(logs) // Tab moves to the logs
+			app.SetFocus(logs)
 		}
 	})
 
-	// Configure Latest Logs
 	logs.SetDynamicColors(true).
 		SetScrollable(true).
-		SetMaxLines(5000). // Keep the UI buffer light and fast
+		SetMaxLines(5000).
 		SetRegions(true).
 		SetWordWrap(false).
 		SetBorder(true).
 		SetTitle(" [green]Latest Logs (Real-time) ")
 
-	// Configure AI View
 	ai.SetDynamicColors(true).
 		SetWordWrap(true).
 		SetBorder(true).
 		SetTitle(" [purple]AI Observer Insights ")
 	ai.SetText("[gray]Gathering data for initial analysis...")
 
-	// Configure Graph
 	graph.SetDynamicColors(true).
 		SetBorder(true).
 		SetTitle(" [cyan]Error/Warn Graph (60s) ")
 
-	// Configure Search Box
 	searchInput := tview.NewInputField().
 		SetLabel(" 🔍 Search: ").
 		SetPlaceholder(" Click to type filters for Latest Logs box...").
@@ -100,70 +95,50 @@ func NewDashboard() *Dashboard {
 		GraphView:        graph,
 		AIView:           ai,
 		SearchInput:      searchInput,
-		SearchFilter:     "", // Start with an empty filter string
+		SearchFilter:     "",
 		Pages:            nil,
-		LastHistoryLen:   0,          // Start at 0
-		LastSearchFilter: "",         // Start empty
-		FilteredLogs:     []string{}, // Initialize the slice
+		LastHistoryLen:   0,
+		LastSearchFilter: "",
+		FilteredLogs:     []string{},
 	}
 
-	// Fix the SetChangedFunc to update the dashboard's filter
 	searchInput.SetChangedFunc(func(text string) {
 		dashboard.SearchFilter = text
 	})
 
 	dashboard.SearchInput = searchInput
 
-	// --- THE UNIVERSAL DRAGGABLE LOGIC ---
+	// --- DRAGGABLE LOGIC: Latest Logs ---
 	logs.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
 		x, y := event.Position()
 		rectX, rectY, rectWidth, rectHeight := logs.GetInnerRect()
-
-		// The scrollbar hit area (far right edge)
 		scrollbarX := rectX + rectWidth - 1
-
-		// Check if the LEFT MOUSE BUTTON is currently pressed
-		// tcell.Button1 is the standard constant for Left Click
 		leftPressed := event.Buttons()&tcell.Button1 != 0
 
 		if leftPressed {
-			// If they just clicked the scrollbar OR they are already dragging
 			if x >= scrollbarX-1 || dashboard.isDragging {
 				dashboard.isDragging = true
-
-				// Calculate percentage (0.0 at top, 1.0 at bottom)
 				relativeY := float64(y - rectY)
 				percentage := relativeY / float64(rectHeight)
-
 				if percentage < 0 {
 					percentage = 0
 				}
 				if percentage > 1 {
 					percentage = 1
 				}
-
-				// Get total lines and jump
 				totalLines := len(dashboard.FilteredLogs)
 				targetLine := int(percentage * float64(totalLines))
-
 				logs.ScrollTo(targetLine, 0)
-
-				// If dragged to the very bottom, re-enable auto-scroll
 				dashboard.isAutoScroll = (percentage >= 0.95)
-
-				// Return nil for the event so tview doesn't try to
-				// highlight text while dragging the bar
 				return action, nil
 			}
 		} else {
-			// Button is released
 			dashboard.isDragging = false
 		}
-
 		return action, event
 	})
 
-	// --- TOP 10 ERROR/WARN DRAGGABLE LOGIC --- (For later when we populate with more than 10 err/warn)
+	// --- DRAGGABLE LOGIC: Top 10 Errors/Warns ---
 	var isDraggingTop bool
 
 	topErrors.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
@@ -173,26 +148,18 @@ func NewDashboard() *Dashboard {
 		leftPressed := event.Buttons()&tcell.Button1 != 0
 
 		if leftPressed {
-			// Check if they clicked the right edge OR are already dragging
 			if x >= scrollbarX-1 || isDraggingTop {
 				isDraggingTop = true
-
 				relativeY := float64(y - rectY)
 				percentage := relativeY / float64(rectHeight)
-
-				// Clamp 0.0 to 1.0
 				if percentage < 0 {
 					percentage = 0
 				}
 				if percentage > 1 {
 					percentage = 1
 				}
-
-				// Get total lines in the TopErrors text
-				// We split by newline to see how many lines are actually there
 				totalLines := strings.Count(topErrors.GetText(false), "\n")
 				targetLine := int(percentage * float64(totalLines))
-
 				topErrors.ScrollTo(targetLine, 0)
 				return action, nil
 			}
@@ -202,69 +169,56 @@ func NewDashboard() *Dashboard {
 		return action, event
 	})
 
-	logs.SetMaxLines(2000) // hard limit on visible + internal buffer
+	logs.SetMaxLines(2000)
 	logs.SetChangedFunc(func() {
 		dashboard.App.Draw()
 	})
 
-	// Layout:
-	// A horizontal flex for the top row
 	header := tview.NewFlex().
-		AddItem(stats, 0, 1, false).    // Stats takes 1/3
-		AddItem(topErrors, 0, 2, false) // TopErrors takes 2/3 space for longer text
+		AddItem(stats, 0, 1, false).
+		AddItem(topErrors, 0, 2, false)
 
-	// Split the bottom area into Logs/AI (left) and Graph (right)
-
-	// ---Split the bottom left into Logs (Top) and AI (Bottom) ---
 	logContainer := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(logs, 15, 1, false). // Latest Logs
-		AddItem(ai, 0, 1, false)     // AI Box
+		AddItem(logs, 15, 1, false).
+		AddItem(ai, 0, 1, false)
 
 	rightSide := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(graph, 0, 1, false).      // Graph takes all available top space
-		AddItem(searchInput, 5, 1, false) // Search bar takes 3 lines at the bottom
+		AddItem(graph, 0, 1, false).
+		AddItem(searchInput, 5, 1, false)
 
 	body := tview.NewFlex().
-		AddItem(logContainer, 0, 2, false). // Latest Logs takes 2/3
-		AddItem(rightSide, 55, 1, false)    // Graph takes a fixed width of 25
+		AddItem(logContainer, 0, 2, false).
+		AddItem(rightSide, 55, 1, false)
 
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(header, 8, 1, false).
-		AddItem(body, 0, 1, false) // Stack the split body below the header
+		AddItem(body, 0, 1, false)
 
-	// Enable Mouse support so clicking works
 	app.EnableMouse(true)
 
-	// Create the Pages container
 	pages := tview.NewPages()
-
-	//  Add  main dashboard as the bottom layer
 	pages.AddPage("dashboard", flex, true, true)
 
 	dashboard.MainLayout = flex
 	dashboard.Pages = pages
 
-	//  Set initial focus to the app itself, not a specific box
-	// This keeps Ctrl+C working and prevents the search box from
-	// "stealing" all the keys until you actually click it.
 	app.SetFocus(flex)
 
-	//  Simple Input Capture ONLY for the Emergency Exit
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlC {
 			app.Stop()
 			return nil
 		}
-		return event // This is crucial: it sends all other keys back to the app!
+		return event
 	})
 
 	searchInput.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEscape {
-			searchInput.SetText("")     // Clears the UI box
-			dashboard.SearchFilter = "" // Clears the logic filter
+			searchInput.SetText("")
+			dashboard.SearchFilter = ""
 		}
 	})
 
@@ -274,15 +228,12 @@ func NewDashboard() *Dashboard {
 			highlights := topErrors.GetHighlights()
 			if len(highlights) > 0 {
 				var index int
-				// Parse index back out of top_0 , top_1 etc..
 				fmt.Sscanf(highlights[0], "top_%d", &index)
 
 				if index >= 0 && index < len(dashboard.StatLookup) {
 					stat := dashboard.StatLookup[index]
 					levelColor := dashboard.getColor(stat.Level)
 
-					// We grab the 'bestMsg' again so the Title of the popup
-					// matches the text of the row you just pressed Enter on.
 					bestMsg := ""
 					max := -1
 					for msg, count := range stat.VariantCounts {
@@ -292,19 +243,15 @@ func NewDashboard() *Dashboard {
 						}
 					}
 
-					//Build the details string
 					var sb strings.Builder
-					// Use the levelColor for the Level label and the Total count
 					sb.WriteString(fmt.Sprintf("[%s]Log Level: [%s]%s\n", levelColor, levelColor, stat.Level))
 					sb.WriteString(fmt.Sprintf("Message : [%s]%s\n", levelColor, tview.Escape(bestMsg)))
 					sb.WriteString(fmt.Sprintf("[%s]Total Occurrences: [%s]%d\n", levelColor, levelColor, stat.Count))
-					sb.WriteString("[gray]" + strings.Repeat("━", 64) + "\n") // Visual separator
+					sb.WriteString("[gray]" + strings.Repeat("━", 64) + "\n")
 
-					// 100-timestamp timeline!
 					sb.WriteString("\n[cyan]🕒 Recent Timeline (Last 100):\n")
 					orderedTimestamps := stat.GetSortedTimestamps()
 
-					// Loop through the ORDERED timestamps backwards (newest at the top)
 					for i := len(orderedTimestamps) - 1; i >= 0; i-- {
 						ts := orderedTimestamps[i]
 						timeDiff := time.Since(ts).Truncate(time.Second)
@@ -312,18 +259,40 @@ func NewDashboard() *Dashboard {
 						if timeDiff < time.Second {
 							diffStr = "< 1s"
 						}
-
 						sb.WriteString(fmt.Sprintf(" [white]%s [gray](%s ago)\n",
-							ts.Format("15:04:05.000"),
-							diffStr))
+							ts.Format("15:04:05.000"), diffStr))
 					}
 
-					sb.WriteString("\n[yellow]📝 Unique Variations in this Cluster:\n")
+					sb.WriteString("\n[yellow]📝 Unique Variations — click variant for its timeline:\n")
+					// Sort variants by count descending for consistent display
+					type varEntry struct {
+						msg   string
+						count int
+					}
+					varList := make([]varEntry, 0, len(stat.VariantCounts))
 					for msg, count := range stat.VariantCounts {
-						sb.WriteString(fmt.Sprintf(" [white](%d hits) %s\n", count, tview.Escape(msg)))
+						varList = append(varList, varEntry{msg, count})
+					}
+					sort.Slice(varList, func(i, j int) bool {
+						return varList[i].count > varList[j].count
+					})
+
+					for _, ve := range varList {
+						// Show most recent hit time per variant if available
+						recentStr := ""
+						if stat.VariantTimestamps != nil {
+							if vt, ok := stat.VariantTimestamps[ve.msg]; ok {
+								ordered := vt.Slice()
+								if len(ordered) > 0 {
+									latest := ordered[len(ordered)-1]
+									recentStr = fmt.Sprintf(" [gray](last: %s)", latest.Format("15:04:05.000"))
+								}
+							}
+						}
+						sb.WriteString(fmt.Sprintf(" [white](%d hits)%s %s\n",
+							ve.count, recentStr, tview.Escape(ve.msg)))
 					}
 
-					// Show popup
 					dashboard.ShowInspector("[#ff8c00]Error/Warn Detail Analysis[-]", sb.String())
 				}
 			}
@@ -336,40 +305,38 @@ func NewDashboard() *Dashboard {
 }
 
 func (d *Dashboard) Update(snap model.Snapshot) {
-	//  --- Build the Stats String ---
+	// --- Stats ---
 	var statsStr strings.Builder
 	statsStr.WriteString(fmt.Sprintf("\n[white]Total Logs Processed: [blue]%d\n\n", snap.TotalLines))
-
 	statsStr.WriteString(fmt.Sprintf(" [red]ERROR : [white]%-6d    [yellow]WARN  : [white]%-6d\n",
-		snap.ErrorCounts["ERROR"],
-		snap.ErrorCounts["WARN"]))
-
+		snap.ErrorCounts["ERROR"], snap.ErrorCounts["WARN"]))
 	statsStr.WriteString(fmt.Sprintf(" [green]INFO  : [white]%-6d    [cyan]DEBUG : [white]%-6d\n",
-		snap.ErrorCounts["INFO"],
-		snap.ErrorCounts["DEBUG"]))
-
+		snap.ErrorCounts["INFO"], snap.ErrorCounts["DEBUG"]))
 	d.StatsView.SetText(statsStr.String())
 
-	//  --- GRAPH VIEW ---
-	avgEPS := snap.AverageEPS
-	spark := getSparkline(snap.Trend, 10)
+	// --- Graph ---
+	// Two log-scale sparklines — red for errors, yellow for warns.
+	// Log scale (math.Log1p) compresses the dynamic range so spikes remain
+	// visible at high throughput instead of becoming a solid wall of blocks.
+	sparkErrors := getSparklineLog(snap.TrendError, 5)
+	sparkWarns := getSparklineLog(snap.TrendWarn, 5)
+	sparkErrors = strings.ReplaceAll(sparkErrors, "[cyan]", "[red]")
+	sparkWarns = strings.ReplaceAll(sparkWarns, "[cyan]", "[yellow]")
 
 	var graphBody strings.Builder
-	graphBody.WriteString(fmt.Sprintf("\n [white]Current Status: %s\n", getStatusLabel(avgEPS)))
-	graphBody.WriteString(fmt.Sprintf(" [white]Peak: [red]%.1f [white]Err+Warn/s | Avg: [cyan]%.2f [white]Err+Warn/s\n", snap.PeakEPS, avgEPS))
-	graphBody.WriteString("\n" + spark + "\n")
+	graphBody.WriteString(fmt.Sprintf("\n [white]Status: %s\n\n", getStatusLabel(snap.AverageEPS, snap.AverageWPS)))
+	graphBody.WriteString(fmt.Sprintf(" [red]EPS [white]| Peak: [red]%.1f [white]Avg: [red]%.2f\n", snap.PeakEPS, snap.AverageEPS))
+	graphBody.WriteString("\n" + sparkErrors + "\n")
+	graphBody.WriteString(" [white]" + strings.Repeat("▔", 25) + "\n\n")
+	graphBody.WriteString(fmt.Sprintf(" [yellow]WPS [white]| Peak: [yellow]%.1f [white]Avg: [yellow]%.2f\n", snap.PeakWPS, snap.AverageWPS))
+	graphBody.WriteString("\n" + sparkWarns + "\n")
 	graphBody.WriteString(" [white]" + strings.Repeat("▔", 25))
-
 	d.GraphView.SetText(graphBody.String())
 
 	// --- Top 10 Errors/Warns ---
 	var topStr strings.Builder
 	topStr.WriteString("\n")
-
-	// Clear the lookup slice every update
 	d.StatLookup = nil
-
-	// snap.TopMessages is now []model.MessageStat
 	sortedTop := snap.TopMessages
 
 	for i := 0; i < 5; i++ {
@@ -377,11 +344,7 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 			if idx >= len(sortedTop) {
 				return strings.Repeat(" ", 45)
 			}
-
-			// sortedTop[idx] is now a model.MessageStat directly
 			item := sortedTop[idx]
-
-			// Find the best message variant to display
 			bestMsg := ""
 			maxSubCount := -1
 			for msg, count := range item.VariantCounts {
@@ -392,39 +355,31 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 					bestMsg = msg
 				}
 			}
-
-			// Store in lookup for clickability
 			d.StatLookup = append(d.StatLookup, item)
 			lookupIdx := len(d.StatLookup) - 1
-
 			color := "red"
 			if item.Level == "WARN" {
 				color = "yellow"
 			}
-
-			// Wrap in region tag for tview interactivity
 			return fmt.Sprintf(`["top_%d"][%s]%5d [white]| %-35s[""]`,
-				lookupIdx,
-				color,
-				item.Count,
-				truncate(bestMsg, 35))
+				lookupIdx, color, item.Count, truncate(bestMsg, 35))
 		}
-
-		// Render two columns (0 & 5, 1 & 6, etc.)
 		topStr.WriteString(fmt.Sprintf(" %s   %s\n", getRow(i), getRow(i+5)))
 	}
 	d.TopErrorsView.SetText(topStr.String())
 
-	//  --- HIGH PERFORMANCE + STABLE LOG UPDATES ---
+	// --- Log updates (original high-performance implementation) ---
+	// Only append new lines — never rewrite the whole buffer on every tick.
+	// This is what made 50m logs work without the symbol wall.
 	filterChanged := d.SearchFilter != d.LastSearchFilter
 	historyFull := len(snap.History) >= 50000
 
 	if filterChanged || historyFull {
-		d.FilteredLogs = d.FilteredLogs[:0] // clear cache
-		d.LastHistoryLen = 0                // reset pointer to start of history
-		d.LastSearchFilter = d.SearchFilter // sync the state
-		d.LogView.Clear()                   // wipe ui
-		d.isAutoScroll = true               // reset auto-scroll when starting a new search
+		d.FilteredLogs = d.FilteredLogs[:0]
+		d.LastHistoryLen = 0
+		d.LastSearchFilter = d.SearchFilter
+		d.LogView.Clear()
+		d.isAutoScroll = true
 	}
 
 	if len(snap.History) > d.LastHistoryLen {
@@ -433,8 +388,6 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 
 		for i := d.LastHistoryLen; i < len(snap.History); i++ {
 			event := snap.History[i]
-
-			// We search BOTH the level and the message now for better effectiveness
 			match := filterLower == "" ||
 				strings.Contains(strings.ToLower(event.Message), filterLower) ||
 				strings.Contains(strings.ToLower(event.Level), filterLower)
@@ -445,7 +398,6 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 					event.Timestamp.Format("15:04:05"),
 					event.Level,
 					tview.Escape(event.Message))
-
 				uiBatch.WriteString(line)
 				d.FilteredLogs = append(d.FilteredLogs, line)
 			}
@@ -453,38 +405,28 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 
 		if uiBatch.Len() > 0 {
 			fmt.Fprint(d.LogView, uiBatch.String())
-
-			// Only scroll if we are in "AutoScroll" mode and NOT dragging
 			if d.isAutoScroll && !d.isDragging {
 				d.LogView.ScrollToEnd()
 			}
 		}
-
 		d.LastHistoryLen = len(snap.History)
 	}
 
-	// === CRITICAL: Force hard trim to prevent buffer explosion and garbage ===
+	// Hard trim to prevent buffer explosion
 	const maxVisibleLines = 1500
-
 	if len(d.FilteredLogs) > maxVisibleLines+500 {
-		// Keep only the newest lines
 		start := len(d.FilteredLogs) - maxVisibleLines
 		if start < 0 {
 			start = 0
 		}
-
-		d.LogView.Clear() // fastest way to reset internal buffer
-
+		d.LogView.Clear()
 		for _, line := range d.FilteredLogs[start:] {
 			fmt.Fprint(d.LogView, line)
 		}
-
-		d.FilteredLogs = d.FilteredLogs[start:] // trim cache too
+		d.FilteredLogs = d.FilteredLogs[start:]
 	}
-	//d.LogView.SetText(d.LogView.GetText(false)) // forces full re-render (slow but cleans artifacts)
-	//d.LogView.ScrollToEnd()
 
-	//  --- SCROLL FEEDBACK ---
+	// Scroll feedback
 	matchCount := len(d.FilteredLogs)
 	offset, _ := d.LogView.GetScrollOffset()
 	_, _, _, rectHeight := d.LogView.GetInnerRect()
@@ -498,13 +440,12 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 		if percent > 100 {
 			percent = 100
 		}
-
 		d.LogView.SetTitle(fmt.Sprintf(" [green]Latest Logs (%d total) [white]| Click and drag right side or use mouse wheel to scroll: %d%% ", matchCount, int(percent)))
 	} else {
 		d.LogView.SetTitle(fmt.Sprintf(" [green]Latest Logs (%d total) [white]| TOP ", matchCount))
 	}
 
-	//  --- AI View ---
+	// AI view title
 	lastError := "None"
 	if !snap.LastErrorTime.IsZero() {
 		lastError = snap.LastErrorTime.Format("15:04:05")
@@ -515,29 +456,22 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 	}
 	d.AIView.SetTitle(fmt.Sprintf(" [purple]AI Insights | [red]Last Err: %s [yellow]Last Warn: %s ", lastError, lastWarn))
 
-	// === FINAL RENDERING STEP (Optimized) ===
+	// Final rendering step — identical to original working implementation
 	d.LogView.Clear()
-
-	d.renderBuf.Reset() // Clear the persistent buffer without deallocating memory
-
-	// Pre-allocate know the size (approx 100 chars per line * 1500 lines)
+	d.renderBuf.Reset()
 	if d.renderBuf.Cap() < 150000 {
 		d.renderBuf.Grow(150000)
 	}
-
 	for _, line := range d.FilteredLogs {
 		d.renderBuf.WriteString(line)
 	}
-
-	// SetText from the persistent buffer
 	d.LogView.SetText(d.renderBuf.String())
-
 	if d.isAutoScroll && !d.isDragging {
 		d.LogView.ScrollToEnd()
 	}
 }
 
-// Helper func
+// truncate shortens a string to l characters, adding "..." if trimmed.
 func truncate(s string, l int) string {
 	if len(s) > l {
 		return s[:l-3] + "..."
@@ -545,13 +479,12 @@ func truncate(s string, l int) string {
 	return s
 }
 
-// Helper visual func!
+// getSparkline renders a fixed-height bar chart from a slice of ints.
+// Uses cyan blocks by default — caller recolors via strings.ReplaceAll.
 func getSparkline(data []int, height int) string {
 	if len(data) == 0 {
 		return ""
 	}
-
-	// Find max for scaling
 	max := 0
 	for _, v := range data {
 		if v > max {
@@ -561,61 +494,132 @@ func getSparkline(data []int, height int) string {
 	if max == 0 {
 		max = 1
 	}
-
 	var lines []string
-	// Create the graph from top to bottom
 	for h := height; h > 0; h-- {
 		var line strings.Builder
 		threshold := (float64(h) / float64(height)) * float64(max)
-
 		for _, v := range data {
 			if float64(v) >= threshold {
-				line.WriteString("[cyan]█") // Solid block for peaks
+				line.WriteString("[cyan]█")
 			} else if float64(v) >= threshold-(float64(max)/float64(height*2)) {
-				line.WriteString("[cyan]▄") // Half block for mid-range
+				line.WriteString("[cyan]▄")
 			} else {
 				line.WriteString(" ")
 			}
 		}
 		lines = append(lines, line.String())
 	}
-
 	return strings.Join(lines, "\n")
 }
 
-// getStatusLabel provides a readable health status based on combined ERROR/WARN throughput
-// Should be changed accoring the app that implements Losu
-func getStatusLabel(eps float64) string {
-	switch {
-	case eps < 0.01:
-		return "[white]IDLE"
-	case eps > 20.0:
-		return "[blink][red]CRITICAL SPIKE"
-	case eps > 5.0:
-		return "[red]Sustained Errors"
-	case eps > 1.0:
-		return "[yellow]Unstable"
-	case eps > 0.1:
-		return "[blue]Minor Issues"
-	default:
-		return "[green]HEALTHY"
+// getSparklineLog applies math.Log1p to compress the dynamic range before
+// rendering. This prevents the graph becoming a solid wall at high throughput —
+// a 10x spike still looks like a noticeable bump rather than maxing everything.
+// math.Log1p(x) = log(1+x) maps 0→0 cleanly with no -Inf edge case.
+func getSparklineLog(data []int, height int) string {
+	if len(data) == 0 {
+		return ""
 	}
+	scaled := make([]float64, len(data))
+	maxVal := 0.0
+	for i, v := range data {
+		s := math.Log1p(float64(v))
+		scaled[i] = s
+		if s > maxVal {
+			maxVal = s
+		}
+	}
+	if maxVal == 0 {
+		maxVal = 1
+	}
+	var lines []string
+	for h := height; h > 0; h-- {
+		var line strings.Builder
+		threshold := (float64(h) / float64(height)) * maxVal
+		for _, v := range scaled {
+			if v >= threshold {
+				line.WriteString("[cyan]█")
+			} else if v >= threshold-(maxVal/float64(height*2)) {
+				line.WriteString("[cyan]▄")
+			} else {
+				line.WriteString(" ")
+			}
+		}
+		lines = append(lines, line.String())
+	}
+	return strings.Join(lines, "\n")
 }
 
-// Gathers the top 3 Errors and top 3 Warns into a single string for the AI to analyze
+// getStatusLabel returns a health status based on EPS and WPS independently.
+// Error labels always take priority over warn labels.
+// Warn labels only show when errors are below the minor threshold —
+// giving early warning of degradation before errors start firing.
+//
+// Thresholds are read from env so each app can tune to its own baseline:
+//
+//	LOSU_EPS_MINOR       default 0.1   above this → Minor Issues
+//	LOSU_EPS_UNSTABLE    default 1.0   above this → Unstable
+//	LOSU_EPS_SUSTAINED   default 5.0   above this → Sustained Errors
+//	LOSU_EPS_CRITICAL    default 20.0  above this → CRITICAL SPIKE
+//	LOSU_WPS_PRESSURE    default 50    above this → Pressure Building
+//	LOSU_WPS_SUSPICIOUS  default 100   above this → Suspicious Activity
+//	LOSU_WPS_PREINCIDENT default 200   above this → Pre-Incident Warning
+func getStatusLabel(eps, wps float64) string {
+	thresh := func(key string, def float64) float64 {
+		if v := os.Getenv(key); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				return f
+			}
+		}
+		return def
+	}
+
+	epsCritical := thresh("LOSU_EPS_CRITICAL", 20.0)
+	epsSustained := thresh("LOSU_EPS_SUSTAINED", 5.0)
+	epsUnstable := thresh("LOSU_EPS_UNSTABLE", 1.0)
+	epsMinor := thresh("LOSU_EPS_MINOR", 0.1)
+	wpsPreIncident := thresh("LOSU_WPS_PREINCIDENT", 200.0)
+	wpsSuspicious := thresh("LOSU_WPS_SUSPICIOUS", 100.0)
+	wpsPressure := thresh("LOSU_WPS_PRESSURE", 50.0)
+
+	switch {
+	case eps >= epsCritical:
+		return "[blink][red]CRITICAL SPIKE"
+	case eps >= epsSustained:
+		return "[red]Sustained Errors"
+	case eps >= epsUnstable:
+		return "[red]Unstable"
+	case eps >= epsMinor:
+		return "[blue]Minor Issues"
+	}
+
+	switch {
+	case wps >= wpsPreIncident:
+		return "[yellow]⚠ Pre-Incident Warning"
+	case wps >= wpsSuspicious:
+		return "[yellow]⚠ Suspicious Activity"
+	case wps >= wpsPressure:
+		return "[yellow]⚠ Pressure Building"
+	}
+
+	if eps < 0.01 && wps < 0.01 {
+		return "[white]IDLE"
+	}
+	return "[green]HEALTHY"
+}
+
+// GetSummaryForAI gathers top 3 errors and top 3 warns for the AI observer.
 func (d *Dashboard) GetSummaryForAI(snap model.Snapshot) (errors string, warns string) {
 	type kv struct {
 		Key  string
 		Stat model.MessageStat
 	}
 
-	// This ensures the AI only sees what happened since the last check.
 	var sorted []kv
 	for k, v := range snap.RecentMessages {
 		sorted = append(sorted, kv{k, v})
 	}
 
-	// If there's literally no new data, give the AI a clear signal
 	if len(sorted) == 0 {
 		return "No new errors reported in this window.", "No new warnings."
 	}
@@ -634,7 +638,6 @@ func (d *Dashboard) GetSummaryForAI(snap model.Snapshot) (errors string, warns s
 				bestMsg = msg
 			}
 		}
-
 		if item.Stat.Level == "ERROR" && eCount < 3 {
 			errB.WriteString(fmt.Sprintf("- %s (%d hits)\n", bestMsg, item.Stat.Count))
 			eCount++
@@ -646,7 +649,7 @@ func (d *Dashboard) GetSummaryForAI(snap model.Snapshot) (errors string, warns s
 	return errB.String(), warnB.String()
 }
 
-// Helper func to get color
+// getColor maps a log level to a tview color string.
 func (d *Dashboard) getColor(level string) string {
 	switch level {
 	case "ERROR":
@@ -662,40 +665,33 @@ func (d *Dashboard) getColor(level string) string {
 	}
 }
 
-// Helper to make top10 err/warn clickable with popup detailed box!
+// ShowInspector opens a scrollable popup with detailed stats for a clicked error/warn entry.
 func (d *Dashboard) ShowInspector(title, content string) {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
 		SetText("\n " + content)
 
-	// Helper to update the title based on scroll position
 	updatePopupTitle := func() {
 		offset, _ := textView.GetScrollOffset()
 		_, _, _, rectHeight := textView.GetInnerRect()
-
-		// Count total lines in content
 		lines := strings.Split(content, "\n")
 		totalLines := len(lines)
-
 		if totalLines > rectHeight {
 			maxScroll := totalLines - rectHeight
 			percent := (float64(offset) / float64(maxScroll)) * 100
 			if percent > 100 {
 				percent = 100
 			}
-
 			textView.SetTitle(fmt.Sprintf(" %s [white]| %d%% ", title, int(percent)))
 		} else {
 			textView.SetTitle(fmt.Sprintf(" %s [white]| TOP ", title))
 		}
 	}
 
-	// Initial title set
 	updatePopupTitle()
 	textView.SetBorder(true)
 
-	// --- DRAGGABLE LOGIC ---
 	var isDraggingInspector bool
 	textView.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
 		x, y := event.Position()
@@ -708,37 +704,27 @@ func (d *Dashboard) ShowInspector(title, content string) {
 				isDraggingInspector = true
 				relativeY := float64(y - rectY)
 				percentage := relativeY / float64(rectHeight)
-
 				if percentage < 0 {
 					percentage = 0
 				}
 				if percentage > 1 {
 					percentage = 1
 				}
-
 				totalLines := strings.Count(textView.GetText(false), "\n")
 				targetLine := int(percentage * float64(totalLines))
-
 				textView.ScrollTo(targetLine, 0)
-
-				// Update title while dragging
 				updatePopupTitle()
 				return action, nil
 			}
 		} else {
 			isDraggingInspector = false
 		}
-
-		// Also update title with mouse wheel
 		if action == tview.MouseScrollUp || action == tview.MouseScrollDown {
-			// Let the default scroll happen first, then update title
 			defer updatePopupTitle()
 		}
-
 		return action, event
 	})
 
-	// Layout and Page logic
 	modal := tview.NewFlex().
 		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
