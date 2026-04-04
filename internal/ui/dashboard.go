@@ -222,80 +222,223 @@ func NewDashboard() *Dashboard {
 		}
 	})
 
-	// Top 10 error/warn clickable popup logic
+	// --- Level 1 inspector: Enter on a top error/warn row ---
+	// Opens a tview.List showing all variants for that pattern.
+	// Each row: "HH:MM:SS.mmm  N  message" sorted by count descending.
+	// Pressing Enter on a variant opens the Level 2 timeline inspector.
 	topErrors.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEnter {
 			highlights := topErrors.GetHighlights()
-			if len(highlights) > 0 {
-				var index int
-				fmt.Sscanf(highlights[0], "top_%d", &index)
+			if len(highlights) == 0 {
+				return nil
+			}
 
-				if index >= 0 && index < len(dashboard.StatLookup) {
-					stat := dashboard.StatLookup[index]
-					levelColor := dashboard.getColor(stat.Level)
+			var index int
+			fmt.Sscanf(highlights[0], "top_%d", &index)
+			if index < 0 || index >= len(dashboard.StatLookup) {
+				return nil
+			}
 
-					bestMsg := ""
-					max := -1
-					for msg, count := range stat.VariantCounts {
-						if count > max {
-							max = count
-							bestMsg = msg
+			stat := dashboard.StatLookup[index]
+			levelColor := dashboard.getColor(stat.Level)
+
+			// Build sorted variant list — count descending
+			type varEntry struct {
+				msg        string
+				count      int
+				lastHit    time.Time
+				hasLastHit bool
+			}
+
+			varList := make([]varEntry, 0, len(stat.VariantCounts))
+			for msg, count := range stat.VariantCounts {
+				entry := varEntry{msg: msg, count: count}
+				// Get most recent timestamp for this variant
+				if stat.VariantTimestamps != nil {
+					if vt, ok := stat.VariantTimestamps[msg]; ok {
+						ordered := vt.Slice()
+						if len(ordered) > 0 {
+							entry.lastHit = ordered[len(ordered)-1]
+							entry.hasLastHit = true
 						}
 					}
+				}
+				varList = append(varList, entry)
+			}
 
-					var sb strings.Builder
-					sb.WriteString(fmt.Sprintf("[%s]Log Level: [%s]%s\n", levelColor, levelColor, stat.Level))
-					sb.WriteString(fmt.Sprintf("Message : [%s]%s\n", levelColor, tview.Escape(bestMsg)))
-					sb.WriteString(fmt.Sprintf("[%s]Total Occurrences: [%s]%d\n", levelColor, levelColor, stat.Count))
-					sb.WriteString("[gray]" + strings.Repeat("━", 64) + "\n")
+			// Sort by count descending, then by last hit time descending for ties
+			sort.Slice(varList, func(i, j int) bool {
+				if varList[i].count != varList[j].count {
+					return varList[i].count > varList[j].count
+				}
+				return varList[i].lastHit.After(varList[j].lastHit)
+			})
 
-					sb.WriteString("\n[cyan]🕒 Recent Timeline (Last 100):\n")
-					orderedTimestamps := stat.GetSortedTimestamps()
+			// Build the Level 1 list widget
+			list := tview.NewList()
+			list.SetBorder(true)
+			list.SetTitle(fmt.Sprintf(" [%s]%s [white]— %d variants | Enter: timeline  Esc: back ",
+				levelColor, tview.Escape(stat.Level), len(varList)))
+			list.ShowSecondaryText(false)
+			list.SetHighlightFullLine(true)
+			list.SetSelectedBackgroundColor(tcell.ColorDarkSlateGray)
 
-					for i := len(orderedTimestamps) - 1; i >= 0; i-- {
-						ts := orderedTimestamps[i]
-						timeDiff := time.Since(ts).Truncate(time.Second)
-						diffStr := timeDiff.String()
-						if timeDiff < time.Second {
-							diffStr = "< 1s"
-						}
-						sb.WriteString(fmt.Sprintf(" [white]%s [gray](%s ago)\n",
-							ts.Format("15:04:05.000"), diffStr))
+			// Accelerated mouse wheel scrolling for large variant lists.
+			// A single slow scroll moves 3 items. Rapid consecutive scrolls
+			// (< 120ms apart) accelerate up to 12 items per tick — makes
+			// navigating 500+ variants fast without needing drag support.
+			var lastScrollTime time.Time
+			var scrollAccel int
+			list.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+				if action != tview.MouseScrollUp && action != tview.MouseScrollDown {
+					return action, event
+				}
+
+				now := time.Now()
+				since := now.Sub(lastScrollTime).Milliseconds()
+				lastScrollTime = now
+
+				// Build up acceleration on rapid scrolls, reset on slow ones
+				if since < 120 {
+					scrollAccel++
+					if scrollAccel > 4 {
+						scrollAccel = 4 // cap multiplier
 					}
+				} else {
+					scrollAccel = 0
+				}
 
-					sb.WriteString("\n[yellow]📝 Unique Variations — click variant for its timeline:\n")
-					// Sort variants by count descending for consistent display
-					type varEntry struct {
-						msg   string
-						count int
-					}
-					varList := make([]varEntry, 0, len(stat.VariantCounts))
-					for msg, count := range stat.VariantCounts {
-						varList = append(varList, varEntry{msg, count})
-					}
-					sort.Slice(varList, func(i, j int) bool {
-						return varList[i].count > varList[j].count
-					})
+				// Base 5 items, up to 5 + 4*5 = 25 at max acceleration
+				jump := 5 + scrollAccel*3
 
-					for _, ve := range varList {
-						// Show most recent hit time per variant if available
-						recentStr := ""
-						if stat.VariantTimestamps != nil {
-							if vt, ok := stat.VariantTimestamps[ve.msg]; ok {
-								ordered := vt.Slice()
-								if len(ordered) > 0 {
-									latest := ordered[len(ordered)-1]
-									recentStr = fmt.Sprintf(" [gray](last: %s)", latest.Format("15:04:05.000"))
-								}
+				current := list.GetCurrentItem()
+				count := list.GetItemCount()
+
+				if action == tview.MouseScrollDown {
+					next := current + jump
+					if next >= count {
+						next = count - 1
+					}
+					list.SetCurrentItem(next)
+				} else {
+					next := current - jump
+					if next < 0 {
+						next = 0
+					}
+					list.SetCurrentItem(next)
+				}
+
+				return action, nil // nil prevents default single-step scroll
+			})
+
+			for _, ve := range varList {
+				// Format: "HH:MM:SS.mmm   N   message"
+				timeStr := "    —        "
+				if ve.hasLastHit {
+					timeStr = ve.lastHit.Format("15:04:05.000")
+				}
+
+				label := fmt.Sprintf("[gray]%s  [%s]%-4d[-]  %s",
+					timeStr,
+					levelColor,
+					ve.count,
+					tview.Escape(truncate(ve.msg, 80)),
+				)
+				list.AddItem(label, ve.msg, 0, nil)
+			}
+
+			// Header row as a non-selectable text above the list
+			headerText := tview.NewTextView().
+				SetDynamicColors(true).
+				SetText(fmt.Sprintf("[gray] %-13s  %-4s  %s\n%s",
+					"LAST HIT", "HITS", "MESSAGE",
+					strings.Repeat("─", 80),
+				))
+
+			// Modal layout: header + list stacked vertically
+			modalInner := tview.NewFlex().
+				SetDirection(tview.FlexRow).
+				AddItem(headerText, 2, 0, false).
+				AddItem(list, 0, 1, true)
+
+			modal := tview.NewFlex().
+				AddItem(nil, 0, 1, false).
+				AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+					AddItem(nil, 0, 1, false).
+					AddItem(modalInner, 0, 5, true).
+					AddItem(nil, 0, 1, false), 0, 3, true).
+				AddItem(nil, 0, 1, false)
+
+			d := dashboard
+			pages.AddPage("inspector-l1", modal, true, true)
+			app.SetFocus(list)
+
+			// Enter on a variant row → Level 2: full timestamp timeline
+			list.SetSelectedFunc(func(i int, mainText, secondaryText string, r rune) {
+				varMsg := secondaryText // secondary text holds the raw untruncated message
+
+				// Find this variant's timestamps
+				var varTimestamps []time.Time
+				if stat.VariantTimestamps != nil {
+					if vt, ok := stat.VariantTimestamps[varMsg]; ok {
+						ordered := vt.Slice()
+						// Reverse: newest first
+						for idx := len(ordered) - 1; idx >= 0; idx-- {
+							if !ordered[idx].IsZero() {
+								varTimestamps = append(varTimestamps, ordered[idx])
 							}
 						}
-						sb.WriteString(fmt.Sprintf(" [white](%d hits)%s %s\n",
-							ve.count, recentStr, tview.Escape(ve.msg)))
 					}
-
-					dashboard.ShowInspector("[#ff8c00]Error/Warn Detail Analysis[-]", sb.String())
 				}
-			}
+
+				// Build Level 2 content string
+				var sb strings.Builder
+				sb.WriteString(fmt.Sprintf("[%s]%s\n", levelColor, tview.Escape(varMsg)))
+				sb.WriteString(fmt.Sprintf("[gray]%s\n\n", strings.Repeat("━", 64)))
+				sb.WriteString(fmt.Sprintf("[white]Total hits for this variant: [%s]%d\n\n",
+					levelColor, stat.VariantCounts[varMsg]))
+
+				if len(varTimestamps) == 0 {
+					sb.WriteString("[gray]No timestamp data yet — keep running to populate.\n")
+				} else {
+					sb.WriteString(fmt.Sprintf("[cyan]🕒 Hit Timeline (last %d, newest first):\n\n", len(varTimestamps)))
+					for _, ts := range varTimestamps {
+						diff := time.Since(ts)
+						var diffStr string
+						switch {
+						case diff < time.Second:
+							diffStr = "< 1s ago"
+						case diff < time.Minute:
+							diffStr = fmt.Sprintf("%ds ago", int(diff.Seconds()))
+						case diff < time.Hour:
+							diffStr = fmt.Sprintf("%dm %ds ago",
+								int(diff.Minutes()), int(diff.Seconds())%60)
+						default:
+							diffStr = fmt.Sprintf("%dh ago", int(diff.Hours()))
+						}
+						sb.WriteString(fmt.Sprintf(" [white]%s  [gray](%s)\n",
+							ts.Format("15:04:05.000"), diffStr))
+					}
+				}
+
+				// Show Level 2 using ShowInspector — Esc returns to Level 1
+				d.ShowVariantInspector(
+					fmt.Sprintf("[%s]Variant Timeline[-]", levelColor),
+					sb.String(),
+					list,
+				)
+			})
+
+			// Esc on Level 1 → back to top errors list
+			list.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
+				if ev.Key() == tcell.KeyEsc || ev.Rune() == 'q' {
+					pages.RemovePage("inspector-l1")
+					app.SetFocus(topErrors)
+					return nil
+				}
+				return ev
+			})
+
 			return nil
 		}
 		return event
@@ -665,7 +808,94 @@ func (d *Dashboard) getColor(level string) string {
 	}
 }
 
+// ShowVariantInspector opens the Level 2 timeline popup for a specific variant.
+// Esc returns focus to the Level 1 list instead of the top errors panel.
+func (d *Dashboard) ShowVariantInspector(title, content string, returnTo tview.Primitive) {
+	textView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetText("\n " + content)
+
+	updateTitle := func() {
+		offset, _ := textView.GetScrollOffset()
+		_, _, _, rectHeight := textView.GetInnerRect()
+		lines := strings.Split(content, "\n")
+		totalLines := len(lines)
+		if totalLines > rectHeight {
+			maxScroll := totalLines - rectHeight
+			if maxScroll < 1 {
+				maxScroll = 1
+			}
+			percent := (float64(offset) / float64(maxScroll)) * 100
+			if percent > 100 {
+				percent = 100
+			}
+			textView.SetTitle(fmt.Sprintf(" %s [white]| %d%% ", title, int(percent)))
+		} else {
+			textView.SetTitle(fmt.Sprintf(" %s [white]| TOP ", title))
+		}
+	}
+
+	updateTitle()
+	textView.SetBorder(true)
+
+	var isDragging bool
+	textView.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+		x, y := event.Position()
+		rectX, rectY, rectWidth, rectHeight := textView.GetInnerRect()
+		scrollbarX := rectX + rectWidth - 1
+		leftPressed := event.Buttons()&tcell.Button1 != 0
+
+		if leftPressed {
+			if x >= scrollbarX-1 || isDragging {
+				isDragging = true
+				relativeY := float64(y - rectY)
+				percentage := relativeY / float64(rectHeight)
+				if percentage < 0 {
+					percentage = 0
+				}
+				if percentage > 1 {
+					percentage = 1
+				}
+				totalLines := strings.Count(textView.GetText(false), "\n")
+				targetLine := int(percentage * float64(totalLines))
+				textView.ScrollTo(targetLine, 0)
+				updateTitle()
+				return action, nil
+			}
+		} else {
+			isDragging = false
+		}
+		if action == tview.MouseScrollUp || action == tview.MouseScrollDown {
+			defer updateTitle()
+		}
+		return action, event
+	})
+
+	modal := tview.NewFlex().
+		AddItem(nil, 0, 1, false).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(nil, 0, 1, false).
+			AddItem(textView, 0, 4, true).
+			AddItem(nil, 0, 1, false), 100, 1, true).
+		AddItem(nil, 0, 1, false)
+
+	d.Pages.AddPage("inspector-l2", modal, true, true)
+	d.App.SetFocus(textView)
+
+	// Esc on Level 2 → back to Level 1 list
+	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEsc || event.Rune() == 'q' {
+			d.Pages.RemovePage("inspector-l2")
+			d.App.SetFocus(returnTo)
+			return nil
+		}
+		return event
+	})
+}
+
 // ShowInspector opens a scrollable popup with detailed stats for a clicked error/warn entry.
+// Kept for backward compatibility — used by any direct callers outside the two-level flow.
 func (d *Dashboard) ShowInspector(title, content string) {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).

@@ -326,11 +326,11 @@ The application is divided into specialized modules to ensure a clear **Separati
 | **The Watcher** | `/internal/watcher` | **Signal**: Monitors file changes via `fsnotify` and emits non-blocking update signals. |
 | **The Tailer** | `/internal/tailer` | **I/O**: Reacts to signals to stream newly added raw bytes into a results channel. |
 | **The Pipeline** | `/internal/pipeline` | **Concurrency**: A worker pool that parallelizes parsing across multiple goroutines. |
-| **The Parser** | `/internal/parser` | **Transformation**: Detects formats (logfmt, bracketed, etc.) and translates raw lines into structured `LogEvent` objects. |
-| **The Aggregator** | `/internal/aggregator` | **State**: A stateful engine that builds real-time metrics, trends, and error cardinality. Also triggers forensic snapshots via sync.WaitGroup |
+| **The Parser** | `/internal/parser` | **Transformation**: Auto-detects log format at startup (JSON, logfmt, bracketed, etc.) and routes each line to the appropriate parser. All parsers implement the `Parser` interface — the pipeline is format-agnostic. |
+| **The Aggregator** | `/internal/aggregator` | **State**: A stateful engine that builds real-time metrics, trends, and error cardinality. Also triggers forensic snapshots via `sync.WaitGroup`. |
 | **The Hub** | `/internal/hub` | **WebSocket**: Non-blocking fan-out hub managing all connected browser clients. Slow clients are dropped rather than stalling the broadcast goroutine. |
-| **The Server** | `/internal/server` | **HTTP**: Echo-based server serving the embedded web dashboard and WebSocket stream. Exposes `/ws/stream`, `/api/snapshot`, and `/api/inspect`. |
-| **The UI** | `/internal/ui` | **Visualization**: A high-performance TUI utilizing atomic buffer rendering for flicker-free display. |
+| **The Server** | `/internal/server` | **HTTP**: Echo-based server serving the embedded web dashboard and WebSocket stream. Exposes `/ws/stream`, `/api/snapshot`, `/api/inspect`, and `/api/logs`. |
+| **The UI** | `/internal/ui` | **Visualization**: A high-performance TUI utilizing atomic buffer rendering for flicker-free display. Two-level keyboard-driven inspector for per-variant forensic drill-down. |
 | **The AI** | `/internal/ai` | **Intelligence**: Automated incident analysis and SRE-style reporting via local LLM integration. |
 | **The Alerts** | `/internal/alerts` | **Notification**: Rate-limited alerting via Desktop, Mobile (ntfy), or Audio notifications. |
  
@@ -340,11 +340,11 @@ The architecture maintains **State-Independent Resource Usage**, ensuring stabil
 #### 🔍 Tiered History Strategy
 To balance "Deep Forensics" with "Low RAM," LOSU utilizes a three-tier memory architecture:
 * **Tier 1 (UI)**: A 1,500-line virtualized window for real-time rendering.
-* **Tier 2 (Forensics)**: A 50,000-line circular buffer for on-demand incident reports.
+* **Tier 2 (Forensics)**: A 50,000-line circular buffer for on-demand incident reports and full-history search.
 * **Tier 3 (Signals)**: A dedicated 10,000-line high-priority buffer that isolates WARNINGS and ERRORS from the background "INFO" noise.
  
 #### ⚡ Persistent Buffer Pooling
-To eliminate the overhead of Go's Garbage Collector (GC), the UI does not create new strings for every frame. 
+To eliminate the overhead of Go's Garbage Collector (GC), the UI does not create new strings for every frame.
 * **The Tech**: Uses a persistent `strings.Builder` with `Reset()` and `Grow()`.
 * **The Result**: Memory is recycled instead of re-allocated, dropping UI churn by ~60% in high-velocity environments.
  
@@ -355,15 +355,25 @@ Traditional TUI updates often suffer from "Screen Tearing" or "ANSI Fragmentatio
  
 #### 🛡️ Hard-Capped Cardinality & History
 The internal Aggregator uses a "Guard Rail" system to prevent memory leaks from unique log messages.
-* **The Tech**: 
+* **The Tech**:
     * **Message Tracking**: Top-10 lists are limited to the most frequent occurrences.
     * **Log History**: The internal cache is hard-trimmed to the latest 1,500 visible lines.
 * **The Result**: RAM usage stays under 30MB whether you have processed 1,000 logs or 10,000,000 logs.
  
 #### 🌐 Bandwidth-Safe WebSocket Architecture
 The web dashboard must never become a bottleneck for the ingestion pipeline.
-* **The Tech**: A dedicated `WebSnapshot` type is served at 500ms intervals, capping sample logs at 50 events and stripping timestamp arrays from `MessageStat`. A non-blocking hub with per-client buffered channels (8 slots) drops slow clients rather than stalling the broadcaster.
+* **The Tech**: A dedicated `WebSnapshot` type is served at 500ms intervals, capping sample logs at 250 events and stripping timestamp arrays from `MessageStat`. A non-blocking hub with per-client buffered channels (8 slots) drops slow clients rather than stalling the broadcaster.
 * **The Result**: Adding a browser tab to a running LOSU instance has zero measurable impact on TUI performance or ingestion throughput.
+ 
+#### 🔎 Two-Tier Log Search
+The web log panel operates in two distinct modes to balance real-time visibility with deep forensic access.
+* **The Tech**: Live mode streams a rolling 2,000-line buffer from the WebSocket. Search mode fires a debounced `GET /api/logs` request against the full 50,000-entry history ring in the aggregator — a single reverse-scan pass with no additional allocations on the hot path.
+* **The Result**: Users see live traffic instantly and can search the full history of the last 50,000 log events on demand, with results returning in milliseconds.
+ 
+#### 🧬 Format-Agnostic Parser Pipeline
+LOSU supports multiple log formats without any changes to the ingestion pipeline.
+* **The Tech**: All parsers implement a single `Parser` interface. `DetectParser()` samples the first 10 lines of the log file at startup and uses majority vote to select the appropriate implementation — currently `JSONParser` or `RegexParser`. The pipeline calls `p.Parse(rawLine)` and is entirely format-agnostic.
+* **The Result**: Switching from logfmt to JSON logs (or any future format) requires zero configuration changes — LOSU detects and adapts automatically at startup.
  
 ---
 
@@ -421,6 +431,35 @@ These tests focus on the "brain" of the application, ensuring raw streams are co
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
 
+<details>
+<summary><b>April 4, 2026: Multi-Format Parsing, Forensic Drill-Down & Full-History Search</b>(Click to expand)</summary>
+ 
+#### Phase 1: Two-Level TUI Inspector (Keyboard-Driven Forensics)
+* **`tview.List` Variant Navigator**: Replaced the flat text wall in the TUI inspector with a fully interactive `tview.List`. Each row displays the most recent hit timestamp, hit count, and message for a specific variant — sorted by count descending. Arrow keys navigate, Enter drills down.
+* **Level 2 Variant Timeline**: Pressing Enter on any variant opens a second-level `ShowVariantInspector` popup showing the full 20-entry per-variant timestamp history. Esc returns to the Level 1 list rather than closing entirely, making back-navigation feel natural.
+* **Accelerated Mouse Wheel Scrolling**: `tview.List` moves one item per scroll tick by default — unusable for 500+ variant lists. Intercepted mouse events via `SetMouseCapture` and implemented velocity-based acceleration: slow scrolling moves 5 items, rapid consecutive ticks build up to 25 items per tick. Returns `nil` for the event to prevent tview's default handler from double-firing.
+* **Stable Sort Tiebreaker**: Variants with equal counts are sorted by last-hit timestamp descending, then alphabetically — eliminating the "flickering" where two tied variants swapped positions every 500ms tick.
+ 
+#### Phase 2: Full-History Web Search
+* **`SearchHistory()` on the Aggregator**: Added an on-demand method that performs a single-pass reverse scan through the full 50,000-entry history ring. Supports independent `q` (case-insensitive substring) and `level` (exact match) filters with a configurable result cap (default 500). Called only on user input — never on the hot path.
+* **`GET /api/logs` Endpoint**: New Echo route accepting `?q=`, `?level=`, and `?limit=` query parameters. Returns a JSON envelope with `results`, `count`, `q`, `level`, and `limit` so the frontend knows exactly what was searched.
+* **Debounced Search in `LogPanel`**: The web log panel now operates in two modes — **Live** (rolling 2,000-line WebSocket buffer) and **Search** (static results from full history). A 300ms debounce fires the API call after the user stops typing. Clearing the filter immediately returns to live mode. The status label communicates both modes clearly: `"last 2,000 lines live · 47,832 in history"` and `"76 results from 47,832 logs in history"`.
+* **Smart Level Detection**: Typing exactly `ERROR`, `WARN`, `INFO`, or `DEBUG` automatically routes to the level filter rather than substring search — no extra syntax required.
+ 
+#### Phase 3: Timestamp & Display Fixes
+* **Timezone Double-Conversion Fix**: Web timestamps were showing 2 hours ahead. Root cause: Go serializes timestamps as RFC3339 with timezone offset (e.g. `+02:00`). JavaScript's `toTimeString()` re-applies the local timezone offset on top, doubling it. Fixed by switching to `toISOString().slice(11,19)` which reads the UTC equivalent without re-converting.
+* **Stable Top-Error Display**: The top errors panel was flickering because `getTopVariant()` returned the most common raw message — which flips between tied variants every tick. Fixed by using `getPatternKey()` (the stable fingerprint with `*` placeholders) as the display text. `High memory usage | threshold=*` never changes regardless of which specific threshold value is currently winning.
+* **"Ago" Text Removed**: Variant timelines in both the web inspector and TUI now show only the precise timestamp with milliseconds (`17:13:47.000`). "Just now" and "X ago" added noise without adding information — the exact time is more useful for forensic analysis.
+ 
+#### Phase 4: Multi-Format Log Parsing
+* **`JSONParser`**: New parser implementing the `Parser` interface for structured JSON logs. Supports field name conventions across all major logging libraries — `level`/`severity`/`lvl` for level, `msg`/`message` for the primary message, `time`/`timestamp`/`ts`/`@timestamp` for the event time. Uses `map[string]json.RawMessage` to defer parsing of fields that aren't needed, avoiding the cost of fully unmarshaling large log objects at 10k+ EPS.
+* **Extra Field Preservation**: After extracting `msg`, all remaining JSON fields are appended as `key=value` context (`HTTP request finished | status=200 | duration=663`). This matches the logfmt output format exactly, ensuring the fingerprinter clusters JSON logs correctly without any special-casing.
+* **`DetectParser()` with Retry Loop**: Auto-detection samples the first 10 non-empty lines of the log file and uses majority vote (>50% must be JSON) to avoid false positives from files with header blocks. A 200ms retry loop runs for up to 5 seconds to handle the common deployment case where LOSU starts before the application has written its first log line. After 5 seconds, defaults to `RegexParser`.
+* **Zero Pipeline Changes**: The `Parser` interface and `pipeline.Process` are untouched. Adding a new format is adding one file — the extension point was already there.
+* **JSON Log Generator**: Added `bin/json/json_gen.go` producing structured JSON logs at 10k logs/sec for testing and benchmarking the new parser path.
+ 
+</details>
+ 
 <details>
 <summary><b>April 3, 2026: Full-Stack Observability & Web UI Overhaul</b> 🌐🔬⚡ (Click to expand)</summary>
 

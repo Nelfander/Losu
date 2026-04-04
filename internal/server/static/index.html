@@ -2,627 +2,631 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Losu — Live Log Observer</title>
-    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.js"></script>
-    <style>
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        :root {
-            --bg: #0d0f14;
-            --surface: #13161e;
-            --border: #1e2330;
-            --text: #c9d1d9;
-            --muted: #5a6478;
-            --red: #f85149;
-            --yellow: #e3b341;
-            --green: #3fb950;
-            --blue: #58a6ff;
-            --purple: #bc8cff;
-            --cyan: #39d3f0;
-            --mono: 'JetBrains Mono', 'Fira Code', monospace;
-        }
-
-        html,
-        body,
-        #root {
-            height: 100%;
-            background: var(--bg);
-            color: var(--text);
-            font-family: system-ui, sans-serif;
-            font-size: 13px;
-            overflow: hidden;
-        }
-
-        .layout {
-            display: grid;
-            height: 100vh;
-            grid-template-rows: 130px minmax(120px, 28vh) 1fr;
-            grid-template-columns: 1fr 680px;
-            gap: 6px;
-            padding: 6px;
-        }
-
-        .panel-stats {
-            grid-column: 1;
-            grid-row: 1;
-        }
-
-        .panel-top {
-            grid-column: 2;
-            grid-row: 1;
-        }
-
-        .panel-logs {
-            grid-column: 1 / -1;
-            grid-row: 2;
-        }
-
-        .panel-ai {
-            grid-column: 1;
-            grid-row: 3;
-        }
-
-        .panel-graph {
-            grid-column: 2;
-            grid-row: 3;
-        }
-
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            min-height: 0;
-        }
-
-        .card-header {
-            padding: 5px 10px;
-            border-bottom: 1px solid var(--border);
-            font-size: 10px;
-            font-weight: 600;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--muted);
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        .card-body {
-            flex: 1;
-            overflow: hidden;
-            padding: 6px 10px;
-            min-height: 0;
-        }
-
-        .stats-row {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            height: 100%;
-        }
-
-        .stat-total {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--blue);
-            font-family: var(--mono);
-            white-space: nowrap;
-        }
-
-        .stat-total small {
-            display: block;
-            font-size: 9px;
-            color: var(--muted);
-            font-weight: 400;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-
-        .vdiv {
-            width: 1px;
-            height: 36px;
-            background: var(--border);
-        }
-
-        .stat-counts {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3px 16px;
-        }
-
-        .stat-item {
-            display: flex;
-            gap: 5px;
-            font-family: var(--mono);
-            font-size: 11px;
-            align-items: center;
-        }
-
-        .stat-item .lbl {
-            color: var(--muted);
-            font-size: 9px;
-            min-width: 36px;
-        }
-
-        .stat-item .val {
-            font-weight: 600;
-        }
-
-        .status-badge {
-            margin-left: auto;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            white-space: nowrap;
-        }
-
-        .s-idle {
-            background: #1e2330;
-            color: var(--muted);
-        }
-
-        .s-healthy {
-            background: #0d2318;
-            color: var(--green);
-            border: 1px solid #1a4d30;
-        }
-
-        .s-minor {
-            background: #0d1a30;
-            color: var(--blue);
-            border: 1px solid #1a3a6e;
-        }
-
-        .s-unstable {
-            background: #2d1a0d;
-            color: var(--yellow);
-            border: 1px solid #5c3a1a;
-        }
-
-        .s-sustained {
-            background: #2d0d0d;
-            color: var(--red);
-            border: 1px solid #5c1a1a;
-        }
-
-        .s-critical {
-            background: #3d0000;
-            color: var(--red);
-            border: 1px solid #8c0000;
-            animation: blink .8s step-end infinite;
-        }
-
-        .s-pressure {
-            background: #2d2000;
-            color: var(--yellow);
-            border: 1px solid #5c4400;
-        }
-
-        .s-suspicious {
-            background: #2d1a00;
-            color: var(--yellow);
-            border: 1px solid #7a4400;
-        }
-
-        .s-preincident {
-            background: #3d1500;
-            color: #ff9944;
-            border: 1px solid #8c3300;
-        }
-
-        @keyframes blink {
-
-            0%,
-            100% {
-                opacity: 1
-            }
-
-            50% {
-                opacity: .4
-            }
-        }
-
-        .top-list {
-            height: 100%;
-            overflow-y: auto;
-        }
-
-        .top-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 3px 4px;
-            border-radius: 3px;
-            cursor: pointer;
-            transition: background .1s;
-        }
-
-        .top-row:hover {
-            background: #1a1f2e;
-        }
-
-        .top-count {
-            font-family: var(--mono);
-            font-size: 10px;
-            font-weight: 700;
-            min-width: 40px;
-            text-align: right;
-        }
-
-        .top-msg {
-            font-family: var(--mono);
-            font-size: 10px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .lvl-badge {
-            font-size: 8px;
-            font-weight: 700;
-            padding: 1px 4px;
-            border-radius: 2px;
-            flex-shrink: 0;
-        }
-
-        .lvl-error {
-            background: #2d0d0d;
-            color: var(--red);
-        }
-
-        .lvl-warn {
-            background: #2d2000;
-            color: var(--yellow);
-        }
-
-        .log-header-extra {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: auto;
-        }
-
-        .log-count {
-            font-size: 9px;
-            color: var(--muted);
-        }
-
-        .search-box {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 3px;
-            color: var(--text);
-            font-family: var(--mono);
-            font-size: 10px;
-            padding: 2px 7px;
-            width: 180px;
-            outline: none;
-        }
-
-        .search-box:focus {
-            border-color: var(--blue);
-        }
-
-        .search-box::placeholder {
-            color: var(--muted);
-        }
-
-        .log-body {
-            flex: 1;
-            overflow-y: auto;
-            font-family: var(--mono);
-            font-size: 11px;
-            line-height: 1.55;
-            padding: 4px 10px;
-            min-height: 0;
-        }
-
-        .log-line {
-            display: flex;
-            gap: 7px;
-            padding: 1px 2px;
-            border-radius: 2px;
-        }
-
-        .log-line:hover {
-            background: #1a1f2e;
-        }
-
-        .log-ts {
-            color: var(--muted);
-            flex-shrink: 0;
-        }
-
-        .log-lvl {
-            font-weight: 700;
-            flex-shrink: 0;
-            min-width: 38px;
-        }
-
-        .log-msg {
-            word-break: break-all;
-        }
-
-        .c-error {
-            color: var(--red);
-        }
-
-        .c-warn {
-            color: var(--yellow);
-        }
-
-        .c-info {
-            color: var(--green);
-        }
-
-        .c-debug {
-            color: var(--cyan);
-        }
-
-        .c-def {
-            color: var(--muted);
-        }
-
-        .ai-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 6px 10px;
-            font-size: 11px;
-            line-height: 1.55;
-            min-height: 0;
-        }
-
-        .ai-meta {
-            font-size: 9px;
-            color: var(--muted);
-            font-family: var(--mono);
-            margin-left: auto;
-        }
-
-        .graph-body {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 4px 8px 2px;
-            gap: 2px;
-            min-height: 0;
-        }
-
-        .graph-section {
-            flex: 1;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .graph-meta {
-            font-size: 9px;
-            font-family: var(--mono);
-            display: flex;
-            gap: 8px;
-            margin-bottom: 2px;
-            flex-shrink: 0;
-        }
-
-        .graph-svg {
-            width: 100%;
-            flex: 1;
-            min-height: 0;
-            display: block;
-        }
-
-        .graph-divider {
-            height: 1px;
-            background: var(--border);
-            margin: 2px 0;
-            flex-shrink: 0;
-        }
-
-        .backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, .7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-        }
-
-        .modal {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            width: 680px;
-            max-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .modal-hdr {
-            padding: 9px 14px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            color: var(--muted);
-            cursor: pointer;
-            font-size: 15px;
-            padding: 1px 5px;
-            border-radius: 3px;
-        }
-
-        .modal-close:hover {
-            color: var(--text);
-        }
-
-        .modal-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px 14px;
-            font-family: var(--mono);
-            font-size: 11px;
-            line-height: 1.75;
-        }
-
-        .modal-label {
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: .07em;
-            color: var(--muted);
-            margin-bottom: 3px;
-        }
-
-        .modal-section {
-            margin-bottom: 10px;
-        }
-
-        .conn-pill {
-            position: fixed;
-            bottom: 7px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 2px 9px;
-            font-size: 9px;
-            color: var(--muted);
-            z-index: 50;
-        }
-
-        .conn-dot {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-        }
-
-        .cd-conn {
-            background: var(--green);
-        }
-
-        .cd-disc {
-            background: var(--red);
-            animation: blink 1s step-end infinite;
-        }
-
-        .cd-wait {
-            background: var(--yellow);
-        }
-
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 2px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Losu — Live Log Observer</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.js"></script>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0d0f14;
+      --surface: #13161e;
+      --border: #1e2330;
+      --text: #c9d1d9;
+      --muted: #5a6478;
+      --red: #f85149;
+      --yellow: #e3b341;
+      --green: #3fb950;
+      --blue: #58a6ff;
+      --purple: #bc8cff;
+      --cyan: #39d3f0;
+      --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    html,
+    body,
+    #root {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    .layout {
+      display: grid;
+      height: 100vh;
+      grid-template-rows: 130px minmax(120px, 28vh) 1fr;
+      grid-template-columns: 1fr 680px;
+      gap: 6px;
+      padding: 6px;
+    }
+
+    .panel-stats {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .panel-top {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .panel-logs {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+
+    .panel-ai {
+      grid-column: 1;
+      grid-row: 3;
+    }
+
+    .panel-graph {
+      grid-column: 2;
+      grid-row: 3;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .card-header {
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .card-body {
+      flex: 1;
+      overflow: hidden;
+      padding: 6px 10px;
+      min-height: 0;
+    }
+
+    .stats-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      height: 100%;
+    }
+
+    .stat-total {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--blue);
+      font-family: var(--mono);
+      white-space: nowrap;
+    }
+
+    .stat-total small {
+      display: block;
+      font-size: 9px;
+      color: var(--muted);
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .vdiv {
+      width: 1px;
+      height: 36px;
+      background: var(--border);
+    }
+
+    .stat-counts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px 16px;
+    }
+
+    .stat-item {
+      display: flex;
+      gap: 5px;
+      font-family: var(--mono);
+      font-size: 11px;
+      align-items: center;
+    }
+
+    .stat-item .lbl {
+      color: var(--muted);
+      font-size: 9px;
+      min-width: 36px;
+    }
+
+    .stat-item .val {
+      font-weight: 600;
+    }
+
+    .status-badge {
+      margin-left: auto;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .s-idle {
+      background: #1e2330;
+      color: var(--muted);
+    }
+
+    .s-healthy {
+      background: #0d2318;
+      color: var(--green);
+      border: 1px solid #1a4d30;
+    }
+
+    .s-minor {
+      background: #0d1a30;
+      color: var(--blue);
+      border: 1px solid #1a3a6e;
+    }
+
+    .s-unstable {
+      background: #2d1a0d;
+      color: var(--yellow);
+      border: 1px solid #5c3a1a;
+    }
+
+    .s-sustained {
+      background: #2d0d0d;
+      color: var(--red);
+      border: 1px solid #5c1a1a;
+    }
+
+    .s-critical {
+      background: #3d0000;
+      color: var(--red);
+      border: 1px solid #8c0000;
+      animation: blink .8s step-end infinite;
+    }
+
+    .s-pressure {
+      background: #2d2000;
+      color: var(--yellow);
+      border: 1px solid #5c4400;
+    }
+
+    .s-suspicious {
+      background: #2d1a00;
+      color: var(--yellow);
+      border: 1px solid #7a4400;
+    }
+
+    .s-preincident {
+      background: #3d1500;
+      color: #ff9944;
+      border: 1px solid #8c3300;
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    .top-list {
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .top-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 4px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background .1s;
+    }
+
+    .top-row:hover {
+      background: #1a1f2e;
+    }
+
+    .top-count {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      min-width: 40px;
+      text-align: right;
+    }
+
+    .top-msg {
+      font-family: var(--mono);
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .lvl-badge {
+      font-size: 8px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .lvl-error {
+      background: #2d0d0d;
+      color: var(--red);
+    }
+
+    .lvl-warn {
+      background: #2d2000;
+      color: var(--yellow);
+    }
+
+    .log-header-extra {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .log-count {
+      font-size: 9px;
+      color: var(--muted);
+    }
+
+    .search-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 7px;
+      width: 180px;
+      outline: none;
+    }
+
+    .search-box:focus {
+      border-color: var(--blue);
+    }
+
+    .search-box::placeholder {
+      color: var(--muted);
+    }
+
+    .log-body {
+      flex: 1;
+      overflow-y: auto;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.55;
+      padding: 4px 10px;
+      min-height: 0;
+    }
+
+    .log-line {
+      display: flex;
+      gap: 7px;
+      padding: 1px 2px;
+      border-radius: 2px;
+    }
+
+    .log-line:hover {
+      background: #1a1f2e;
+    }
+
+    .log-ts {
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .log-lvl {
+      font-weight: 700;
+      flex-shrink: 0;
+      min-width: 38px;
+    }
+
+    .log-msg {
+      word-break: break-all;
+    }
+
+    .c-error {
+      color: var(--red);
+    }
+
+    .c-warn {
+      color: var(--yellow);
+    }
+
+    .c-info {
+      color: var(--green);
+    }
+
+    .c-debug {
+      color: var(--cyan);
+    }
+
+    .c-def {
+      color: var(--muted);
+    }
+
+    .ai-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 10px;
+      font-size: 11px;
+      line-height: 1.55;
+      min-height: 0;
+    }
+
+    .ai-meta {
+      font-size: 9px;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-left: auto;
+    }
+
+    .graph-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 4px 8px 2px;
+      gap: 2px;
+      min-height: 0;
+    }
+
+    .graph-section {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .graph-meta {
+      font-size: 9px;
+      font-family: var(--mono);
+      display: flex;
+      gap: 8px;
+      margin-bottom: 2px;
+      flex-shrink: 0;
+    }
+
+    .graph-svg {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      display: block;
+    }
+
+    .graph-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2px 0;
+      flex-shrink: 0;
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 680px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-hdr {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 15px;
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    .modal-close:hover {
+      color: var(--text);
+    }
+
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.75;
+    }
+
+    .modal-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+
+    .modal-section {
+      margin-bottom: 10px;
+    }
+
+    .conn-pill {
+      position: fixed;
+      bottom: 7px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px 9px;
+      font-size: 9px;
+      color: var(--muted);
+      z-index: 50;
+    }
+
+    .conn-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+    }
+
+    .cd-conn {
+      background: var(--green);
+    }
+
+    .cd-disc {
+      background: var(--red);
+      animation: blink 1s step-end infinite;
+    }
+
+    .cd-wait {
+      background: var(--yellow);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+  </style>
 </head>
 
 <body>
-    <div id="root"></div>
-    <script>
-        'use strict';
+  <div id="root"></div>
+  <script>
+    'use strict';
 
-        // htm binds to React.createElement so we can write HTML-like syntax in plain JS.
-        // IMPORTANT for htm: attributes use React names, not HTML names:
-        //   class     → className
-        //   style="…" → style={{ key: value }}  (always an object, never a string)
-        const html = htm.bind(React.createElement);
-        const { useState, useEffect, useRef } = React;
+    // htm binds to React.createElement so we can write HTML-like syntax in plain JS.
+    // IMPORTANT for htm: attributes use React names, not HTML names:
+    //   class     → className
+    //   style="…" → style={{ key: value }}  (always an object, never a string)
+    const html = htm.bind(React.createElement);
+    const { useState, useEffect, useRef } = React;
 
-        // ── Helpers ───────────────────────────────────────────────────────────────────
-        const fmt = n => (n || 0).toLocaleString();
+    // ── Helpers ───────────────────────────────────────────────────────────────────
+    const fmt = n => (n || 0).toLocaleString();
 
-        function fmtTime(iso) {
-            if (!iso) return '—';
-            try { return new Date(iso).toTimeString().slice(0, 8); } catch (e) { return '—'; }
-        }
+    // Format ISO timestamp to HH:MM:SS using UTC methods.
+    // Go serializes timestamps as RFC3339 with timezone offset (e.g. +02:00).
+    // Using toTimeString() would double-apply the offset in some browsers.
+    // toISOString() always gives UTC which matches what Go intended.
+    function fmtTime(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toISOString().slice(11, 19); } catch (e) { return '—'; }
+    }
 
-        function levelClass(lvl) {
-            switch ((lvl || '').toUpperCase()) {
-                case 'ERROR': return 'c-error';
-                case 'WARN': return 'c-warn';
-                case 'INFO': return 'c-info';
-                case 'DEBUG': return 'c-debug';
-                default: return 'c-def';
-            }
-        }
+    function levelClass(lvl) {
+      switch ((lvl || '').toUpperCase()) {
+        case 'ERROR': return 'c-error';
+        case 'WARN': return 'c-warn';
+        case 'INFO': return 'c-info';
+        case 'DEBUG': return 'c-debug';
+        default: return 'c-def';
+      }
+    }
 
-        function getStatus(eps, wps) {
-            if (eps >= 20) return { label: 'Critical Spike', cls: 's-critical' };
-            if (eps >= 5) return { label: 'Sustained Errors', cls: 's-sustained' };
-            if (eps >= 1) return { label: 'Unstable', cls: 's-unstable' };
-            if (eps >= 0.1) return { label: 'Minor Issues', cls: 's-minor' };
-            if (wps >= 200) return { label: '⚠ Pre-Incident', cls: 's-preincident' };
-            if (wps >= 100) return { label: '⚠ Suspicious', cls: 's-suspicious' };
-            if (wps >= 50) return { label: '⚠ Pressure Building', cls: 's-pressure' };
-            if (eps < 0.01 && wps < 0.01) return { label: 'Idle', cls: 's-idle' };
-            return { label: 'Healthy', cls: 's-healthy' };
-        }
+    function getStatus(eps, wps) {
+      if (eps >= 20) return { label: 'Critical Spike', cls: 's-critical' };
+      if (eps >= 5) return { label: 'Sustained Errors', cls: 's-sustained' };
+      if (eps >= 1) return { label: 'Unstable', cls: 's-unstable' };
+      if (eps >= 0.1) return { label: 'Minor Issues', cls: 's-minor' };
+      if (wps >= 200) return { label: '⚠ Pre-Incident', cls: 's-preincident' };
+      if (wps >= 100) return { label: '⚠ Suspicious', cls: 's-suspicious' };
+      if (wps >= 50) return { label: '⚠ Pressure Building', cls: 's-pressure' };
+      if (eps < 0.01 && wps < 0.01) return { label: 'Idle', cls: 's-idle' };
+      return { label: 'Healthy', cls: 's-healthy' };
+    }
 
-        // ── Sparkline (pure SVG, no library) ─────────────────────────────────────────
-        // Renders a filled area chart. Log scale keeps spikes visible at high throughput.
-        function Sparkline({ data, color }) {
-            if (!data || data.length < 2) {
-                return html`<svg className="graph-svg" viewBox="0 0 280 60" preserveAspectRatio="none"></svg>`;
-            }
+    // ── Sparkline (pure SVG, no library) ─────────────────────────────────────────
+    // Renders a filled area chart. Log scale keeps spikes visible at high throughput.
+    function Sparkline({ data, color }) {
+      if (!data || data.length < 2) {
+        return html`<svg className="graph-svg" viewBox="0 0 280 60" preserveAspectRatio="none"></svg>`;
+      }
 
-            const W = 280, H = 60;
-            const max = Math.max(...data, 1);
-            const logMax = Math.log1p(max);
+      const W = 280, H = 60;
+      const max = Math.max(...data, 1);
+      const logMax = Math.log1p(max);
 
-            const pts = data.map((v, i) => {
-                const x = (i / (data.length - 1)) * W;
-                const y = H - (Math.log1p(v) / logMax) * (H - 4);
-                return x.toFixed(1) + ',' + y.toFixed(1);
-            });
+      const pts = data.map((v, i) => {
+        const x = (i / (data.length - 1)) * W;
+        const y = H - (Math.log1p(v) / logMax) * (H - 4);
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      });
 
-            const linePath = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p).join(' ');
-            const areaPath = linePath + ' L' + W + ',' + H + ' L0,' + H + ' Z';
-            const gradId = 'grad-' + color.replace('#', '');
+      const linePath = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p).join(' ');
+      const areaPath = linePath + ' L' + W + ',' + H + ' L0,' + H + ' Z';
+      const gradId = 'grad-' + color.replace('#', '');
 
-            return html`
+      return html`
     <svg className="graph-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
       <defs>
         <linearGradient id=${gradId} x1="0" y1="0" x2="0" y2="1">
@@ -634,46 +638,46 @@
       <path d=${linePath} fill="none" stroke=${color} strokeWidth="1.5" />
     </svg>
   `;
+    }
+
+    // ── WebSocket hook ────────────────────────────────────────────────────────────
+    function useLosuWS() {
+      const [data, setData] = useState(null);
+      const [connStatus, setConnStatus] = useState('connecting');
+      const wsRef = useRef(null);
+
+      useEffect(() => {
+        // Load initial snapshot immediately so the page isn't blank
+        fetch('/api/snapshot')
+          .then(r => r.json())
+          .then(setData)
+          .catch(() => { });
+
+        function connect() {
+          setConnStatus('connecting');
+          const ws = new WebSocket('ws://' + location.host + '/ws/stream');
+          wsRef.current = ws;
+          ws.onopen = () => setConnStatus('connected');
+          ws.onclose = () => { setConnStatus('disconnected'); setTimeout(connect, 2000); };
+          ws.onerror = () => ws.close();
+          ws.onmessage = e => { try { setData(JSON.parse(e.data)); } catch (err) { } };
         }
 
-        // ── WebSocket hook ────────────────────────────────────────────────────────────
-        function useLosuWS() {
-            const [data, setData] = useState(null);
-            const [connStatus, setConnStatus] = useState('connecting');
-            const wsRef = useRef(null);
+        connect();
+        return () => { if (wsRef.current) wsRef.current.close(); };
+      }, []);
 
-            useEffect(() => {
-                // Load initial snapshot immediately so the page isn't blank
-                fetch('/api/snapshot')
-                    .then(r => r.json())
-                    .then(setData)
-                    .catch(() => { });
+      return { data, connStatus };
+    }
 
-                function connect() {
-                    setConnStatus('connecting');
-                    const ws = new WebSocket('ws://' + location.host + '/ws/stream');
-                    wsRef.current = ws;
-                    ws.onopen = () => setConnStatus('connected');
-                    ws.onclose = () => { setConnStatus('disconnected'); setTimeout(connect, 2000); };
-                    ws.onerror = () => ws.close();
-                    ws.onmessage = e => { try { setData(JSON.parse(e.data)); } catch (err) { } };
-                }
+    // ── StatsPanel ────────────────────────────────────────────────────────────────
+    function StatsPanel({ data }) {
+      const counts = (data && data.error_counts) || {};
+      const eps = (data && data.average_eps) || 0;
+      const wps = (data && data.average_wps) || 0;
+      const status = getStatus(eps, wps);
 
-                connect();
-                return () => { if (wsRef.current) wsRef.current.close(); };
-            }, []);
-
-            return { data, connStatus };
-        }
-
-        // ── StatsPanel ────────────────────────────────────────────────────────────────
-        function StatsPanel({ data }) {
-            const counts = (data && data.error_counts) || {};
-            const eps = (data && data.average_eps) || 0;
-            const wps = (data && data.average_wps) || 0;
-            const status = getStatus(eps, wps);
-
-            return html`
+      return html`
     <div className="card panel-stats">
       <div className="card-header">
         <div className="dot" style=${{ background: 'var(--blue)' }} />
@@ -709,13 +713,13 @@
       </div>
     </div>
   `;
-        }
+    }
 
-        // ── TopErrorsPanel ────────────────────────────────────────────────────────────
-        function TopErrorsPanel({ data, onSelect }) {
-            const errors = (data && data.top_errors) || [];
+    // ── TopErrorsPanel ────────────────────────────────────────────────────────────
+    function TopErrorsPanel({ data, onSelect }) {
+      const errors = (data && data.top_errors) || [];
 
-            return html`
+      return html`
     <div className="card panel-top">
       <div className="card-header">
         <div className="dot" style=${{ background: 'var(--red)' }} />
@@ -743,91 +747,171 @@
       </div>
     </div>
   `;
+    }
+
+    // ── LogPanel ──────────────────────────────────────────────────────────────────
+    // Two modes:
+    //   LIVE   — filter is empty, shows the rolling 2k-line stream from WebSocket
+    //   SEARCH — filter has text, debounced fetch from /api/logs against full 50k history
+    //
+    // Switching from live to search pauses the stream. Clearing the filter resumes it.
+    // This matches how every real log tool works — you either watch live or search history.
+    function LogPanel({ data }) {
+      const [filter, setFilter] = useState('');
+      const [searchResults, setResults] = useState(null);  // null = live mode
+      const [searching, setSearching] = useState(false);
+      const [resultMeta, setMeta] = useState(null);  // { count, q, level }
+      const bodyRef = useRef(null);
+      const autoScroll = useRef(true);
+      const isDragging = useRef(false);
+      const dragStartY = useRef(0);
+      const dragStartScroll = useRef(0);
+      const logsRef = useRef([]);
+      const lastTsRef = useRef('');
+      const debounceRef = useRef(null);
+      const [, setTick] = useState(0);
+
+      // Live stream — only updates when in live mode (filter empty)
+      useEffect(() => {
+        if (filter !== '') return; // search mode — don't touch the live buffer
+        const incoming = (data && data.sample_logs) || [];
+        if (incoming.length === 0) return;
+        const lastTs = incoming[incoming.length - 1].timestamp;
+        if (lastTs === lastTsRef.current) return;
+        lastTsRef.current = lastTs;
+        logsRef.current = [...logsRef.current, ...incoming].slice(-2000);
+        setTick(t => t + 1);
+      }, [data, filter]);
+
+      // Auto-scroll — only in live mode
+      useEffect(() => {
+        if (filter !== '') return;
+        if (autoScroll.current && bodyRef.current) {
+          bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+        }
+      });
+
+      function onScroll() {
+        const el = bodyRef.current;
+        if (!el) return;
+        autoScroll.current = (el.scrollHeight - el.scrollTop - el.clientHeight) < 40;
+      }
+
+      // Drag-to-scroll
+      function onMouseDown(e) {
+        isDragging.current = true;
+        dragStartY.current = e.clientY;
+        dragStartScroll.current = bodyRef.current ? bodyRef.current.scrollTop : 0;
+        autoScroll.current = false;
+      }
+
+      useEffect(() => {
+        function onMouseMove(e) {
+          if (!isDragging.current || !bodyRef.current) return;
+          const delta = (e.clientY - dragStartY.current) * 3;
+          bodyRef.current.scrollTop = dragStartScroll.current + delta;
+        }
+        function onMouseUp() {
+          if (!isDragging.current) return;
+          isDragging.current = false;
+          const el = bodyRef.current;
+          if (el) autoScroll.current = (el.scrollHeight - el.scrollTop - el.clientHeight) < 40;
+        }
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+        return () => {
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
+        };
+      }, []);
+
+      // Debounced search — fires 300ms after the user stops typing.
+      // Clears results immediately when filter is emptied (back to live).
+      function onFilterChange(e) {
+        const val = e.target.value;
+        setFilter(val);
+
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+
+        if (val === '') {
+          // Back to live mode immediately
+          setResults(null);
+          setMeta(null);
+          setSearching(false);
+          return;
         }
 
-        // ── LogPanel ──────────────────────────────────────────────────────────────────
-        function LogPanel({ data }) {
-            const [filter, setFilter] = useState('');
-            const bodyRef = useRef(null);
-            const autoScroll = useRef(true);
-            const isDragging = useRef(false);
-            const dragStartY = useRef(0);
-            const dragStartScroll = useRef(0);
-            const logsRef = useRef([]);
-            const lastTsRef = useRef('');
-            const [, setTick] = useState(0);
+        // Debounce: wait 300ms after last keystroke
+        debounceRef.current = setTimeout(() => {
+          doSearch(val);
+        }, 300);
+      }
 
-            useEffect(() => {
-                const incoming = (data && data.sample_logs) || [];
-                if (incoming.length === 0) return;
-                const lastTs = incoming[incoming.length - 1].timestamp;
-                if (lastTs === lastTsRef.current) return;
-                lastTsRef.current = lastTs;
-                logsRef.current = [...logsRef.current, ...incoming].slice(-2000);
-                setTick(t => t + 1);
-            }, [data]);
+      function doSearch(q) {
+        setSearching(true);
+        // Extract level filter if user typed e.g. "level:ERROR rest of query"
+        // Simple heuristic: if query is exactly a known level word, use it as level filter
+        const knownLevels = ['ERROR', 'WARN', 'INFO', 'DEBUG'];
+        let level = '';
+        let textQ = q;
+        const upper = q.trim().toUpperCase();
+        if (knownLevels.includes(upper)) {
+          level = upper;
+          textQ = '';
+        }
 
-            useEffect(() => {
-                if (autoScroll.current && bodyRef.current) {
-                    bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-                }
-            });
+        const params = new URLSearchParams({ limit: '500' });
+        if (textQ) params.set('q', textQ);
+        if (level) params.set('level', level);
 
-            function onScroll() {
-                const el = bodyRef.current;
-                if (!el) return;
-                autoScroll.current = (el.scrollHeight - el.scrollTop - el.clientHeight) < 40;
-            }
+        fetch('/api/logs?' + params.toString())
+          .then(r => r.json())
+          .then(d => {
+            setResults(d.results || []);
+            setMeta({ count: d.count, q: d.q, level: d.level });
+            setSearching(false);
+            // Scroll to top of results
+            if (bodyRef.current) bodyRef.current.scrollTop = 0;
+          })
+          .catch(() => setSearching(false));
+      }
 
-            // Drag-to-scroll: click and drag anywhere in the log body to scroll.
-            // Mirrors the TUI draggable scrollbar behaviour.
-            function onMouseDown(e) {
-                isDragging.current = true;
-                dragStartY.current = e.clientY;
-                dragStartScroll.current = bodyRef.current ? bodyRef.current.scrollTop : 0;
-                autoScroll.current = false;
-            }
+      // What to display — live buffer or search results
+      const isLive = filter === '';
+      const displayed = isLive ? logsRef.current : (searchResults || []);
 
-            useEffect(() => {
-                function onMouseMove(e) {
-                    if (!isDragging.current || !bodyRef.current) return;
-                    const delta = (e.clientY - dragStartY.current) * 3;
-                    bodyRef.current.scrollTop = dragStartScroll.current + delta;
-                }
-                function onMouseUp() {
-                    if (!isDragging.current) return;
-                    isDragging.current = false;
-                    const el = bodyRef.current;
-                    if (el) autoScroll.current = (el.scrollHeight - el.scrollTop - el.clientHeight) < 40;
-                }
-                window.addEventListener('mousemove', onMouseMove);
-                window.addEventListener('mouseup', onMouseUp);
-                return () => {
-                    window.removeEventListener('mousemove', onMouseMove);
-                    window.removeEventListener('mouseup', onMouseUp);
-                };
-            }, []);
+      // Status line for the header.
+      // In live mode we show how many lines are buffered and remind the user
+      // that the full history is searchable. In search mode we show exactly
+      // how many results came back from the full 50k ring.
+      const totalHistory = (data && data.total_lines) || 0;
+      let statusLabel;
+      if (isLive) {
+        statusLabel = 'last ' + fmt(displayed.length) + ' lines live · ' + fmt(Math.min(totalHistory, 50000)) + ' in history';
+      } else if (searching) {
+        statusLabel = 'Searching 50,000 logs...';
+      } else if (resultMeta) {
+        const searched = fmt(Math.min(totalHistory, 50000));
+        statusLabel = fmt(resultMeta.count) + ' results from ' + searched + ' logs in history';
+      } else {
+        statusLabel = '—';
+      }
 
-            const fl = filter.toLowerCase();
-            const filtered = logsRef.current.filter(log =>
-                !fl ||
-                (log.message || '').toLowerCase().includes(fl) ||
-                (log.level || '').toLowerCase().includes(fl)
-            );
-
-            return html`
+      return html`
     <div className="card panel-logs">
       <div className="card-header">
-        <div className="dot" style=${{ background: 'var(--green)' }} />
-        Live Log Stream
+        <div className="dot" style=${{ background: isLive ? 'var(--green)' : 'var(--blue)' }} />
+        ${isLive ? 'Live Log Stream' : 'Search Results'}
         <div className="log-header-extra">
-          <span className="log-count">${fmt(filtered.length)} lines</span>
+          <span className="log-count" style=${{ color: isLive ? 'var(--muted)' : 'var(--blue)' }}>
+            ${statusLabel}
+          </span>
           <input
             className="search-box"
             type="text"
-            placeholder="🔍 Filter by level or message..."
+            placeholder="🔍 Search full history — type ERROR, WARN, or any keyword..."
             value=${filter}
-            onInput=${e => setFilter(e.target.value)}
+            onInput=${onFilterChange}
           />
         </div>
       </div>
@@ -838,28 +922,38 @@
         onMouseDown=${onMouseDown}
         style=${{ cursor: 'grab' }}
       >
-        ${filtered.map((log, i) => html`
+        ${searching && html`
+          <div style=${{ color: 'var(--muted)', fontSize: '11px', padding: '8px 0' }}>
+            Searching full history...
+          </div>
+        `}
+        ${!searching && displayed.map((log, i) => html`
           <div key=${String(i)} className="log-line">
             <span className="log-ts">${fmtTime(log.timestamp)}</span>
             <span className=${'log-lvl ' + levelClass(log.level)}>${(log.level || '').padEnd(5)}</span>
             <span className="log-msg">${log.message}</span>
           </div>
         `)}
+        ${!searching && !isLive && displayed.length === 0 && html`
+          <div style=${{ color: 'var(--muted)', fontSize: '11px', padding: '8px 0' }}>
+            No results found in the last 50,000 logs.
+          </div>
+        `}
       </div>
     </div>
   `;
-        }
+    }
 
-        // ── GraphPanel ────────────────────────────────────────────────────────────────
-        function GraphPanel({ data }) {
-            const errTrend = (data && data.trend_error) || [];
-            const wrnTrend = (data && data.trend_warn) || [];
-            const peakEps = (data && data.peak_eps) || 0;
-            const avgEps = (data && data.average_eps) || 0;
-            const peakWps = (data && data.peak_wps) || 0;
-            const avgWps = (data && data.average_wps) || 0;
+    // ── GraphPanel ────────────────────────────────────────────────────────────────
+    function GraphPanel({ data }) {
+      const errTrend = (data && data.trend_error) || [];
+      const wrnTrend = (data && data.trend_warn) || [];
+      const peakEps = (data && data.peak_eps) || 0;
+      const avgEps = (data && data.average_eps) || 0;
+      const peakWps = (data && data.peak_wps) || 0;
+      const avgWps = (data && data.average_wps) || 0;
 
-            return html`
+      return html`
     <div className="card panel-graph">
       <div className="card-header">
         <div className="dot" style=${{ background: 'var(--cyan)' }} />
@@ -894,20 +988,20 @@
       </div>
     </div>
   `;
-        }
+    }
 
-        // ── AIPanel ───────────────────────────────────────────────────────────────────
-        // Renders the latest AI analysis text from the aggregator.
-        // Text is set by the AI observer goroutine every 30s and served via WebSnapshot.
-        // Empty when AI is disabled or hasn't run yet.
-        function AIPanel({ data }) {
-            const analysis = data && data.ai_analysis;
+    // ── AIPanel ───────────────────────────────────────────────────────────────────
+    // Renders the latest AI analysis text from the aggregator.
+    // Text is set by the AI observer goroutine every 30s and served via WebSnapshot.
+    // Empty when AI is disabled or hasn't run yet.
+    function AIPanel({ data }) {
+      const analysis = data && data.ai_analysis;
 
-            // Split into lines and render — preserves the Markdown-like structure
-            // that Ollama returns (headers, bullet points etc)
-            const lines = analysis ? analysis.split('\n') : [];
+      // Split into lines and render — preserves the Markdown-like structure
+      // that Ollama returns (headers, bullet points etc)
+      const lines = analysis ? analysis.split('\n') : [];
 
-            return html`
+      return html`
     <div className="card panel-ai">
       <div className="card-header">
         <div className="dot" style=${{ background: 'var(--purple)' }} />
@@ -931,30 +1025,30 @@
           </span>
         `}
         ${analysis && lines.map((line, i) => {
-                // Style headers (### lines) differently
-                if (line.startsWith('####')) {
-                    return html`<div key=${String(i)} style=${{ color: 'var(--yellow)', fontWeight: '600', marginTop: '8px', fontSize: '11px' }}>${line.replace(/^#+\s*/, '')}</div>`;
-                }
-                if (line.startsWith('###')) {
-                    return html`<div key=${String(i)} style=${{ color: 'var(--blue)', fontWeight: '700', marginTop: '10px', fontSize: '12px' }}>${line.replace(/^#+\s*/, '')}</div>`;
-                }
-                if (line.trim() === '') {
-                    return html`<div key=${String(i)} style=${{ height: '4px' }} />`;
-                }
-                return html`<div key=${String(i)} style=${{ fontSize: '11px', color: 'var(--text)', lineHeight: '1.6' }}>${line}</div>`;
-            })}
+        // Style headers (### lines) differently
+        if (line.startsWith('####')) {
+          return html`<div key=${String(i)} style=${{ color: 'var(--yellow)', fontWeight: '600', marginTop: '8px', fontSize: '11px' }}>${line.replace(/^#+\s*/, '')}</div>`;
+        }
+        if (line.startsWith('###')) {
+          return html`<div key=${String(i)} style=${{ color: 'var(--blue)', fontWeight: '700', marginTop: '10px', fontSize: '12px' }}>${line.replace(/^#+\s*/, '')}</div>`;
+        }
+        if (line.trim() === '') {
+          return html`<div key=${String(i)} style=${{ height: '4px' }} />`;
+        }
+        return html`<div key=${String(i)} style=${{ fontSize: '11px', color: 'var(--text)', lineHeight: '1.6' }}>${line}</div>`;
+      })}
       </div>
     </div>
   `;
-        }
+    }
 
-        // ── VariantModal ─────────────────────────────────────────────────────────────
-        // Level 2 drill-down: full timestamp timeline for one specific variant.
-        function VariantModal({ variant, detail, color, onClose }) {
-            if (!variant) return null;
-            const timestamps = (detail && detail.timestamps) || [];
+    // ── VariantModal ─────────────────────────────────────────────────────────────
+    // Level 2 drill-down: full timestamp timeline for one specific variant.
+    function VariantModal({ variant, detail, color, onClose }) {
+      if (!variant) return null;
+      const timestamps = (detail && detail.timestamps) || [];
 
-            return html`
+      return html`
     <div className="backdrop" onClick=${e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style=${{ width: '520px' }}>
         <div className="modal-hdr">
@@ -979,80 +1073,80 @@
                 <div style=${{ color: 'var(--muted)', fontSize: '11px' }}>No timestamp data yet</div>
               `}
               ${timestamps.map((ts, i) => {
-                const d = new Date(ts);
-                const ago = Math.round((Date.now() - d.getTime()) / 1000);
-                const agoStr = ago <= 0
-                    ? 'just now'
-                    : ago < 60
-                        ? ago + 's ago'
-                        : ago < 3600
-                            ? Math.floor(ago / 60) + 'm ' + (ago % 60) + 's ago'
-                            : Math.floor(ago / 3600) + 'h ago';
-                return html`
+        const d = new Date(ts);
+        const ago = Math.round((Date.now() - d.getTime()) / 1000);
+        const agoStr = ago <= 0
+          ? 'just now'
+          : ago < 60
+            ? ago + 's ago'
+            : ago < 3600
+              ? Math.floor(ago / 60) + 'm ' + (ago % 60) + 's ago'
+              : Math.floor(ago / 3600) + 'h ago';
+        return html`
                   <div key=${String(i)} style=${{
-                        display: 'flex', gap: '12px', padding: '4px 0',
-                        borderBottom: '1px solid var(--border)',
-                        fontSize: '11px', fontFamily: 'var(--mono)'
-                    }}>
+            display: 'flex', gap: '12px', padding: '4px 0',
+            borderBottom: '1px solid var(--border)',
+            fontSize: '11px', fontFamily: 'var(--mono)'
+          }}>
                     <span style=${{ color: 'var(--text)', minWidth: '95px' }}>
                       ${d.toTimeString().slice(0, 8)}.${String(d.getMilliseconds()).padStart(3, '0')}
                     </span>
                     <span style=${{ color: 'var(--muted)' }}>(${agoStr})</span>
                   </div>
                 `;
-            })}
+      })}
             </div>
           </div>
         </div>
       </div>
     </div>
   `;
-        }
+    }
 
-        // ── InspectorModal ────────────────────────────────────────────────────────────
-        // Level 1: merged variant list.
-        // Each row: most recent hit time | count | message → click for level 2 timeline.
-        function InspectorModal({ item, onClose }) {
-            const [detail, setDetail] = useState(null);
-            const [loading, setLoading] = useState(false);
-            const [selectedVariant, setSelectedVariant] = useState(null);
+    // ── InspectorModal ────────────────────────────────────────────────────────────
+    // Level 1: merged variant list.
+    // Each row: most recent hit time | count | message → click for level 2 timeline.
+    function InspectorModal({ item, onClose }) {
+      const [detail, setDetail] = useState(null);
+      const [loading, setLoading] = useState(false);
+      const [selectedVariant, setSelectedVariant] = useState(null);
 
-            useEffect(() => {
-                if (!item) { setDetail(null); setSelectedVariant(null); return; }
-                setLoading(true);
-                setDetail(null);
-                setSelectedVariant(null);
+      useEffect(() => {
+        if (!item) { setDetail(null); setSelectedVariant(null); return; }
+        setLoading(true);
+        setDetail(null);
+        setSelectedVariant(null);
 
-                const key = item.pattern_key || item.pattern;
-                fetch('/api/inspect?pattern=' + encodeURIComponent(key))
-                    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                    .then(d => { setDetail(d); setLoading(false); })
-                    .catch(() => setLoading(false));
-            }, [item && item.pattern_key]);
+        const key = item.pattern_key || item.pattern;
+        fetch('/api/inspect?pattern=' + encodeURIComponent(key))
+          .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(d => { setDetail(d); setLoading(false); })
+          .catch(() => setLoading(false));
+      }, [item && item.pattern_key]);
 
-            if (!item) return null;
-            const color = item.level === 'ERROR' ? 'var(--red)' : 'var(--yellow)';
+      if (!item) return null;
+      const color = item.level === 'ERROR' ? 'var(--red)' : 'var(--yellow)';
 
-            // Sort variants by count descending — each value is { count, timestamps[] }
-            const variants = detail && detail.variants
-                ? Object.entries(detail.variants).sort((a, b) => b[1].count - a[1].count)
-                : [];
+      // Sort variants by count descending — each value is { count, timestamps[] }
+      const variants = detail && detail.variants
+        ? Object.entries(detail.variants).sort((a, b) => b[1].count - a[1].count)
+        : [];
 
-            function mostRecent(varDetail) {
-                if (!varDetail.timestamps || varDetail.timestamps.length === 0) return null;
-                return new Date(varDetail.timestamps[0]);
-            }
+      function mostRecent(varDetail) {
+        if (!varDetail.timestamps || varDetail.timestamps.length === 0) return null;
+        return new Date(varDetail.timestamps[0]);
+      }
 
-            function fmtAgo(d) {
-                if (!d) return '—';
-                const ago = Math.round((Date.now() - d.getTime()) / 1000);
-                if (ago <= 0) return 'just now';
-                if (ago < 60) return ago + 's ago';
-                if (ago < 3600) return Math.floor(ago / 60) + 'm ago';
-                return Math.floor(ago / 3600) + 'h ago';
-            }
+      function fmtAgo(d) {
+        if (!d) return '—';
+        const ago = Math.round((Date.now() - d.getTime()) / 1000);
+        if (ago <= 0) return 'just now';
+        if (ago < 60) return ago + 's ago';
+        if (ago < 3600) return Math.floor(ago / 60) + 'm ago';
+        return Math.floor(ago / 3600) + 'h ago';
+      }
 
-            return html`
+      return html`
     <div className="backdrop" onClick=${e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div className="modal-hdr">
@@ -1088,43 +1182,43 @@
               </div>
               <div style=${{ overflowY: 'auto', maxHeight: '400px' }}>
                 <div style=${{
-                        display: 'grid',
-                        gridTemplateColumns: '80px 44px 1fr',
-                        gap: '0 10px',
-                        padding: '3px 6px',
-                        fontSize: '9px',
-                        color: 'var(--muted)',
-                        letterSpacing: '.06em',
-                        textTransform: 'uppercase',
-                        borderBottom: '1px solid var(--border)',
-                        marginBottom: '2px'
-                    }}>
+            display: 'grid',
+            gridTemplateColumns: '80px 44px 1fr',
+            gap: '0 10px',
+            padding: '3px 6px',
+            fontSize: '9px',
+            color: 'var(--muted)',
+            letterSpacing: '.06em',
+            textTransform: 'uppercase',
+            borderBottom: '1px solid var(--border)',
+            marginBottom: '2px'
+          }}>
                   <span>Last Hit</span>
                   <span style=${{ textAlign: 'right' }}>Hits</span>
                   <span>Message</span>
                 </div>
                 ${variants.map(([msg, varDetail], i) => {
-                        const recent = mostRecent(varDetail);
-                        return html`
+            const recent = mostRecent(varDetail);
+            return html`
                     <div
                       key=${String(i)}
                       onClick=${() => setSelectedVariant([msg, varDetail])}
                       style=${{
-                                display: 'grid',
-                                gridTemplateColumns: '80px 44px 1fr',
-                                gap: '0 10px',
-                                padding: '5px 6px',
-                                borderBottom: '1px solid var(--border)',
-                                cursor: 'pointer',
-                                borderRadius: '3px',
-                                fontSize: '11px',
-                                fontFamily: 'var(--mono)',
-                            }}
+                display: 'grid',
+                gridTemplateColumns: '80px 44px 1fr',
+                gap: '0 10px',
+                padding: '5px 6px',
+                borderBottom: '1px solid var(--border)',
+                cursor: 'pointer',
+                borderRadius: '3px',
+                fontSize: '11px',
+                fontFamily: 'var(--mono)',
+              }}
                       onMouseEnter=${e => e.currentTarget.style.background = '#1a1f2e'}
                       onMouseLeave=${e => e.currentTarget.style.background = 'transparent'}
                     >
                       <span style=${{ color: 'var(--muted)' }}>
-                        ${recent ? recent.toTimeString().slice(0, 8) : '—'}
+                        ${recent ? new Date(recent).toISOString().slice(11, 19) : '—'}
                       </span>
                       <span style=${{ color, fontWeight: '700', textAlign: 'right' }}>
                         ${fmt(varDetail.count)}
@@ -1134,7 +1228,7 @@
                       </span>
                     </div>
                   `;
-                    })}
+          })}
               </div>
             </div>
           `}
@@ -1156,32 +1250,32 @@
       />
     `}
   `;
-        }
+    }
 
 
-        // ── ConnectionPill ────────────────────────────────────────────────────────────
-        function ConnectionPill({ status }) {
-            const map = {
-                connected: { cls: 'cd-conn', label: 'Live' },
-                connecting: { cls: 'cd-wait', label: 'Connecting…' },
-                disconnected: { cls: 'cd-disc', label: 'Reconnecting…' },
-            };
-            const { cls, label } = map[status] || map.connecting;
+    // ── ConnectionPill ────────────────────────────────────────────────────────────
+    function ConnectionPill({ status }) {
+      const map = {
+        connected: { cls: 'cd-conn', label: 'Live' },
+        connecting: { cls: 'cd-wait', label: 'Connecting…' },
+        disconnected: { cls: 'cd-disc', label: 'Reconnecting…' },
+      };
+      const { cls, label } = map[status] || map.connecting;
 
-            return html`
+      return html`
     <div className="conn-pill">
       <div className=${'conn-dot ' + cls} />
       ${label}
     </div>
   `;
-        }
+    }
 
-        // ── App ───────────────────────────────────────────────────────────────────────
-        function App() {
-            const { data, connStatus } = useLosuWS();
-            const [selected, setSelected] = useState(null);
+    // ── App ───────────────────────────────────────────────────────────────────────
+    function App() {
+      const { data, connStatus } = useLosuWS();
+      const [selected, setSelected] = useState(null);
 
-            return html`
+      return html`
     <div className="layout">
       <${StatsPanel}     data=${data} />
       <${TopErrorsPanel} data=${data} onSelect=${setSelected} />
@@ -1192,13 +1286,13 @@
     <${ConnectionPill} status=${connStatus} />
     <${InspectorModal} item=${selected} onClose=${() => setSelected(null)} />
   `;
-        }
+    }
 
-        // ── Mount ─────────────────────────────────────────────────────────────────────
-        ReactDOM.createRoot(document.getElementById('root')).render(
-            React.createElement(App)
-        );
-    </script>
+    // ── Mount ─────────────────────────────────────────────────────────────────────
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      React.createElement(App)
+    );
+  </script>
 </body>
 
 </html>

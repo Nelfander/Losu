@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -79,6 +80,7 @@ func New(addr string, h *hub.Hub, agg *aggregator.Aggregator) *Server {
 	e.GET("/ws/stream", s.handleWebSocket)   // WebSocket stream
 	e.GET("/api/snapshot", s.handleSnapshot) // initial REST snapshot
 	e.GET("/api/inspect", s.handleInspect)   // on-demand detail for a pattern (?pattern=...)
+	e.GET("/api/logs", s.handleLogs)         // full-history search (?q=...&level=...&limit=...)
 
 	return s
 }
@@ -174,6 +176,38 @@ func (s *Server) handleInspect(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "pattern not found"})
 	}
 	return c.JSON(http.StatusOK, result)
+}
+
+// handleLogs searches the full 50k history ring and returns matching events.
+// Query params:
+//
+//	q     — case-insensitive substring match on message (optional)
+//	level — exact level filter: ERROR, WARN, INFO, DEBUG (optional)
+//	limit — max results to return, default 500 (optional)
+//
+// Results are returned newest-first so the browser can render immediately
+// without reversing. This endpoint is called on debounced input, not on
+// every keystroke, so the 50k scan cost is acceptable.
+func (s *Server) handleLogs(c echo.Context) error {
+	q := c.QueryParam("q")
+	level := c.QueryParam("level")
+	limitStr := c.QueryParam("limit")
+
+	limit := 500
+	if limitStr != "" {
+		if n, err := strconv.Atoi(limitStr); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
+	results := s.agg.SearchHistory(q, level, limit)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"results": results,
+		"count":   len(results),
+		"q":       q,
+		"level":   level,
+		"limit":   limit,
+	})
 }
 
 // handleSnapshot returns a single JSON snapshot for the initial page load —

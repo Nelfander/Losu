@@ -397,17 +397,17 @@ func (a *Aggregator) WebSnapshot() model.WebSnapshot {
 	topErrors := make([]model.WebMessageStat, len(a.cachedTopMsgs))
 	for i, m := range a.cachedTopMsgs {
 		topErrors[i] = model.WebMessageStat{
-			Pattern:    a.getTopVariant(m),
+			Pattern:    a.getPatternKey(m),
 			PatternKey: a.getPatternKey(m),
 			Level:      m.Level,
 			Count:      m.Count,
 		}
 	}
 
-	// Cap history to last 50 events for the sample log stream.
+	// Cap history to last 250 events for the sample log stream.
 	// history.slice() returns oldest→newest so we take the tail.
 	history := a.history.slice()
-	const maxSampleLogs = 50
+	const maxSampleLogs = 250
 	if len(history) > maxSampleLogs {
 		history = history[len(history)-maxSampleLogs:]
 	}
@@ -470,6 +470,47 @@ func (a *Aggregator) GetHistory() []model.LogEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.history.slice()
+}
+
+// SearchHistory searches the full 50k history ring and returns matches newest-first.
+// q is a case-insensitive substring matched against the message.
+// level filters by exact level (e.g. "ERROR") — empty string means all levels.
+// limit caps the result set — 0 means no cap.
+// This is called on demand from GET /api/logs, never on the hot path.
+func (a *Aggregator) SearchHistory(q, level string, limit int) []model.LogEvent {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	// slice() returns oldest→newest — we iterate in reverse for newest-first results
+	all := a.history.slice()
+
+	qLower := strings.ToLower(q)
+	levelUpper := strings.ToUpper(level)
+
+	// Pre-allocate conservatively
+	results := make([]model.LogEvent, 0, 256)
+
+	for i := len(all) - 1; i >= 0; i-- {
+		e := all[i]
+
+		// Level filter
+		if levelUpper != "" && strings.ToUpper(e.Level) != levelUpper {
+			continue
+		}
+
+		// Message substring filter (case-insensitive)
+		if qLower != "" && !strings.Contains(strings.ToLower(e.Message), qLower) {
+			continue
+		}
+
+		results = append(results, e)
+
+		if limit > 0 && len(results) >= limit {
+			break
+		}
+	}
+
+	return results
 }
 
 func (a *Aggregator) Save(filepath string) error {
