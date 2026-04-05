@@ -309,6 +309,8 @@
     .log-count {
       font-size: 9px;
       color: var(--muted);
+      text-transform: none;
+      letter-spacing: normal;
     }
 
     .search-box {
@@ -574,13 +576,14 @@
     // ── Helpers ───────────────────────────────────────────────────────────────────
     const fmt = n => (n || 0).toLocaleString();
 
-    // Format ISO timestamp to HH:MM:SS using UTC methods.
-    // Go serializes timestamps as RFC3339 with timezone offset (e.g. +02:00).
-    // Using toTimeString() would double-apply the offset in some browsers.
-    // toISOString() always gives UTC which matches what Go intended.
+    // Format ISO timestamp to HH:MM:SS in the browser's local timezone.
+    // Go serializes with RFC3339 offset (e.g. +02:00) so new Date() parses correctly.
+    // toLocaleTimeString('en-GB') gives HH:MM:SS in local time — matches what the logs show.
     function fmtTime(iso) {
       if (!iso) return '—';
-      try { return new Date(iso).toISOString().slice(11, 19); } catch (e) { return '—'; }
+      try {
+        return new Date(iso).toLocaleTimeString('en-GB', { hour12: false }).slice(0, 8);
+      } catch (e) { return '—'; }
     }
 
     function levelClass(lvl) {
@@ -593,9 +596,13 @@
       }
     }
 
+    // getStatus mirrors getStatusLabel in dashboard.go exactly.
+    // Thresholds match the .env variable defaults:
+    //   LOSU_EPS_MINOR=0.1  LOSU_EPS_WARN=1.0  LOSU_EPS_CRITICAL=5.0
+    //   LOSU_WPS_PRESSURE=50  LOSU_WPS_SUSPICIOUS=100  LOSU_WPS_PREINCIDENT=200
+    // If you change the .env thresholds, update these defaults to match.
     function getStatus(eps, wps) {
-      if (eps >= 20) return { label: 'Critical Spike', cls: 's-critical' };
-      if (eps >= 5) return { label: 'Sustained Errors', cls: 's-sustained' };
+      if (eps >= 5) return { label: 'Critical Spike', cls: 's-critical' };
       if (eps >= 1) return { label: 'Unstable', cls: 's-unstable' };
       if (eps >= 0.1) return { label: 'Minor Issues', cls: 's-minor' };
       if (wps >= 200) return { label: '⚠ Pre-Incident', cls: 's-preincident' };
@@ -671,7 +678,8 @@
     }
 
     // ── StatsPanel ────────────────────────────────────────────────────────────────
-    function StatsPanel({ data }) {
+    // Shows totals, counts, health status, and an incident button when files exist.
+    function StatsPanel({ data, incidentCount, onViewIncidents }) {
       const counts = (data && data.error_counts) || {};
       const eps = (data && data.average_eps) || 0;
       const wps = (data && data.average_wps) || 0;
@@ -683,6 +691,26 @@
         <div className="dot" style=${{ background: 'var(--blue)' }} />
         Stats Breakdown
         <div className=${'status-badge ' + status.cls}>${status.label}</div>
+        ${incidentCount > 0 && html`
+          <button
+            onClick=${onViewIncidents}
+            style=${{
+            marginLeft: '8px',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            border: '1px solid var(--red)',
+            background: '#2d0d0d',
+            color: 'var(--red)',
+            fontSize: '10px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            letterSpacing: '0.04em',
+            whiteSpace: 'nowrap',
+          }}
+          >
+            🚨 ${incidentCount} INCIDENT${incidentCount > 1 ? 'S' : ''}
+          </button>
+        `}
       </div>
       <div className="card-body">
         <div className="stats-row">
@@ -714,6 +742,8 @@
     </div>
   `;
     }
+
+
 
     // ── TopErrorsPanel ────────────────────────────────────────────────────────────
     function TopErrorsPanel({ data, onSelect }) {
@@ -1089,7 +1119,7 @@
             fontSize: '11px', fontFamily: 'var(--mono)'
           }}>
                     <span style=${{ color: 'var(--text)', minWidth: '95px' }}>
-                      ${d.toTimeString().slice(0, 8)}.${String(d.getMilliseconds()).padStart(3, '0')}
+                      ${new Date(ts).toISOString().slice(11, 23)}
                     </span>
                     <span style=${{ color: 'var(--muted)' }}>(${agoStr})</span>
                   </div>
@@ -1270,14 +1300,240 @@
   `;
     }
 
+    // ── SignalHistoryPanel ────────────────────────────────────────────────────────
+    // Renders the signal_history array with an inline search filter.
+    // Extracted as its own component so IncidentModal stays readable.
+    function SignalHistoryPanel({ events }) {
+      const [filter, setFilter] = useState('');
+
+      const fl = filter.toLowerCase();
+      const filtered = events.filter(e =>
+        !fl ||
+        (e.message || '').toLowerCase().includes(fl) ||
+        (e.level || '').toLowerCase().includes(fl)
+      );
+
+      return html`
+    <div className="modal-section">
+      <div style=${{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+        <div className="modal-label" style=${{ margin: 0 }}>
+          Signal History (${filtered.length}${filter ? ' of ' + events.length : ''} events)
+        </div>
+        <input
+          className="search-box"
+          type="text"
+          placeholder="Filter signals..."
+          value=${filter}
+          onInput=${e => setFilter(e.target.value)}
+          style=${{ width: '160px', padding: '2px 6px', fontSize: '10px' }}
+        />
+      </div>
+      <div style=${{ maxHeight: '280px', overflowY: 'auto' }}>
+        ${filtered.slice(0, 500).map((e, i) => html`
+          <div key=${String(i)} style=${{
+          display: 'flex', gap: '8px', padding: '3px 0',
+          borderBottom: '1px solid var(--border)', fontSize: '10px'
+        }}>
+            <span style=${{ color: e.level === 'ERROR' ? 'var(--red)' : 'var(--yellow)', minWidth: '40px', fontWeight: '700' }}>
+              ${e.level}
+            </span>
+            <span style=${{ color: 'var(--muted)', minWidth: '70px', flexShrink: 0 }}>
+              ${fmtTime(e.timestamp)}
+            </span>
+            <span style=${{ color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              ${e.message}
+            </span>
+          </div>
+        `)}
+        ${filtered.length > 500 && html`
+          <div style=${{ color: 'var(--muted)', fontSize: '10px', padding: '4px 0' }}>
+            ... and ${fmt(filtered.length - 500)} more — refine your filter
+          </div>
+        `}
+        ${filtered.length === 0 && html`
+          <div style=${{ color: 'var(--muted)', fontSize: '10px', padding: '4px 0' }}>
+            No signals match "${filter}"
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+    }
+
+    // ── IncidentModal ─────────────────────────────────────────────────────────────
+    // Shows list of all incident files. Clicking one loads its full content.
+    function IncidentModal({ onClose }) {
+      const [incidents, setIncidents] = useState(null);
+      const [selected, setSelected] = useState(null); // full incident JSON
+      const [selectedName, setSelectedName] = useState('');
+      const [loading, setLoading] = useState(true);
+      const [loadingDetail, setLoadingDetail] = useState(false);
+
+      // Load incident list on open
+      useEffect(() => {
+        fetch('/api/incidents')
+          .then(r => r.json())
+          .then(d => { setIncidents(d.incidents || []); setLoading(false); })
+          .catch(() => setLoading(false));
+      }, []);
+
+      function loadIncident(filename) {
+        setLoadingDetail(true);
+        setSelected(null);
+        setSelectedName(filename);
+        fetch('/api/incidents/' + encodeURIComponent(filename))
+          .then(r => r.json())
+          .then(d => { setSelected(d); setLoadingDetail(false); })
+          .catch(() => setLoadingDetail(false));
+      }
+
+      return html`
+    <div className="backdrop" onClick=${e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style=${{ width: '960px', maxHeight: '90vh' }}>
+        <div className="modal-hdr">
+          <span style=${{ color: 'var(--red)' }}>🚨 Incident Reports</span>
+          <button className="modal-close" onClick=${onClose}>✕</button>
+        </div>
+        <div style=${{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+
+          <!-- Left: incident list -->
+          <div style=${{
+          width: '280px', flexShrink: 0,
+          borderRight: '1px solid var(--border)',
+          overflowY: 'auto', padding: '8px'
+        }}>
+            ${loading && html`<div style=${{ color: 'var(--muted)', fontSize: '11px' }}>Loading...</div>`}
+            ${!loading && incidents && incidents.length === 0 && html`
+              <div style=${{ color: 'var(--muted)', fontSize: '11px', padding: '8px 0' }}>
+                No incidents recorded yet.
+              </div>
+            `}
+            ${!loading && incidents && incidents.map((inc, i) => html`
+              <div
+                key=${String(i)}
+                onClick=${() => loadIncident(inc.filename)}
+                style=${{
+            padding: '8px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            marginBottom: '4px',
+            background: selectedName === inc.filename ? '#1a1f2e' : 'transparent',
+            border: selectedName === inc.filename ? '1px solid var(--border)' : '1px solid transparent',
+            transition: 'background .1s'
+          }}
+                onMouseEnter=${e => { if (selectedName !== inc.filename) e.currentTarget.style.background = '#13161e'; }}
+                onMouseLeave=${e => { if (selectedName !== inc.filename) e.currentTarget.style.background = 'transparent'; }}
+              >
+                <div style=${{ fontSize: '10px', color: 'var(--muted)', fontFamily: 'var(--mono)', marginBottom: '3px' }}>
+                  ${inc.timestamp}
+                </div>
+                <div style=${{ fontSize: '11px', color: 'var(--red)', fontWeight: '600', marginBottom: '4px' }}>
+                  ${inc.reason}
+                </div>
+                <div style=${{ display: 'flex', gap: '10px', fontSize: '10px' }}>
+                  <span style=${{ color: 'var(--red)' }}>EPS ${inc.peak_eps.toFixed(1)}</span>
+                  <span style=${{ color: 'var(--yellow)' }}>WPS ${inc.peak_wps.toFixed(1)}</span>
+                  <span style=${{ color: 'var(--muted)' }}>${fmt(inc.total_lines)} lines</span>
+                </div>
+              </div>
+            `)}
+          </div>
+
+          <!-- Right: incident detail -->
+          <div style=${{ flex: 1, overflowY: 'auto', padding: '12px', minWidth: 0 }}>
+            ${!selected && !loadingDetail && html`
+              <div style=${{ color: 'var(--muted)', fontSize: '11px' }}>
+                Select an incident from the list to view its full report.
+              </div>
+            `}
+            ${loadingDetail && html`
+              <div style=${{ color: 'var(--muted)', fontSize: '11px' }}>Loading report...</div>
+            `}
+            ${selected && html`
+              <div style=${{ fontFamily: 'var(--mono)', fontSize: '11px' }}>
+
+                <div className="modal-section">
+                  <div className="modal-label">Reason</div>
+                  <div style=${{ color: 'var(--red)', fontWeight: '700', fontSize: '13px' }}>${selected.reason}</div>
+                </div>
+
+                <div className="modal-section">
+                  <div className="modal-label">Timeframe</div>
+                  <div style=${{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+                    <span style=${{ color: 'var(--text)', fontWeight: '600' }}>
+                      ${selected.started_at ? new Date(selected.started_at).toISOString().slice(11, 19) : '—'}
+                    </span>
+                    <span style=${{ color: 'var(--muted)' }}>→</span>
+                    <span style=${{ color: 'var(--text)', fontWeight: '600' }}>
+                      ${selected.ended_at ? new Date(selected.ended_at).toISOString().slice(11, 19) : '—'}
+                    </span>
+                    ${selected.started_at && selected.ended_at && html`
+                      <span style=${{ color: 'var(--muted)', fontSize: '10px' }}>
+                        (${Math.round((new Date(selected.ended_at) - new Date(selected.started_at)) / 1000)}s window)
+                      </span>
+                    `}
+                  </div>
+                </div>
+
+                <div className="modal-section" style=${{ display: 'flex', gap: '24px' }}>
+                  <div>
+                    <div className="modal-label">Peak EPS</div>
+                    <div style=${{ color: 'var(--red)', fontSize: '20px', fontWeight: '700' }}>
+                      ${selected.peak_eps ? selected.peak_eps.toFixed(2) : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="modal-label">Peak WPS</div>
+                    <div style=${{ color: 'var(--yellow)', fontSize: '20px', fontWeight: '700' }}>
+                      ${selected.peak_wps ? selected.peak_wps.toFixed(2) : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="modal-label">Total Lines</div>
+                    <div style=${{ color: 'var(--text)', fontSize: '20px', fontWeight: '700' }}>
+                      ${fmt(selected.total_lines)}
+                    </div>
+                  </div>
+                </div>
+
+                ${selected.signal_history && html`
+                  <${SignalHistoryPanel} events=${selected.signal_history} />
+                `}
+
+              </div>
+            `}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  `;
+    }
+
     // ── App ───────────────────────────────────────────────────────────────────────
     function App() {
       const { data, connStatus } = useLosuWS();
       const [selected, setSelected] = useState(null);
+      const [showIncidents, setShowIncidents] = useState(false);
+      const [incidentCount, setIncidentCount] = useState(0);
+
+      // Poll incident count every 10s so the button appears as soon as
+      // the first incident file is written — without a page reload.
+      useEffect(() => {
+        function checkIncidents() {
+          fetch('/api/incidents')
+            .then(r => r.json())
+            .then(d => setIncidentCount((d.incidents || []).length))
+            .catch(() => { });
+        }
+        checkIncidents();
+        const interval = setInterval(checkIncidents, 10000);
+        return () => clearInterval(interval);
+      }, []);
 
       return html`
     <div className="layout">
-      <${StatsPanel}     data=${data} />
+      <${StatsPanel}     data=${data} incidentCount=${incidentCount} onViewIncidents=${() => setShowIncidents(true)} />
       <${TopErrorsPanel} data=${data} onSelect=${setSelected} />
       <${LogPanel}       data=${data} />
       <${AIPanel}        data=${data} />
@@ -1285,6 +1541,7 @@
     </div>
     <${ConnectionPill} status=${connStatus} />
     <${InspectorModal} item=${selected} onClose=${() => setSelected(null)} />
+    ${showIncidents && html`<${IncidentModal} onClose=${() => setShowIncidents(false)} />`}
   `;
     }
 

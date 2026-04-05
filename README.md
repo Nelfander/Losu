@@ -432,6 +432,37 @@ These tests focus on the "brain" of the application, ensuring raw streams are co
 <details><summary>(Click to expand)</summary>
 
 <details>
+<summary><b>April 5, 2026: Incident Viewer, Report Intelligence & Fingerprint Hardening</b> 🚨🔬🧬 (Click to expand)</summary>
+ 
+#### Phase 1: Incident Viewer (Web UI)
+* **`GET /api/incidents`**: New endpoint that scans the `incidents/` folder and returns a metadata list for each report — filename, timestamp, reason, peak EPS/WPS, total lines, started_at, ended_at. Partially unmarshals each file to extract only the top-level fields, never loading the full 30k-line signal history just for the list view.
+* **`GET /api/incidents/:file`**: Returns the full content of a single incident file. Uses `filepath.Base()` to sanitize the filename and prevent path traversal attacks (e.g. `../../etc/passwd`).
+* **`IncidentModal` — Split-Pane Layout**: Left panel lists all incidents sorted newest-first (timestamp, reason, peak EPS/WPS, line count). Right panel shows the full detail of the selected incident. Clicking any row in the left panel loads the full report without closing the modal.
+* **`SignalHistoryPanel` with Inline Filter**: Signal history is rendered as its own component with a live filter input on the same line as the "Signal History (N events)" header. Filtering is instant — no debounce needed since it operates on already-loaded data. Shows "X of N events" count when filtered, "no results" message when nothing matches. Capped at 500 rendered rows for browser performance.
+* **Incident Count Polling**: `App` polls `/api/incidents` every 10 seconds. A red `🚨 N INCIDENTS` button appears in the Stats Breakdown header as soon as the first incident file is written — no page reload required.
+* **`incidents/` Folder**: Incident reports now write to `incidents/incident_YYYY-MM-DD_HH-MM-SS.json` instead of the project root. `os.MkdirAll("incidents", 0755)` ensures the folder is created automatically on first report.
+ 
+#### Phase 2: Incident Report Intelligence
+* **Monitoring Window (started_at / ended_at)**: Each incident JSON now includes the full monitoring window it covers — from when the previous incident ended (or LOSU start time for the first incident) to when the anomaly was detected. This answers "how long were we watching before this fired?" rather than just "when did it happen?". The web UI displays this as `13:17:37 → 13:45:21 (27m 44s window)`.
+* **`StartTime` on Aggregator**: Added `StartTime time.Time` to the aggregator struct, set in `NewAggregator()`. Used as the `started_at` fallback for the very first incident when `LastReportTime` is still zero.
+* **Window-Filtered Signal History**: `TriggerIncidentReport` now filters `signalHistory` to only events that occurred after `windowStart`. Each report contains only the signals from its own monitoring window — no bleedover from previous incidents. The global `signalHistory` ring is untouched.
+* **Smarter `shouldTriggerReport`**: Redesigned with three priority levels: (1) Critical/Fatal — 1-minute cooldown, fires repeatedly during sustained critical spikes without flooding; (2) Normal spike — 5-minute cooldown, reset when EPS recovers; (3) Spike detection — current EPS must be above `epsMinimum` AND 3x the rolling average. All thresholds read from env vars.
+* **Recovery Reset in `PushTrend`**: Every second, if `AverageEPS` AND `AverageWPS` both drop below `epsMinimum`, `LastReportTime` is reset to zero. This allows the next spike to trigger a fresh report immediately after the system recovers — fixing the "second report never fires" bug.
+ 
+#### Phase 3: Env Var Alignment
+* **Consistent Threshold Names**: Aligned all threshold env var names across `dashboard.go`, `aggregator.go`, and `index.html`. Code now reads `LOSU_EPS_WARN` (not `LOSU_EPS_UNSTABLE`) and `LOSU_EPS_CRITICAL` (not `LOSU_EPS_SUSTAINED`) — matching the `.env` file exactly. Removed the redundant `Sustained Errors` status label.
+* **`epsMinimum` in `shouldTriggerReport`**: Renamed from `epsFloor` for clarity — the name now immediately communicates "minimum EPS required to trigger a report" without needing a comment to explain it.
+* **`getStatus` Web Defaults**: Updated `index.html` `getStatus()` defaults to match `.env` defaults exactly (critical=5.0, warn=1.0). Added comment explaining that these must be updated if `.env` thresholds change.
+ 
+#### Phase 4: Fingerprint Hardening
+* **Name-Embedded Digits Preserved**: Rewrote the `fingerprint()` function to track `afterSeparator` state. Digits that follow a separator (`=`, `:`, space, `_`, `.` etc.) are replaced with `*`. Digits that follow a letter are kept — preserving product names like `S3`, version strings like `v2`, protocol names like `HTTP2`, and hash names like `md5`.
+* **Underscore as Separator**: `_` moved from `isLetter` to `isSeparator`. This fixes `key=img_340` clustering — `_` resets `afterSeparator=true` so `340` is correctly replaced with `*`, giving `key=img_*`. Previously `_` was treated as a letter so `340` followed a "letter" and was kept, making every unique img key a separate pattern.
+* **Timezone Fix**: `fmtTime()` in `index.html` switched from `toISOString().slice(11,19)` (UTC) to `toLocaleTimeString('en-GB', { hour12: false })` (browser local time). Go serializes timestamps as RFC3339 with timezone offset — `toISOString()` was stripping the offset and displaying UTC, showing times 2 hours behind for UTC+2 users.
+ 
+</details>
+ 
+
+<details>
 <summary><b>April 4, 2026: Multi-Format Parsing, Forensic Drill-Down & Full-History Search</b>(Click to expand)</summary>
  
 #### Phase 1: Two-Level TUI Inspector (Keyboard-Driven Forensics)

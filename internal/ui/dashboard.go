@@ -308,8 +308,8 @@ func NewDashboard() *Dashboard {
 					scrollAccel = 0
 				}
 
-				// Base 5 items, up to 5 + 4*5 = 25 at max acceleration
-				jump := 5 + scrollAccel*3
+				// Base 3 items, up to 3 + 4*3 = 15 at max acceleration
+				jump := 3 + scrollAccel*3
 
 				current := list.GetCurrentItem()
 				count := list.GetItemCount()
@@ -698,12 +698,12 @@ func getSparklineLog(data []int, height int) string {
 // Warn labels only show when errors are below the minor threshold —
 // giving early warning of degradation before errors start firing.
 //
-// Thresholds are read from env so each app can tune to its own baseline:
+// Thresholds are read from env so each app can tune to its own baseline.
+// These match the .env variable names exactly:
 //
 //	LOSU_EPS_MINOR       default 0.1   above this → Minor Issues
-//	LOSU_EPS_UNSTABLE    default 1.0   above this → Unstable
-//	LOSU_EPS_SUSTAINED   default 5.0   above this → Sustained Errors
-//	LOSU_EPS_CRITICAL    default 20.0  above this → CRITICAL SPIKE
+//	LOSU_EPS_WARN        default 1.0   above this → Unstable
+//	LOSU_EPS_CRITICAL    default 5.0   above this → CRITICAL SPIKE
 //	LOSU_WPS_PRESSURE    default 50    above this → Pressure Building
 //	LOSU_WPS_SUSPICIOUS  default 100   above this → Suspicious Activity
 //	LOSU_WPS_PREINCIDENT default 200   above this → Pre-Incident Warning
@@ -717,9 +717,8 @@ func getStatusLabel(eps, wps float64) string {
 		return def
 	}
 
-	epsCritical := thresh("LOSU_EPS_CRITICAL", 20.0)
-	epsSustained := thresh("LOSU_EPS_SUSTAINED", 5.0)
-	epsUnstable := thresh("LOSU_EPS_UNSTABLE", 1.0)
+	epsCritical := thresh("LOSU_EPS_CRITICAL", 5.0)
+	epsWarn := thresh("LOSU_EPS_WARN", 1.0)
 	epsMinor := thresh("LOSU_EPS_MINOR", 0.1)
 	wpsPreIncident := thresh("LOSU_WPS_PREINCIDENT", 200.0)
 	wpsSuspicious := thresh("LOSU_WPS_SUSPICIOUS", 100.0)
@@ -728,9 +727,7 @@ func getStatusLabel(eps, wps float64) string {
 	switch {
 	case eps >= epsCritical:
 		return "[blink][red]CRITICAL SPIKE"
-	case eps >= epsSustained:
-		return "[red]Sustained Errors"
-	case eps >= epsUnstable:
+	case eps >= epsWarn:
 		return "[red]Unstable"
 	case eps >= epsMinor:
 		return "[blue]Minor Issues"

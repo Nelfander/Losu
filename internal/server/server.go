@@ -5,7 +5,10 @@ import (
 	_ "embed"
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -76,11 +79,13 @@ func New(addr string, h *hub.Hub, agg *aggregator.Aggregator) *Server {
 	}
 
 	// Routes
-	e.GET("/", s.handleIndex)                // serves the embedded dashboard
-	e.GET("/ws/stream", s.handleWebSocket)   // WebSocket stream
-	e.GET("/api/snapshot", s.handleSnapshot) // initial REST snapshot
-	e.GET("/api/inspect", s.handleInspect)   // on-demand detail for a pattern (?pattern=...)
-	e.GET("/api/logs", s.handleLogs)         // full-history search (?q=...&level=...&limit=...)
+	e.GET("/", s.handleIndex)                       // serves the embedded dashboard
+	e.GET("/ws/stream", s.handleWebSocket)          // WebSocket stream
+	e.GET("/api/snapshot", s.handleSnapshot)        // initial REST snapshot
+	e.GET("/api/inspect", s.handleInspect)          // on-demand detail for a pattern (?pattern=...)
+	e.GET("/api/logs", s.handleLogs)                // full-history search (?q=...&level=...&limit=...)
+	e.GET("/api/incidents", s.handleIncidentList)   // list all incident files
+	e.GET("/api/incidents/:file", s.handleIncident) // get one incident file content
 
 	return s
 }
@@ -208,6 +213,110 @@ func (s *Server) handleLogs(c echo.Context) error {
 		"level":   level,
 		"limit":   limit,
 	})
+}
+
+// handleIncidentList scans the incidents/ directory and returns a list of
+// incident files with their metadata (filename, timestamp, reason, peaks).
+// Only reads the first few fields of each file to keep the list response light.
+func (s *Server) handleIncidentList(c echo.Context) error {
+	entries, err := os.ReadDir("incidents")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"incidents": []interface{}{},
+			})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	type IncidentMeta struct {
+		Filename   string  `json:"filename"`
+		Timestamp  string  `json:"timestamp"`
+		Reason     string  `json:"reason"`
+		PeakEPS    float64 `json:"peak_eps"`
+		PeakWPS    float64 `json:"peak_wps"`
+		TotalLines int     `json:"total_lines"`
+		StartedAt  string  `json:"started_at"`
+		EndedAt    string  `json:"ended_at"`
+	}
+
+	var incidents []IncidentMeta
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+
+		path := filepath.Join("incidents", entry.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+
+		// Partially unmarshal — only read the top-level fields we need for the list.
+		// The full signal_history and full_context arrays can be huge (30k lines)
+		// so we never load them just for the list view.
+		var partial struct {
+			Reason     string  `json:"reason"`
+			PeakEPS    float64 `json:"peak_eps"`
+			PeakWPS    float64 `json:"peak_wps"`
+			TotalLines int     `json:"total_lines"`
+			StartedAt  string  `json:"started_at"`
+			EndedAt    string  `json:"ended_at"`
+		}
+		if err := json.Unmarshal(data, &partial); err != nil {
+			continue
+		}
+
+		// Extract timestamp from filename: incident_2026-04-04_16-31-28.json
+		ts := strings.TrimPrefix(entry.Name(), "incident_")
+		ts = strings.TrimSuffix(ts, ".json")
+		ts = strings.ReplaceAll(ts, "_", " ")
+
+		incidents = append(incidents, IncidentMeta{
+			Filename:   entry.Name(),
+			Timestamp:  ts,
+			Reason:     partial.Reason,
+			PeakEPS:    partial.PeakEPS,
+			PeakWPS:    partial.PeakWPS,
+			TotalLines: partial.TotalLines,
+			StartedAt:  partial.StartedAt,
+			EndedAt:    partial.EndedAt,
+		})
+	}
+
+	// Newest first
+	for i, j := 0, len(incidents)-1; i < j; i, j = i+1, j-1 {
+		incidents[i], incidents[j] = incidents[j], incidents[i]
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"incidents": incidents,
+	})
+}
+
+// handleIncident returns the full content of a single incident file.
+// The filename comes from the URL parameter — we sanitize it to prevent
+// path traversal attacks (e.g. ../../etc/passwd).
+func (s *Server) handleIncident(c echo.Context) error {
+	filename := filepath.Base(c.Param("file")) // Base() strips any directory components
+
+	// Only allow incident JSON files
+	if !strings.HasPrefix(filename, "incident_") || !strings.HasSuffix(filename, ".json") {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid filename"})
+	}
+
+	path := filepath.Join("incidents", filename)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "incident not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	// Return raw JSON — browser renders it directly
+	return c.JSONBlob(http.StatusOK, data)
 }
 
 // handleSnapshot returns a single JSON snapshot for the initial page load —

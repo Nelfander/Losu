@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	jsonLogsPerSecond = 10000
+	jsonLogsPerSecond = 20000
 	jsonBatchSize     = 250
 	jsonChannelSize   = 50
 )
