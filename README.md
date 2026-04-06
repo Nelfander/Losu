@@ -18,6 +18,7 @@ It helps developers debug production systems faster
 ## ✨ Highlights
  
 - Single static Go binary — **no runtime dependencies**
+- **Multi-file monitoring** — watch multiple log files simultaneously, switch between them instantly in both TUI (Tab) and web (dropdown)
 - Real-time TUI dashboard with sparkline EPS/WPS graphs
 - **Built-in web dashboard** — React UI served from the binary, no Node.js required
 - Intelligent log pattern fingerprinting & clustering
@@ -27,6 +28,7 @@ It helps developers debug production systems faster
 - Desktop notifications via **beeep**
 - Smart alert rate-limiting to prevent fatigue
 - Memory-safe, high-concurrency pipeline
+
  
 ## 🚀 Key Features
  
@@ -64,6 +66,21 @@ Click any row in the Top Errors panel to open a forensic drill-down:
  
 > The entire frontend is a single HTML file embedded in the binary via `go:embed`. Deploying LOSU with a web UI is identical to deploying without one — copy the binary, run it.
  
+### 📁 Multi-File Monitoring
+
+LOSU can watch multiple log files simultaneously — each with fully isolated stats, independent EPS/WPS, and separate incident history.
+```env
+LOSU_LOG_PATH=./logs/app.log,./logs/worker.log,./logs/payments.log
+```
+
+Each file gets its own aggregator, tailer, parser, and pipeline. Switching between files is instant:
+
+- **Web** — dropdown appears in the Stats Breakdown panel when >1 file is active. Selecting a file swaps the entire dashboard view within 500ms.
+- **TUI** — press `Tab` to cycle through files. Source name shown in the Stats panel.
+- **Incidents** — each incident report is tagged with its source file. The incident viewer filters automatically when you switch sources.
+
+> Auto-detection runs independently per file — you can mix JSON and logfmt logs in the same LOSU instance.
+
 ### Executive Heartbeat (SRE Reporting)
 LOSU doesn't just tail — it **summarizes system health** and pushes concise status reports to your phone.
  
@@ -223,7 +240,7 @@ ollama pull llama3
 Create a `.env` file in the root directory(Check .env.example):
 | Environment Variable | Description | Default |
 | :--- | :--- | :--- |
-| `LOSU_LOG_PATH` | Path to the log file to monitor. | `test.log` |
+| `LOSU_LOG_PATH` | Comma-separated log file paths to monitor. | `logs/test.log` |
 | `LOSU_MIN_LEVEL` | Minimum severity (DEBUG/INFO/WARN/ERROR). | `INFO` |
 | `LOSU_NTFY_TOPIC` | Unique ntfy.sh topic for phone alerts. | `losu-monitor-default` |
 | `LOSU_AI_MODEL` | The Ollama model for analysis. | `llama3` |
@@ -268,18 +285,13 @@ go run cmd/logsum/main.go --ui=both
 go run cmd/logsum/main.go -reset
 ```
  
-### 6a. 🧪 Testing with Chaos. (Populates test.log!)
--LOSU includes a built-in Chaos Generator to simulate production-grade failures, including high-memory spikes, database timeouts, and security anomalies:
- 
--In a separate terminal (Change time.Sleep depending on how chaotic you want it! It can handle 1k logs/sec). 
+### 6. 🧪 Testing with generators
 ```bash
-go run bin/stress/stress_gen.go
-```
- 
-### 6b. 🧪 Testing without Chaos. (Populates test.log!)
--In a separate terminal
-```bash
-go run bin/normal/normal_gen.go
+# Terminal 1 — logfmt traffic → logs/test.log
+go run bin/generators/normal/normal_gen.go
+
+# Terminal 2 — JSON traffic → logs/test2.log
+go run bin/generators/json/json_gen.go
 ```
 </details>
  
@@ -487,7 +499,7 @@ TUI logic tests operate on pure Go state — no terminal or tview application re
 <details><summary>(Click to expand)</summary>
 
 <details>
-<summary><b>April 6, 2026: Full Test Suite, Multi-File Support & Per-Source Incident Filtering</b> 🧪📁🚨 (Click to expand)</summary>
+<summary><b>April 6, 2026: Full Test Suite, Multi-File Support & Per-Source Incident Filtering</b> (Click to expand)</summary>
  
 #### Phase 1: Full Test Suite (All Packages, Race Detector)
  
