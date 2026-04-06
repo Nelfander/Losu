@@ -9,7 +9,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -18,37 +20,29 @@ import (
 	"github.com/nelfander/losu/internal/hub"
 )
 
-// indexHTML is the compiled-in web dashboard.
-// Lives at internal/server/static/index.html — baked into the binary at
-// build time so no separate files are needed at runtime.
-//
 //go:embed static/index.html
 var indexHTML []byte
 
-// upgrader converts a plain HTTP connection into a WebSocket connection.
-// CheckOrigin returns true unconditionally because this is a localhost tool —
-// we don't need to validate where the request is coming from.
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-// Server owns the Echo instance, the hub, and the aggregator reference.
-// It is the only place that knows about HTTP — nothing else in the codebase
-// needs to care that a web server exists.
+// Server owns the Echo instance, the hub, the aggregator map, and a pointer
+// to the currently active aggregator for broadcasting.
 type Server struct {
-	echo *echo.Echo
-	hub  *hub.Hub
-	agg  *aggregator.Aggregator
-	addr string
+	echo      *echo.Echo
+	hub       *hub.Hub
+	aggMap    map[string]*aggregator.Aggregator // all aggregators, keyed by log path
+	activeAgg unsafe.Pointer                    // *aggregator.Aggregator — swapped atomically on source change
+	addr      string
 }
 
 // New creates a Server but does not start it.
-// addr is the listen address e.g. ":8080"
-func New(addr string, h *hub.Hub, agg *aggregator.Aggregator) *Server {
+// aggMap is the full map of path→aggregator. The first entry is the default active one.
+func New(addr string, h *hub.Hub, aggMap map[string]*aggregator.Aggregator) *Server {
 	e := echo.New()
-	e.HideBanner = true // suppress Echo's startup ASCII art
+	e.HideBanner = true
 
-	// Panic recovery and custom request logger
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogMethod:   true,
@@ -58,55 +52,51 @@ func New(addr string, h *hub.Hub, agg *aggregator.Aggregator) *Server {
 		LogRemoteIP: true,
 		LogError:    true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			level := "INFO"
-			if v.Status >= 500 {
-				level = "ERROR"
-			} else if v.Status >= 400 {
-				level = "WARN"
-			}
-			// log.Printf omitted intentionally — losu parses its own logs,
-			// so we use a format the parser already understands.
-			_ = level
 			return nil
 		},
 	}))
 
 	s := &Server{
-		echo: e,
-		hub:  h,
-		agg:  agg,
-		addr: addr,
+		echo:   e,
+		hub:    h,
+		aggMap: aggMap,
+		addr:   addr,
+	}
+
+	// Pick the first aggregator as the default active one
+	for _, agg := range aggMap {
+		atomic.StorePointer(&s.activeAgg, unsafe.Pointer(agg))
+		break
 	}
 
 	// Routes
-	e.GET("/", s.handleIndex)                       // serves the embedded dashboard
-	e.GET("/ws/stream", s.handleWebSocket)          // WebSocket stream
-	e.GET("/api/snapshot", s.handleSnapshot)        // initial REST snapshot
-	e.GET("/api/inspect", s.handleInspect)          // on-demand detail for a pattern (?pattern=...)
-	e.GET("/api/logs", s.handleLogs)                // full-history search (?q=...&level=...&limit=...)
-	e.GET("/api/incidents", s.handleIncidentList)   // list all incident files
-	e.GET("/api/incidents/:file", s.handleIncident) // get one incident file content
+	e.GET("/", s.handleIndex)
+	e.GET("/ws/stream", s.handleWebSocket)
+	e.GET("/api/snapshot", s.handleSnapshot)
+	e.GET("/api/inspect", s.handleInspect)
+	e.GET("/api/logs", s.handleLogs)
+	e.GET("/api/incidents", s.handleIncidentList)
+	e.GET("/api/incidents/:file", s.handleIncident)
 
 	return s
 }
 
-// Start begins three things:
-//  1. The hub's event loop (owns the client map)
-//  2. The broadcaster goroutine (ticks every 500ms, pushes to hub)
-//  3. The Echo HTTP server (accepts connections)
-//
-// It blocks until ctx is cancelled, then shuts down cleanly.
-func (s *Server) Start(ctx context.Context) error {
-	// 1. Start the hub event loop
-	go s.hub.Run()
+// getActiveAgg returns the currently active aggregator safely.
+func (s *Server) getActiveAgg() *aggregator.Aggregator {
+	return (*aggregator.Aggregator)(atomic.LoadPointer(&s.activeAgg))
+}
 
-	// 2. Start the broadcaster — this is the heartbeat of the web UI.
-	//    Every 500ms it takes a WebSnapshot, serializes it to JSON,
-	//    and hands it to the hub which fans it out to all connected clients.
+// setActiveAgg swaps the active aggregator atomically — instant, no lock needed.
+func (s *Server) setActiveAgg(agg *aggregator.Aggregator) {
+	atomic.StorePointer(&s.activeAgg, unsafe.Pointer(agg))
+}
+
+// Start begins the hub, broadcaster, and Echo HTTP server.
+// Blocks until ctx is cancelled, then shuts down cleanly.
+func (s *Server) Start(ctx context.Context) error {
+	go s.hub.Run()
 	go s.broadcaster(ctx)
 
-	// 3. Start Echo in its own goroutine so we can listen for ctx cancellation
-	//    on the main goroutine below.
 	errCh := make(chan error, 1)
 	go func() {
 		if err := s.echo.Start(s.addr); err != nil && err != http.ErrServerClosed {
@@ -114,10 +104,8 @@ func (s *Server) Start(ctx context.Context) error {
 		}
 	}()
 
-	// Block until context is cancelled (Ctrl+C) or Echo errors out.
 	select {
 	case <-ctx.Done():
-		// Graceful shutdown — give in-flight requests 5 seconds to finish.
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return s.echo.Shutdown(shutdownCtx)
@@ -126,19 +114,26 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 }
 
-// broadcaster is the heartbeat goroutine.
-// It runs for the lifetime of the app and is the ONLY place that calls
-// hub.Broadcast() — keeping fan-out logic in one place.
+// broadcaster ticks every 500ms and broadcasts the active aggregator's snapshot.
+// Source switching is instant — the next tick picks up the new aggregator.
 func (s *Server) broadcaster(ctx context.Context) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
+
+	// Build the sources list once — it never changes after startup
+	sources := make([]string, 0, len(s.aggMap))
+	for path := range s.aggMap {
+		sources = append(sources, path)
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			snap := s.agg.WebSnapshot()
+			snap := s.getActiveAgg().WebSnapshot()
+			// Inject the full sources list so the browser knows all available files
+			snap.Sources = sources
 			payload, err := json.Marshal(snap)
 			if err != nil {
 				continue
@@ -148,51 +143,77 @@ func (s *Server) broadcaster(ctx context.Context) {
 	}
 }
 
-// handleIndex serves the embedded index.html dashboard.
+// handleIndex serves the embedded dashboard.
 func (s *Server) handleIndex(c echo.Context) error {
 	return c.HTMLBlob(http.StatusOK, indexHTML)
 }
 
-// handleWebSocket upgrades the connection and hands it to the hub.
-// From this point the hub and the client's writePump own the connection —
-// this handler returns immediately.
+// handleWebSocket upgrades the connection, registers it with the hub,
+// and starts a read loop to handle incoming messages from the browser.
+// Currently handles one message type:
+//
+//	{"type":"set_source","source":"/logs/app.log"}
+//
+// On receiving set_source, the active aggregator is swapped atomically.
+// The next broadcaster tick (≤500ms) will send the new source's data.
 func (s *Server) handleWebSocket(c echo.Context) error {
 	conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		return err
 	}
+
+	// Register with hub for outgoing broadcasts
 	s.hub.ServeClient(conn)
+
+	// Read loop for incoming messages (source switching)
+	// Runs in its own goroutine so it doesn't block the handler
+	go func() {
+		for {
+			_, msg, err := conn.ReadMessage()
+			if err != nil {
+				return // client disconnected
+			}
+
+			var payload struct {
+				Type   string `json:"type"`
+				Source string `json:"source"`
+			}
+			if err := json.Unmarshal(msg, &payload); err != nil {
+				continue
+			}
+
+			if payload.Type == "set_source" {
+				if payload.Source == "" || payload.Source == "all" {
+					// "all" — pick the first aggregator (combined view not supported in Option B)
+					// For now just pick first; future: could add a combined aggregator
+					for _, agg := range s.aggMap {
+						s.setActiveAgg(agg)
+						break
+					}
+				} else {
+					if agg, ok := s.aggMap[payload.Source]; ok {
+						s.setActiveAgg(agg)
+					}
+				}
+			}
+		}
+	}()
+
 	return nil
 }
 
-// handleInspect returns full detail for a single error/warn pattern.
-// Called on demand when the user clicks a row in the top errors panel.
-// Uses a query parameter (?pattern=...) instead of a path parameter because
-// fingerprint patterns contain characters like * and . that Echo's router
-// would interpret as wildcards in a path segment.
 func (s *Server) handleInspect(c echo.Context) error {
 	pattern := c.QueryParam("pattern")
 	if pattern == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "pattern required"})
 	}
-
-	result := s.agg.GetInspect(pattern)
+	result := s.getActiveAgg().GetInspect(pattern)
 	if result == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "pattern not found"})
 	}
 	return c.JSON(http.StatusOK, result)
 }
 
-// handleLogs searches the full 50k history ring and returns matching events.
-// Query params:
-//
-//	q     — case-insensitive substring match on message (optional)
-//	level — exact level filter: ERROR, WARN, INFO, DEBUG (optional)
-//	limit — max results to return, default 500 (optional)
-//
-// Results are returned newest-first so the browser can render immediately
-// without reversing. This endpoint is called on debounced input, not on
-// every keystroke, so the 50k scan cost is acceptable.
 func (s *Server) handleLogs(c echo.Context) error {
 	q := c.QueryParam("q")
 	level := c.QueryParam("level")
@@ -205,7 +226,7 @@ func (s *Server) handleLogs(c echo.Context) error {
 		}
 	}
 
-	results := s.agg.SearchHistory(q, level, limit)
+	results := s.getActiveAgg().SearchHistory(q, level, limit)
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"results": results,
 		"count":   len(results),
@@ -215,16 +236,14 @@ func (s *Server) handleLogs(c echo.Context) error {
 	})
 }
 
-// handleIncidentList scans the incidents/ directory and returns a list of
-// incident files with their metadata (filename, timestamp, reason, peaks).
-// Only reads the first few fields of each file to keep the list response light.
 func (s *Server) handleIncidentList(c echo.Context) error {
+	// Optional source filter — only return incidents from this log file
+	sourceFilter := c.QueryParam("source")
+
 	entries, err := os.ReadDir("incidents")
 	if err != nil {
 		if os.IsNotExist(err) {
-			return c.JSON(http.StatusOK, map[string]interface{}{
-				"incidents": []interface{}{},
-			})
+			return c.JSON(http.StatusOK, map[string]interface{}{"incidents": []interface{}{}})
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -233,6 +252,7 @@ func (s *Server) handleIncidentList(c echo.Context) error {
 		Filename   string  `json:"filename"`
 		Timestamp  string  `json:"timestamp"`
 		Reason     string  `json:"reason"`
+		Source     string  `json:"source"`
 		PeakEPS    float64 `json:"peak_eps"`
 		PeakWPS    float64 `json:"peak_wps"`
 		TotalLines int     `json:"total_lines"`
@@ -246,18 +266,14 @@ func (s *Server) handleIncidentList(c echo.Context) error {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
-
 		path := filepath.Join("incidents", entry.Name())
 		data, err := os.ReadFile(path)
 		if err != nil {
 			continue
 		}
-
-		// Partially unmarshal — only read the top-level fields we need for the list.
-		// The full signal_history and full_context arrays can be huge (30k lines)
-		// so we never load them just for the list view.
 		var partial struct {
 			Reason     string  `json:"reason"`
+			Source     string  `json:"source"`
 			PeakEPS    float64 `json:"peak_eps"`
 			PeakWPS    float64 `json:"peak_wps"`
 			TotalLines int     `json:"total_lines"`
@@ -268,7 +284,10 @@ func (s *Server) handleIncidentList(c echo.Context) error {
 			continue
 		}
 
-		// Extract timestamp from filename: incident_2026-04-04_16-31-28.json
+		// Filter by source if requested
+		if sourceFilter != "" && partial.Source != sourceFilter {
+			continue
+		}
 		ts := strings.TrimPrefix(entry.Name(), "incident_")
 		ts = strings.TrimSuffix(ts, ".json")
 		ts = strings.ReplaceAll(ts, "_", " ")
@@ -277,6 +296,7 @@ func (s *Server) handleIncidentList(c echo.Context) error {
 			Filename:   entry.Name(),
 			Timestamp:  ts,
 			Reason:     partial.Reason,
+			Source:     partial.Source,
 			PeakEPS:    partial.PeakEPS,
 			PeakWPS:    partial.PeakWPS,
 			TotalLines: partial.TotalLines,
@@ -285,27 +305,18 @@ func (s *Server) handleIncidentList(c echo.Context) error {
 		})
 	}
 
-	// Newest first
 	for i, j := 0, len(incidents)-1; i < j; i, j = i+1, j-1 {
 		incidents[i], incidents[j] = incidents[j], incidents[i]
 	}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"incidents": incidents,
-	})
+	return c.JSON(http.StatusOK, map[string]interface{}{"incidents": incidents})
 }
 
-// handleIncident returns the full content of a single incident file.
-// The filename comes from the URL parameter — we sanitize it to prevent
-// path traversal attacks (e.g. ../../etc/passwd).
 func (s *Server) handleIncident(c echo.Context) error {
-	filename := filepath.Base(c.Param("file")) // Base() strips any directory components
-
-	// Only allow incident JSON files
+	filename := filepath.Base(c.Param("file"))
 	if !strings.HasPrefix(filename, "incident_") || !strings.HasSuffix(filename, ".json") {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid filename"})
 	}
-
 	path := filepath.Join("incidents", filename)
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -314,15 +325,10 @@ func (s *Server) handleIncident(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-
-	// Return raw JSON — browser renders it directly
 	return c.JSONBlob(http.StatusOK, data)
 }
 
-// handleSnapshot returns a single JSON snapshot for the initial page load —
-// so the browser has data to render before the first WS message arrives
-// (which could be up to 500ms after connect).
 func (s *Server) handleSnapshot(c echo.Context) error {
-	snap := s.agg.WebSnapshot()
+	snap := s.getActiveAgg().WebSnapshot()
 	return c.JSON(http.StatusOK, snap)
 }

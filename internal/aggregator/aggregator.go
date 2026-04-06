@@ -47,6 +47,7 @@ func fingerprint(msg string) string {
 	b.Grow(len(msg))
 
 	inToken := false
+	inHexToken := false    // true only after 0x prefix — prevents "bytes" → "*ytes"
 	afterSeparator := true // treat start of string as after separator
 
 	for i := 0; i < len(msg); i++ {
@@ -55,7 +56,6 @@ func fingerprint(msg string) string {
 		isDigit := c >= '0' && c <= '9'
 		isLetter := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 		isHex := (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
-		isHexPrefix := (c == 'x' || c == 'X') && i > 0 && msg[i-1] == '0'
 		// _ is a separator: img_340 → img_* not img_340
 		isSeparator := c == ' ' || c == '=' || c == '[' || c == ']' ||
 			c == ':' || c == '"' || c == '/' || c == '-' || c == '.' || c == '_'
@@ -66,14 +66,19 @@ func fingerprint(msg string) string {
 				continue
 			}
 			if afterSeparator {
-				// Digit after separator → dynamic value → replace with *
-				// Special case: 0x... hex prefix
+				// Special case: 0x... hex prefix — write "0x" then start token
 				if i+1 < len(msg) && (msg[i+1] == 'x' || msg[i+1] == 'X') {
-					b.WriteByte(c) // write the '0'
+					b.WriteByte(c)        // write '0'
+					b.WriteByte(msg[i+1]) // write 'x'
+					b.WriteByte('*')      // write placeholder for the hex value
+					i++                   // skip 'x' in next iteration
+					inToken = true
+					inHexToken = true // only consume hex chars when explicitly 0x-prefixed
 					continue
 				}
 				b.WriteByte('*')
 				inToken = true
+				inHexToken = false
 				continue
 			}
 			// Digit after a letter → part of a name (S3, md5, v2) → keep it
@@ -81,13 +86,15 @@ func fingerprint(msg string) string {
 			continue
 		}
 
-		if inToken && (isHex || isHexPrefix) {
-			// Continue hex token
+		if inToken && inHexToken && isHex {
+			// Only consume hex chars when we explicitly started with 0x prefix
+			// — prevents "bytes", "deadbeef" etc from being consumed as hex
 			continue
 		}
 
 		// Not a digit — reset token state
 		inToken = false
+		inHexToken = false
 		afterSeparator = isSeparator || isLetter == false && !isDigit && !isLetter
 
 		if isSeparator {
@@ -195,34 +202,30 @@ type Aggregator struct {
 	signalHistory ringEvent
 
 	// Trend rings — split by signal type so EPS and WPS are tracked independently.
-	// errorTrendRing feeds AverageEPS/PeakEPS (red line on graph).
-	// warnTrendRing  feeds AverageWPS/PeakWPS (yellow line on graph).
-	errorTrendRing    ringInt // 60s error trend for display
-	warnTrendRing     ringInt // 60s warn trend for display
-	errorIncidentRing ringInt // 3600s error forensic — full hour for incident reports
-	warnIncidentRing  ringInt // 3600s warn forensic — full hour to catch slow buildups
+	errorTrendRing    ringInt
+	warnTrendRing     ringInt
+	errorIncidentRing ringInt
+	warnIncidentRing  ringInt
 
-	// Pre-computed values updated in PushTrend() (under lock, once/sec).
-	// Snapshot() and shouldTriggerReport() read these cheaply without sorting.
+	// Pre-computed values updated in PushTrend()
 	AverageEPS    float64
 	PeakEPS       float64
 	AverageWPS    float64
 	PeakWPS       float64
-	cachedTopMsgs []model.MessageStat // recomputed in PushTrend, served from Snapshot
+	cachedTopMsgs []model.MessageStat
 
 	// Incremental running sums for O(1) average calculation.
-	// Updated in PushTrend() when a value is evicted from the ring.
 	errorTrendSum float64
 	warnTrendSum  float64
 
-	// Per-second counters — reset in PushTrend() after being pushed to the rings.
-	ErrorSecCount    int // errors seen since last PushTrend tick
-	WarnSecCount     int // warns seen since last PushTrend tick
-	IncidentSecCount int // combined, used only for incident trigger check
+	// Per-second counters — reset in PushTrend()
+	ErrorSecCount    int
+	WarnSecCount     int
+	IncidentSecCount int
 	lastPush         time.Time
 
 	// Timestamps
-	StartTime      time.Time // when this aggregator was created (LOSU start)
+	StartTime      time.Time
 	LastErrorTime  time.Time
 	LastWarnTime   time.Time
 	LastReportTime time.Time
@@ -235,9 +238,16 @@ type Aggregator struct {
 		Level string
 	}
 
-	// Latest AI analysis text — set by the AI observer goroutine in main.go,
-	// read by WebSnapshot() to send to the browser.
 	aiAnalysis string
+	Source     string // log file path this aggregator watches
+}
+
+// NewAggregatorForSource creates an aggregator tagged with the log file path it watches.
+// The source path is written into incident reports so they can be filtered per file.
+func NewAggregatorForSource(path string) *Aggregator {
+	a := NewAggregator()
+	a.Source = path
+	return a
 }
 
 func NewAggregator() *Aggregator {
@@ -271,8 +281,6 @@ func NewAggregator() *Aggregator {
 	return a
 }
 
-// Update processes a single log event.
-// Heavy CPU work (fingerprinting) is done BEFORE acquiring the lock.
 func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[string]int) {
 	if event.Level == "IGNORE" {
 		return
@@ -280,8 +288,6 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 
 	isSignal := event.Level == "ERROR" || event.Level == "WARN"
 
-	// --- Compute fingerprint OUTSIDE the lock ---
-	// fingerprint() uses only its argument and a sync.Pool — no shared state.
 	var pattern string
 	if isSignal {
 		pattern = fingerprint(event.Message)
@@ -296,31 +302,23 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 
 	if event.Level == "ERROR" {
 		a.LastErrorTime = event.Timestamp
-		// Increment the error-specific counter for PushTrend
 		a.ErrorSecCount++
 		a.IncidentSecCount++
 	} else if event.Level == "WARN" {
 		a.LastWarnTime = event.Timestamp
-		// Increment the warn-specific counter for PushTrend
 		a.WarnSecCount++
 		a.IncidentSecCount++
 	}
 
 	if isSignal {
-		// Hourly top-messages tracking
 		entry := a.TopMessages[event.Message]
 		entry.Count++
 		entry.Level = event.Level
 		a.TopMessages[event.Message] = entry
 
-		// Signal ring (no copy/shift)
 		a.signalHistory.push(event)
 
-		// Incident trigger — uses pre-computed AverageEPS, no inner loop
 		if a.shouldTriggerReport(event.Level) {
-			// Capture the monitoring window BEFORE updating LastReportTime.
-			// windowStart = when the last incident ended (or zero = LOSU start)
-			// triggerTime = right now = when this incident fired
 			windowStart := a.LastReportTime
 			triggerTime := time.Now()
 			a.LastReportTime = triggerTime
@@ -331,7 +329,6 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 			)
 		}
 
-		// Cache last pattern to skip fingerprinting for repeated messages
 		if event.Message != a.lastMsg {
 			a.lastMsg = event.Message
 			a.lastPattern = pattern
@@ -340,7 +337,6 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 		}
 
 		if _, exists := a.MessageCounts[pattern]; !exists && len(a.MessageCounts) > 10000 {
-			// Cap reached — still count traffic but don't add new patterns
 		} else {
 			stat := a.MessageCounts[pattern]
 			if stat.VariantCounts == nil {
@@ -350,14 +346,12 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 					VariantTimestamps: make(map[string]*model.VariantTimestamps),
 				}
 			}
-			// Ensure VariantTimestamps map exists on older loaded stats
 			if stat.VariantTimestamps == nil {
 				stat.VariantTimestamps = make(map[string]*model.VariantTimestamps)
 			}
 			stat.Count++
 			stat.VariantCounts[event.Message]++
 
-			// Update per-variant timestamp ring
 			vt, ok := stat.VariantTimestamps[event.Message]
 			if !ok {
 				vt = &model.VariantTimestamps{}
@@ -365,7 +359,6 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 			}
 			vt.Push(event.Timestamp)
 
-			// Update cluster-level timestamp ring
 			stat.Timestamps[stat.Cursor%100] = event.Timestamp
 			stat.Cursor++
 			a.MessageCounts[pattern] = stat
@@ -383,14 +376,11 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 		}
 	}
 
-	// History ring (no copy/shift)
 	if weights[event.Level] >= minWeight {
 		a.history.push(event)
 	}
 }
 
-// Snapshot returns a point-in-time copy of all data for the TUI.
-// No sort, no heavy work — all values are pre-computed by PushTrend().
 func (a *Aggregator) Snapshot() model.Snapshot {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -419,9 +409,6 @@ func (a *Aggregator) Snapshot() model.Snapshot {
 	}
 }
 
-// WebSnapshot returns a bandwidth-safe snapshot for WebSocket clients.
-// Mirrors Snapshot() in cost — all values are pre-computed by PushTrend().
-// SampleLogs is capped at 50 events to avoid overwhelming the browser.
 func (a *Aggregator) WebSnapshot() model.WebSnapshot {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -431,9 +418,6 @@ func (a *Aggregator) WebSnapshot() model.WebSnapshot {
 		counts[k] = v
 	}
 
-	// Convert cachedTopMsgs to WebMessageStat — strip timestamp arrays,
-	// keep only what the browser needs to render the top errors panel.
-	// PatternKey is the fingerprint map key used by /api/inspect for lookup.
 	topErrors := make([]model.WebMessageStat, len(a.cachedTopMsgs))
 	for i, m := range a.cachedTopMsgs {
 		topErrors[i] = model.WebMessageStat{
@@ -444,10 +428,8 @@ func (a *Aggregator) WebSnapshot() model.WebSnapshot {
 		}
 	}
 
-	// Cap history to last 50 events for the sample log stream.
-	// history.slice() returns oldest→newest so we take the tail.
 	history := a.history.slice()
-	const maxSampleLogs = 50
+	const maxSampleLogs = 250
 	if len(history) > maxSampleLogs {
 		history = history[len(history)-maxSampleLogs:]
 	}
@@ -469,9 +451,6 @@ func (a *Aggregator) WebSnapshot() model.WebSnapshot {
 	}
 }
 
-// getTopVariant returns the most frequently seen raw message for a given
-// MessageStat — used as the human-readable label in the web UI.
-// Called inside RLock, so no additional locking needed.
 func (a *Aggregator) getTopVariant(m model.MessageStat) string {
 	best := ""
 	bestCount := 0
@@ -484,20 +463,13 @@ func (a *Aggregator) getTopVariant(m model.MessageStat) string {
 	return best
 }
 
-// getPatternKey finds the fingerprint map key for a given MessageStat.
-// We match by checking if any of the stat's variant messages fingerprint
-// to the same key — this is the most reliable way to reverse-lookup the key.
-// Called inside RLock, so no additional locking needed.
 func (a *Aggregator) getPatternKey(m model.MessageStat) string {
-	// Take any variant message from this stat and fingerprint it —
-	// the result should be the map key for this cluster
 	for msg := range m.VariantCounts {
 		fp := fingerprint(msg)
 		if _, exists := a.MessageCounts[fp]; exists {
 			return fp
 		}
 	}
-	// Fallback: match by count + level (less reliable but better than nothing)
 	for k, v := range a.MessageCounts {
 		if v.Count == m.Count && v.Level == m.Level {
 			return k
@@ -512,39 +484,24 @@ func (a *Aggregator) GetHistory() []model.LogEvent {
 	return a.history.slice()
 }
 
-// SearchHistory searches the full 50k history ring and returns matches newest-first.
-// q is a case-insensitive substring matched against the message.
-// level filters by exact level (e.g. "ERROR") — empty string means all levels.
-// limit caps the result set — 0 means no cap.
-// This is called on demand from GET /api/logs, never on the hot path.
 func (a *Aggregator) SearchHistory(q, level string, limit int) []model.LogEvent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	// slice() returns oldest→newest — we iterate in reverse for newest-first results
 	all := a.history.slice()
-
 	qLower := strings.ToLower(q)
 	levelUpper := strings.ToUpper(level)
-
-	// Pre-allocate conservatively
 	results := make([]model.LogEvent, 0, 256)
 
 	for i := len(all) - 1; i >= 0; i-- {
 		e := all[i]
-
-		// Level filter
 		if levelUpper != "" && strings.ToUpper(e.Level) != levelUpper {
 			continue
 		}
-
-		// Message substring filter (case-insensitive)
 		if qLower != "" && !strings.Contains(strings.ToLower(e.Message), qLower) {
 			continue
 		}
-
 		results = append(results, e)
-
 		if limit > 0 && len(results) >= limit {
 			break
 		}
@@ -590,8 +547,6 @@ func (a *Aggregator) getTopMessages(n int) []model.MessageStat {
 	return ss
 }
 
-// PushTrend runs every second. It is the only place that sorts and computes
-// averages, so Snapshot() and shouldTriggerReport() read pre-baked values cheaply.
 func (a *Aggregator) PushTrend() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -607,7 +562,6 @@ func (a *Aggregator) PushTrend() {
 		elapsed = 1.0
 	}
 
-	// --- Error trend ---
 	currentEPS := float64(a.ErrorSecCount) / elapsed
 	if currentEPS > a.PeakEPS {
 		a.PeakEPS = currentEPS
@@ -621,7 +575,6 @@ func (a *Aggregator) PushTrend() {
 		a.AverageEPS = a.errorTrendSum / float64(a.errorTrendRing.count)
 	}
 
-	// --- Warn trend ---
 	currentWPS := float64(a.WarnSecCount) / elapsed
 	if currentWPS > a.PeakWPS {
 		a.PeakWPS = currentWPS
@@ -635,15 +588,9 @@ func (a *Aggregator) PushTrend() {
 		a.AverageWPS = a.warnTrendSum / float64(a.warnTrendRing.count)
 	}
 
-	// --- Incident rings (full hour, split — used only for forensic dump) ---
-	// Keeping them separate means incident reports can show whether it was
-	// an error spike, a warn buildup, or both — critical for root cause analysis.
 	a.errorIncidentRing.push(int(currentEPS))
 	a.warnIncidentRing.push(int(currentWPS))
 
-	// If EPS has dropped back below the minimum threshold since the last report,
-	// reset LastReportTime so the next spike triggers a fresh incident report.
-	// This handles the pattern: spike → report → recovery → new spike → new report.
 	epsMin := 1.0
 	if v := os.Getenv("LOSU_EPS_WARN"); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
@@ -651,10 +598,9 @@ func (a *Aggregator) PushTrend() {
 		}
 	}
 	if !a.LastReportTime.IsZero() && a.AverageEPS < epsMin && a.AverageWPS < epsMin {
-		a.LastReportTime = time.Time{} // system recovered — allow next incident to fire
+		a.LastReportTime = time.Time{}
 	}
 
-	// Cache top messages once per second — Snapshot() never sorts again
 	a.cachedTopMsgs = a.getTopMessages(10)
 
 	a.lastPush = now
@@ -710,9 +656,6 @@ func (a *Aggregator) FlushHourlyStats() (time.Time, map[string]int, string) {
 	return startTime, counts, fmt.Sprintf("%s (%d times)", topMsg, maxCount)
 }
 
-// TriggerIncidentReport writes a forensic JSON snapshot to incidents/.
-// windowStart is when monitoring began for this period (previous incident end or LOSU start).
-// triggerTime is when the anomaly was detected — together they define the monitoring window.
 func (a *Aggregator) TriggerIncidentReport(reason string, windowStart, triggerTime time.Time) {
 	a.mu.RLock()
 
@@ -725,9 +668,6 @@ func (a *Aggregator) TriggerIncidentReport(reason string, windowStart, triggerTi
 		fullContextCopy = fullContextCopy[len(fullContextCopy)-contextSize:]
 	}
 
-	// Filter signal history to only events within this monitoring window.
-	// This gives clean per-incident data without resetting the global ring —
-	// the next incident gets its own fresh slice from the same buffer.
 	allSignals := a.signalHistory.slice()
 	var signalHistoryCopy []model.LogEvent
 	for _, e := range allSignals {
@@ -736,8 +676,6 @@ func (a *Aggregator) TriggerIncidentReport(reason string, windowStart, triggerTi
 		}
 	}
 
-	// Copy both incident rings separately so the report accurately reflects
-	// whether the incident was driven by errors, warns, or a combination.
 	errorTrendCopy := a.errorIncidentRing.slice()
 	warnTrendCopy := a.warnIncidentRing.slice()
 
@@ -751,6 +689,9 @@ func (a *Aggregator) TriggerIncidentReport(reason string, windowStart, triggerTi
 	go func(full, signals []model.LogEvent, errTrend, warnTrend []int, r string, pEPS, pWPS float64, t int) {
 		defer a.wg.Done()
 
+		if err := os.MkdirAll("incidents", 0755); err != nil {
+			return
+		}
 		filename := fmt.Sprintf("incidents/incident_%s.json", time.Now().Format("2006-01-02_15-04-05"))
 		f, err := os.Create(filename)
 		if err != nil {
@@ -760,11 +701,6 @@ func (a *Aggregator) TriggerIncidentReport(reason string, windowStart, triggerTi
 
 		w := bufio.NewWriter(f)
 
-		// Timeframe: from when monitoring started (previous incident end or LOSU
-		// start time) to when this anomaly was detected. This answers "how long
-		// were we watching before this incident fired?" — the real forensic question.
-		// If windowStart is zero this is the first incident since LOSU started —
-		// use the aggregator start time so the window is always meaningful.
 		effectiveStart := windowStart
 		if effectiveStart.IsZero() {
 			effectiveStart = a.StartTime
@@ -772,12 +708,9 @@ func (a *Aggregator) TriggerIncidentReport(reason string, windowStart, triggerTi
 		startedAt := effectiveStart.Format(time.RFC3339)
 		endedAt := triggerTime.Format(time.RFC3339)
 
-		// Header — split peak values so it's immediately clear what spiked
-		fmt.Fprintf(w, "{\n  \"reason\": %q,\n  \"peak_eps\": %.2f,\n  \"peak_wps\": %.2f,\n  \"total_lines\": %d,\n  \"started_at\": %q,\n  \"ended_at\": %q,\n",
-			r, pEPS, pWPS, t, startedAt, endedAt)
+		fmt.Fprintf(w, "{\n  \"reason\": %q,\n  \"source\": %q,\n  \"peak_eps\": %.2f,\n  \"peak_wps\": %.2f,\n  \"total_lines\": %d,\n  \"started_at\": %q,\n  \"ended_at\": %q,\n",
+			r, a.Source, pEPS, pWPS, t, startedAt, endedAt)
 
-		// Separate trend arrays — lets you see the warn buildup that preceded
-		// the error spike, which is often the most valuable forensic signal.
 		errTrendData, _ := json.Marshal(errTrend)
 		warnTrendData, _ := json.Marshal(warnTrend)
 		fmt.Fprintf(w, "  \"hourly_trend_errors\": %s,\n", string(errTrendData))
@@ -806,18 +739,7 @@ func (a *Aggregator) TriggerIncidentReport(reason string, windowStart, triggerTi
 	}(fullContextCopy, signalHistoryCopy, errorTrendCopy, warnTrendCopy, reason, peakEPS, peakWPS, total)
 }
 
-// shouldTriggerReport decides whether to write a forensic incident report.
-// Three trigger conditions, checked in priority order:
-//
-//  1. CRITICAL level → always fires, no cooldown. Critical spikes always need a report.
-//  2. Cooldown active → skip. Prevents report spam during a sustained incident.
-//     The cooldown is reset in PushTrend() when EPS drops back to healthy.
-//  3. Spike detected → fires if current EPS is above epsMinimum AND 3x the average.
-//     This catches sudden spikes while ignoring sustained low-level noise.
 func (a *Aggregator) shouldTriggerReport(level string) bool {
-	// 1. Critical/Fatal fires with a short 1-minute cooldown.
-	// This prevents flooding incidents/ during a sustained critical spike
-	// while still capturing each new peak every minute.
 	epsCritical := 5.0
 	if v := os.Getenv("LOSU_EPS_CRITICAL"); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
@@ -825,24 +747,18 @@ func (a *Aggregator) shouldTriggerReport(level string) bool {
 		}
 	}
 	if a.AverageEPS >= epsCritical || level == "FATAL" {
-		// Allow one report per minute during critical — not every tick
 		return a.LastReportTime.IsZero() || time.Since(a.LastReportTime) >= 1*time.Minute
 	}
 
-	// 2. Normal spike cooldown — 5 minutes or until system recovers.
-	// Recovery reset happens in PushTrend when EPS drops below epsMinimum.
 	if !a.LastReportTime.IsZero() && time.Since(a.LastReportTime) < 5*time.Minute {
 		return false
 	}
 
-	// 3. Spike detection
 	last, ok := a.errorIncidentRing.last()
 	if !ok {
 		return false
 	}
 
-	// epsMinimum is the lowest EPS that can trigger a report.
-	// Reads LOSU_EPS_WARN so it stays consistent with the "Unstable" status label.
 	epsMinimum := 1.0
 	if v := os.Getenv("LOSU_EPS_WARN"); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
@@ -854,11 +770,6 @@ func (a *Aggregator) shouldTriggerReport(level string) bool {
 	return lastF >= epsMinimum && lastF > a.AverageEPS*3
 }
 
-// GetInspect returns the full detail for a single pattern key.
-// Called on demand when a user clicks a top error/warn row in the web UI.
-// Returns nil if the pattern is not found.
-// Each variant includes its own timestamp ring so users can drill down
-// into exactly when each specific IP/user/key was hitting.
 func (a *Aggregator) GetInspect(pattern string) *model.InspectResult {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -868,19 +779,14 @@ func (a *Aggregator) GetInspect(pattern string) *model.InspectResult {
 		return nil
 	}
 
-	// Build per-variant detail — count + newest-first timestamps
 	variants := make(map[string]*model.VariantDetail, len(stat.VariantCounts))
 	for msg, count := range stat.VariantCounts {
 		detail := &model.VariantDetail{
 			Count: count,
 		}
 
-		// Get per-variant timestamps if available.
-		// Format in local time (no UTC conversion) so the browser receives
-		// the correct wall-clock time with timezone offset included.
-		// The browser's Date() constructor handles the offset correctly.
 		if vt, ok := stat.VariantTimestamps[msg]; ok {
-			ordered := vt.Slice() // oldest→newest
+			ordered := vt.Slice()
 			ts := make([]string, 0, len(ordered))
 			for i := len(ordered) - 1; i >= 0; i-- {
 				if !ordered[i].IsZero() {
@@ -901,16 +807,12 @@ func (a *Aggregator) GetInspect(pattern string) *model.InspectResult {
 	}
 }
 
-// SetAIAnalysis stores the latest AI analysis for the web UI.
-// Called by the AI observer goroutine every 30 seconds.
 func (a *Aggregator) SetAIAnalysis(text string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.aiAnalysis = text
 }
 
-// GetAIAnalysis returns the latest AI analysis text.
-// Used by WebSnapshot() — called inside RLock so no extra locking needed.
 func (a *Aggregator) GetAIAnalysis() string {
 	a.mu.RLock()
 	defer a.mu.RUnlock()

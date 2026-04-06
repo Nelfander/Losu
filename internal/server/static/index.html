@@ -309,8 +309,6 @@
     .log-count {
       font-size: 9px;
       color: var(--muted);
-      text-transform: none;
-      letter-spacing: normal;
     }
 
     .search-box {
@@ -576,14 +574,13 @@
     // ── Helpers ───────────────────────────────────────────────────────────────────
     const fmt = n => (n || 0).toLocaleString();
 
-    // Format ISO timestamp to HH:MM:SS in the browser's local timezone.
-    // Go serializes with RFC3339 offset (e.g. +02:00) so new Date() parses correctly.
-    // toLocaleTimeString('en-GB') gives HH:MM:SS in local time — matches what the logs show.
+    // Format ISO timestamp to HH:MM:SS using UTC methods.
+    // Go serializes timestamps as RFC3339 with timezone offset (e.g. +02:00).
+    // Using toTimeString() would double-apply the offset in some browsers.
+    // toISOString() always gives UTC which matches what Go intended.
     function fmtTime(iso) {
       if (!iso) return '—';
-      try {
-        return new Date(iso).toLocaleTimeString('en-GB', { hour12: false }).slice(0, 8);
-      } catch (e) { return '—'; }
+      try { return new Date(iso).toISOString().slice(11, 19); } catch (e) { return '—'; }
     }
 
     function levelClass(lvl) {
@@ -674,16 +671,29 @@
         return () => { if (wsRef.current) wsRef.current.close(); };
       }, []);
 
-      return { data, connStatus };
+      // sendMessage sends a JSON payload to the server over the active WebSocket.
+      function sendMessage(payload) {
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(payload));
+        }
+      }
+
+      return { data, connStatus, sendMessage };
     }
 
     // ── StatsPanel ────────────────────────────────────────────────────────────────
     // Shows totals, counts, health status, and an incident button when files exist.
-    function StatsPanel({ data, incidentCount, onViewIncidents }) {
+    function StatsPanel({ data, incidentCount, onViewIncidents, activeSource, onSourceChange }) {
       const counts = (data && data.error_counts) || {};
       const eps = (data && data.average_eps) || 0;
       const wps = (data && data.average_wps) || 0;
       const status = getStatus(eps, wps);
+      const sources = (data && data.sources) || [];
+
+      function basename(p) {
+        return p ? p.replace(/\\/g, '/').split('/').pop() : p;
+      }
 
       return html`
     <div className="card panel-stats">
@@ -713,6 +723,35 @@
         `}
       </div>
       <div className="card-body">
+        ${sources.length > 1 && html`
+          <div style=${{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <span style=${{ fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', flexShrink: 0 }}>
+              Source
+            </span>
+            <select
+              value=${activeSource}
+              onChange=${e => onSourceChange(e.target.value)}
+              style=${{
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            color: 'var(--blue)',
+            fontFamily: 'var(--mono)',
+            fontSize: '10px',
+            fontWeight: '600',
+            padding: '2px 6px',
+            cursor: 'pointer',
+            outline: 'none',
+            maxWidth: '160px',
+          }}
+            >
+              <option value="">All Files</option>
+              ${sources.map((src, i) => html`
+                <option key=${String(i)} value=${src}>${basename(src)}</option>
+              `)}
+            </select>
+          </div>
+        `}
         <div className="stats-row">
           <div className="stat-total">
             <small>Total Processed</small>
@@ -1119,7 +1158,7 @@
             fontSize: '11px', fontFamily: 'var(--mono)'
           }}>
                     <span style=${{ color: 'var(--text)', minWidth: '95px' }}>
-                      ${new Date(ts).toISOString().slice(11, 23)}
+                      ${d.toTimeString().slice(0, 8)}.${String(d.getMilliseconds()).padStart(3, '0')}
                     </span>
                     <span style=${{ color: 'var(--muted)' }}>(${agoStr})</span>
                   </div>
@@ -1362,20 +1401,27 @@
 
     // ── IncidentModal ─────────────────────────────────────────────────────────────
     // Shows list of all incident files. Clicking one loads its full content.
-    function IncidentModal({ onClose }) {
+    function IncidentModal({ onClose, activeSource }) {
       const [incidents, setIncidents] = useState(null);
       const [selected, setSelected] = useState(null); // full incident JSON
       const [selectedName, setSelectedName] = useState('');
       const [loading, setLoading] = useState(true);
       const [loadingDetail, setLoadingDetail] = useState(false);
 
-      // Load incident list on open
+      // Load incident list on open and whenever activeSource changes
       useEffect(() => {
-        fetch('/api/incidents')
+        setLoading(true);
+        setIncidents(null);
+        setSelected(null);
+        setSelectedName('');
+        const url = activeSource
+          ? '/api/incidents?source=' + encodeURIComponent(activeSource)
+          : '/api/incidents';
+        fetch(url)
           .then(r => r.json())
           .then(d => { setIncidents(d.incidents || []); setLoading(false); })
           .catch(() => setLoading(false));
-      }, []);
+      }, [activeSource]);
 
       function loadIncident(filename) {
         setLoadingDetail(true);
@@ -1512,16 +1558,20 @@
 
     // ── App ───────────────────────────────────────────────────────────────────────
     function App() {
-      const { data, connStatus } = useLosuWS();
+      const { data, connStatus, sendMessage } = useLosuWS();
       const [selected, setSelected] = useState(null);
       const [showIncidents, setShowIncidents] = useState(false);
       const [incidentCount, setIncidentCount] = useState(0);
+      const [activeSource, setActiveSource] = useState(''); // '' = all files
 
       // Poll incident count every 10s so the button appears as soon as
       // the first incident file is written — without a page reload.
       useEffect(() => {
         function checkIncidents() {
-          fetch('/api/incidents')
+          const url = activeSource
+            ? '/api/incidents?source=' + encodeURIComponent(activeSource)
+            : '/api/incidents';
+          fetch(url)
             .then(r => r.json())
             .then(d => setIncidentCount((d.incidents || []).length))
             .catch(() => { });
@@ -1529,11 +1579,11 @@
         checkIncidents();
         const interval = setInterval(checkIncidents, 10000);
         return () => clearInterval(interval);
-      }, []);
+      }, [activeSource]);
 
       return html`
     <div className="layout">
-      <${StatsPanel}     data=${data} incidentCount=${incidentCount} onViewIncidents=${() => setShowIncidents(true)} />
+      <${StatsPanel}     data=${data} incidentCount=${incidentCount} onViewIncidents=${() => setShowIncidents(true)} activeSource=${activeSource} onSourceChange=${(src) => { setActiveSource(src); sendMessage({ type: 'set_source', source: src }); }} />
       <${TopErrorsPanel} data=${data} onSelect=${setSelected} />
       <${LogPanel}       data=${data} />
       <${AIPanel}        data=${data} />
@@ -1541,7 +1591,7 @@
     </div>
     <${ConnectionPill} status=${connStatus} />
     <${InspectorModal} item=${selected} onClose=${() => setSelected(null)} />
-    ${showIncidents && html`<${IncidentModal} onClose=${() => setShowIncidents(false)} />`}
+    ${showIncidents && html`<${IncidentModal} onClose=${() => setShowIncidents(false)} activeSource=${activeSource} />`}
   `;
     }
 

@@ -127,7 +127,9 @@ type WebSnapshot struct {
 	LastWarnTime  time.Time        `json:"last_warn_time"`
 	// AIAnalysis is the latest text from the AI observer goroutine.
 	// Empty string means no analysis has run yet or AI is disabled.
-	AIAnalysis string `json:"ai_analysis"`
+	AIAnalysis   string   `json:"ai_analysis"`
+	Sources      []string `json:"sources"`       // watched log file paths
+	ActiveSource string   `json:"active_source"` // currently selected source ("" = all)
 }
 
 // GetSortedTimestamps returns the timestamps from oldest to newest

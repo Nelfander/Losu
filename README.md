@@ -376,53 +376,108 @@ LOSU supports multiple log formats without any changes to the ingestion pipeline
 * **The Result**: Switching from logfmt to JSON logs (or any future format) requires zero configuration changes — LOSU detects and adapts automatically at startup.
  
 ---
-
 ## 🧪 Testing
 
 <details>
 <summary>Click to expand testing section</summary>
 
-The project employs a high-velocity testing strategy using Go's native toolchain to ensure **Losu** can handle massive log volumes without memory leaks or race conditions. We prioritize **Thread-Safe** telemetry aggregation, **Zero-Allocation** parsing, and **High-Performance** UI state management.
+LOSU's test suite is designed around the actual failure modes of a high-throughput observability tool — race conditions under load, goroutine leaks, data loss at 50k EPS, and silent clustering bugs. Every package has dedicated tests that run with the Go race detector enabled.
 
-### 🏎️ Concurrency & Race Safety (`$env:CGO_ENABLED = "1"; go test -race ./...`)
+```bash
+go test -race ./...
+```
 
-Since Losu operates as a multi-threaded pipeline, the aggregator is verified using the **Go Race Detector** to ensure no two goroutines fight over the same telemetry data.
+### 🧩 Aggregator — `go test -race -v ./internal/aggregator/...`
 
-* **High-Stress Simulation:** `TestAggregatorConcurrency` spins up 50 writer goroutines (50,000 logs) and 50 reader goroutines (UI snapshots) simultaneously to verify zero data loss.
-* **Thread-Safe Stats:** Aggregator utilizes `sync.RWMutex` to allow the UI to take snapshots while workers are simultaneously updating log counts.
-* **Verification:** Use the race flag in your terminal to catch unsynchronized memory access during peak loads.
+The aggregator is the stateful core of LOSU. Tests verify correctness under concurrent load, incident trigger logic, and the fingerprint clustering engine(50+ cases).
 
-### 📡 I/O & File Persistence — `go test -v ./internal/tailer`
+* **Concurrency & Race Safety:** `TestAggregatorConcurrency` runs 50 writer goroutines (50,000 log events) against 50 simultaneous reader goroutines (UI snapshots). Verifies zero data loss and no race conditions under the Go race detector.
+* **Incident Trigger Logic:** `TestIncidentTrigger` validates the full spike-detection pipeline — builds a baseline `AverageEPS`, fires a 10x spike, and asserts a forensic JSON file is written to `incidents/` within 3 seconds.
+* **Fingerprint Engine (57 cases):** `TestFingerprint` is a table-driven test covering every pattern class the engine encounters in production:
+  * Dynamic values replaced: IPs (`ip=*.*.*.*`), ports, durations, PIDs, UUIDs, hex addresses (`0x*`)
+  * Product names preserved: `S3`, `HTTP2`, `OAuth2`, `IPv4`, `md5sum`, `sha256`
+  * Separator-aware: `user_id=503` → `user_id=*`, `size=2048bytes` → `size=*bytes`
+  * Version strings preserved: `TLSv1`, `E11000`, `user123` (digit follows letter → kept)
+* **Grouping & Variant Preservation:** `TestGroupingAndDetailPreservation` confirms that `S3 upload failed | id=101` and `id=102` cluster under one pattern while preserving both variants in `VariantCounts`.
+* **Circular Buffer Stability:** `TestCircularBufferStability` pushes 50,010 events into a 50,000-cap ring buffer and asserts the oldest 10 were evicted in order — verifying the O(1) constant-space guarantee.
+* **Benchmark:** `BenchmarkAggregatorUpdate` measures per-event throughput with the race detector off.
 
-The Tailer is the nervous system of Losu, ensuring a continuous stream of data even during OS-level file events.
+### 🔍 Parser — `go test -race -v ./internal/parser/...`
 
-* **Rotation Resilience:** `TestTailer_Rotation` verifies that when a log file is rotated (e.g., `app.log` becomes `app.log.1`), the tailer detects the new inode and seamlessly resumes streaming.
-* **Truncation Handling:** `TestTailer_Truncate` ensures that if a file is cleared or truncated, the tailer correctly resets its offset to 0 rather than hanging.
-* **Event-Driven Tailing:** Confirms `fsnotify` integration, ensuring we sleep during idle periods and wake instantly on write events without CPU-heavy polling.
+The parser package handles all log format detection and transformation. Tests cover three implementations and the auto-detection logic.
 
-### ⚡ Zero-Copy Parsing — `go test -v ./internal/parser`
+* **Logfmt Fast-Path:** `TestRegexParser_LogfmtFastPath` verifies manual string slicing correctly extracts level, message, and real `time=` timestamps — not `time.Now()` fallbacks.
+* **Brackets Fast-Path:** `TestRegexParser_BracketsFastPath` confirms `[ERROR]` style logs parse correctly and the `knownLevels` guard prevents false positives (e.g. `[section]` in documentation strings).
+* **Catch-All Fix:** `TestRegexParser_CatchAll` verifies the subgroup length bug fix — unrecognised lines now return `UNKNOWN` instead of silently falling through.
+* **JSON Parser (13 cases):** `TestJSONParser_StandardFields` verifies all field name conventions (`level`/`severity`/`lvl`, `msg`/`message`, `time`/`timestamp`/`ts`/`@timestamp`). Edge cases cover empty objects, malformed JSON, non-JSON lines, and extra field preservation (`status=200 | duration=663` appended to message).
+* **Auto-Detection:** `TestDetectParser_*` verifies majority-vote format detection across all-JSON, all-logfmt, mixed (7/10 JSON → picks JSON), empty file, and non-existent file scenarios. The 5-second retry loop is exercised directly.
 
-The parser is the entry point for all data. We use **Fast-Path** optimizations to bypass Regex for common log formats, reducing CPU overhead.
+### 📡 Tailer — `go test -race -v ./internal/tailer/...`
 
-* **Fast-Path Validation:** `TestRegexParser_LogfmtFastPath` and `TestRegexParser_Brackets` verify that manual string slicing correctly extracts levels and messages.
-* **Timestamp Preservation:** Ensures that `time=` fields or leading timestamps are parsed into `time.Time` objects rather than defaulting to `time.Now()`.
-* **Junk Cleaning:** `TestRegexParser_Cleaning` confirms that null bytes (`\x00`), carriage returns (`\r`), and tabs are stripped via a package-level pre-compiled `strings.Replacer`.
+The tailer's correctness is critical — a bug here means silently dropping logs at any throughput.
 
-### 🖥️ UI Logic & State — `go test -v ./internal/ui`
+* **Basic Ingestion:** `TestTailer_BasicIngestion` writes a line and signals the watcher — verifies the line arrives on the results channel within 500ms.
+* **Polling Fallback:** `TestTailer_PollingFallback` writes without signalling the channel — verifies the 100ms internal ticker (the "Windows Kick") picks up the data anyway.
+* **Graceful Shutdown:** `TestTailer_Shutdown` cancels the context and verifies `Run()` returns `context.Canceled` — no goroutine leak.
+* **Empty Line Filtering:** `TestTailer_EmptyLinesFiltered` writes `\n\n\nHello\n` and asserts only 1 result arrives — blank lines never reach the aggregator.
+* **Whitespace Trimming:** `TestTailer_WhitespaceTrimming` verifies `"  Hello  \n"` arrives as `"Hello"`.
+* **Source Field:** `TestTailer_SourceField` verifies `RawLog.Source` is set to the file path — required for multi-file support.
+* **Multi-Line:** `TestTailer_MultipleLines` writes 3 lines atomically and asserts all 3 arrive in order.
+* **Non-Existent File:** `TestTailer_NonExistentFile` verifies `Run()` returns an error immediately rather than hanging.
 
-While TUIs are visual, our tests verify the underlying state transitions that drive the dashboard to ensure the interface stays snappy.
+### 👁️ Watcher — `go test -race -v ./internal/watcher/...`
 
-* **Dynamic Filtering:** `TestDashboard_Filtering` ensures that when a user types a search query, the `LastHistoryLen` resets to 0, triggering a full re-scan of history to populate the cache.
-* **Memory Ceiling:** `TestDashboard_BufferManagement` confirms that the UI hard-trims its internal buffer at 1,500 lines to prevent the terminal emulator from slowing down.
-* **AI Context Preparation:** `TestDashboard_AISummary` verifies the logic used to condense the most frequent errors and warnings into a structured format for AI analysis.
+* **Lifecycle:** `TestFSWatcher_Lifecycle` writes to a watched file and verifies a signal arrives within 1 second. Also verifies 5 rapid writes don't block or panic.
+* **Invalid Path:** `TestFSWatcher_InvalidPath` confirms `Watch()` returns an error for non-existent paths.
+* **Context Cancellation:** `TestFSWatcher_CancelStopsNotifications` cancels the context, writes to the file, and asserts no further signals arrive — verifying the goroutine exits cleanly.
+* **Flood Coalescing:** `TestFSWatcher_FloodCoalescing` sends 10 rapid writes and asserts at most 1 signal is buffered — the non-blocking send keeps the channel at capacity 1 regardless of write volume.
 
-### 🧩 Aggregator Intelligence — `go test -v ./internal/aggregator`
+### ⚙️ Pipeline — `go test -race -v ./internal/pipeline/...`
 
-These tests focus on the "brain" of the application, ensuring raw streams are converted into actionable telemetry.
+* **Multi-Worker Fan-Out:** `TestProcess_MultiWorkerFlow` feeds 100 events through 5 workers and asserts all 100 arrive at the output channel with zero data loss. Verifies the `WaitGroup` lifecycle.
+* **Context Cancellation:** `TestProcess_ContextCancel` cancels before sending data and verifies workers exit before processing anything.
+* **Output Content:** `TestProcess_OutputContent` verifies the transformed `LogEvent` contains the correct message and level.
+* **Source Preservation:** `TestProcess_SourcePreserved` verifies `RawLog.Source` passes through the pipeline to `LogEvent.Source` — critical for multi-file log support.
 
-* **Intelligent Fingerprinting:** `TestFingerprint` uses table-driven tests to verify that dynamic data (IDs, Hex addresses, IPs) is stripped to group logs into logical "patterns."
-* **Detail Preservation:** `TestGroupingAndDetailPreservation` ensures that unique metadata (like specific S3 keys) is preserved in `VariantCounts` even when logs are grouped.
-* **Circular Buffer Stability:** `TestCircularBufferStability` confirms the aggregator never exceeds `maxHistory`, performing a "circular shift" to keep memory usage flat.
+### 🌐 Hub — `go test -race -v ./internal/hub/...`
+
+The WebSocket hub is the backbone of the web dashboard. These tests use `httptest.NewServer` to run real WebSocket connections without any external infrastructure.
+
+* **Single Client Delivery:** `TestHub_BroadcastReachesClient` connects one browser tab and verifies the payload arrives intact.
+* **Fan-Out:** `TestHub_BroadcastReachesAllClients` connects 3 simultaneous clients and asserts all 3 receive identical payloads.
+* **Disconnect Handling:** `TestHub_ClientDisconnect` closes a client mid-session and verifies subsequent broadcasts don't panic.
+* **Non-Blocking Broadcast:** `TestHub_NonBlockingBroadcast` fires 100 rapid broadcasts with no clients connected and verifies none block — the non-blocking select is the safety valve.
+* **Slow Client Dropped:** `TestHub_SlowClientDropped` connects a frozen client (never reads) alongside a healthy one. After flooding past the 8-slot buffer, verifies the healthy client still receives messages — the slow client didn't stall the broadcaster.
+
+### 🔔 Alerts — `go test -race -v ./internal/alerts/...`
+
+* **Cooldown:** `TestAlerts_Cooldown` fires two identical alerts within 500ms and asserts `LastSent` is not updated on the second — the cooldown gate is working.
+* **Race Condition:** `TestAlerts_RaceCondition` fires 10 concurrent `Trigger()` calls under the race detector — verifies the mutex correctly protects `LastSent`.
+* **Level Isolation:** `TestAlerts_LevelIsolation` triggers both ERROR and WARN and asserts 2 distinct cooldown keys exist — they never share state.
+* **Log File Written:** `TestAlerts_LogFileWritten` asserts the log file is created, contains the message, and the first trigger writes `NOTIFIED` status.
+* **Cooldown Reset:** `TestAlerts_CooldownResetAfterExpiry` waits past the cooldown window and verifies `LastSent` advances on the next trigger.
+* **Empty Topic Skip:** `TestAlerts_EmptyNtfyTopicSkipsPhone` verifies `SendToPhone` returns immediately when `NtfyTopic` is empty — no network call made.
+
+### 🤖 AI — `go test -race -v ./internal/ai/...`
+
+AI tests use `httptest.NewServer` to mock the Ollama API — no running LLM required.
+
+* **Default Configuration:** `TestNewExplainer_Defaults` verifies sensible fallbacks when no env vars are set.
+* **Env Override:** `TestNewExplainer_EnvOverride` verifies custom model and host are respected.
+* **Docker Host Override:** `TestNewExplainer_DockerHostOverride` verifies `http://ollama:11434` is automatically replaced with `localhost` when running outside Docker.
+* **Unreachable Endpoint:** `TestAnalyzeSystem_HTTPError` and `TestAnalyzeHeartbeat_HTTPError` verify both analysis functions return errors gracefully — the app never crashes when Ollama is offline.
+* **Mock Server Round-Trip:** `TestAnalyzeSystem_MockServer` and `TestAnalyzeHeartbeat_MockServer` verify the full HTTP request/response cycle — correct JSON payload sent, response correctly decoded.
+
+### 🖥️ UI — `go test -race -v ./internal/ui/...`
+
+TUI logic tests operate on pure Go state — no terminal or tview application required.
+
+* **Filtering (4 cases):** Verifies substring match, level match, empty filter (all pass), and case-insensitive matching.
+* **Buffer Management:** Verifies the 1,500-line hard trim fires above the limit and does not fire below it.
+* **Truncate (4 cases):** Table-driven — long string trimmed with `...`, short string unchanged, exact limit unchanged, one-over trimmed.
+* **Status Label (9 cases):** Covers all 9 health states including the critical "error takes priority over warn" ordering.
+* **AI Summary (4 cases):** Verifies error/warn separation, empty snapshot fallback, and the top-3 cap.
+* **Sparkline:** Verifies empty data, all-zeros, and single-spike rendering without panicking.
 
 </details>
 
@@ -430,6 +485,47 @@ These tests focus on the "brain" of the application, ensuring raw streams are co
 
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
+
+<details>
+<summary><b>April 6, 2026: Full Test Suite, Multi-File Support & Per-Source Incident Filtering</b> 🧪📁🚨 (Click to expand)</summary>
+ 
+#### Phase 1: Full Test Suite (All Packages, Race Detector)
+ 
+* **Aggregator (57 fingerprint cases):** Table-driven tests cover every pattern class — IPs, hex addresses (`0x*`), product names preserved (`S3`, `HTTP2`, `OAuth2`), separator-aware clustering (`user_id=*`, `img_*`), quoted values, UUIDs, and the `inHexToken` fix that prevented `size=2048bytes` from becoming `size=*ytes`. Concurrency test runs 50 writer + 50 reader goroutines simultaneously under the race detector with zero data loss. `TestIncidentTrigger` builds a real EPS baseline, fires a 10x spike, and asserts a forensic JSON file lands in `incidents/` within 3 seconds.
+* **Parser:** Logfmt fast-path, brackets fast-path, catch-all fix. JSON parser tests cover all field name conventions (`level`/`severity`/`lvl`, `msg`/`message`, `time`/`timestamp`/`ts`/`@timestamp`), extra field preservation, malformed input, and all 4 timestamp field names. Autodetect tests verify majority-vote format detection across all-JSON, all-logfmt, mixed ratios, empty file, and non-existent file (5-second retry loop exercised directly).
+* **Tailer:** Basic ingestion, polling fallback (Windows Kick), graceful shutdown, empty line filtering, whitespace trimming, source field preservation, multi-line atomic write, non-existent file error.
+* **Watcher:** Lifecycle, invalid path, context cancellation stops notifications, flood coalescing (10 rapid writes → at most 1 buffered signal).
+* **Pipeline:** Multi-worker fan-out, context cancel, output content verification, source field preserved through pipeline.
+* **Hub:** Broadcast delivery, 3-client fan-out, disconnect handling, non-blocking broadcast (100 rapid calls, no block), slow client drop (frozen tab doesn't stall healthy clients).
+* **Alerts:** Cooldown gate, race condition (10 concurrent triggers), level isolation (ERROR/WARN tracked independently), log file written with `NOTIFIED` status, cooldown reset after expiry, empty NtfyTopic skips network call.
+* **AI:** Default config, env override, Docker host override (`ollama:11434` → `localhost`), unreachable endpoint returns error gracefully, mock server round-trip for both `AnalyzeSystem` and `AnalyzeHeartbeat`.
+* **UI:** Filtering (4 cases including case-insensitive), buffer management, truncate (4 cases), status label (9 states including error-overrides-warn), AI summary (4 cases including top-3 cap), sparkline edge cases.
+ 
+#### Phase 2: AnalyzeSystem Signature Update
+ 
+* **Independent EPS/WPS telemetry:** `AnalyzeSystem` signature extended from 4 to 6 parameters — `avgWps float64, peakWps float64` added as 5th and 6th args. The `[TELEMETRY]` section of the prompt now shows errors/sec and warns/sec as separate lines instead of a combined `E+W/sec` metric. The AI can now distinguish a pure error storm from a warn flood — the two most different failure signatures in practice.
+ 
+#### Phase 3: Multi-File Support (Option B — One Aggregator Per File)
+ 
+* **Architectural decision:** Option A (single aggregator, filter by `Source` field at display time) was implemented and found to be broken — `ErrorCounts`, `AverageEPS`, `TopMessages`, and all trend rings were global, so switching source showed identical data. Option B (one independent `*aggregator.Aggregator` per file) is architecturally clean: stats are genuinely isolated, switching is a pointer swap, and the aggregator internals are completely untouched.
+* **`main.go`:** `LOSU_LOG_PATH` is split by comma. Each path gets its own `aggregator`, `tailer`, `watcher`, `parser`, `rawLineChan`, `eventChan`, and GOROUTINE A. All are started in a loop. `aggMap map[string]*aggregator.Aggregator` and `aggKeys []string` hold the full set. `activeAgg` is the default (first file).
+* **`server.go`:** Constructor now takes `aggMap` instead of a single `*aggregator.Aggregator`. Active aggregator stored as `unsafe.Pointer` and swapped atomically via `atomic.StorePointer` — the broadcaster never blocks on a lock. WebSocket handler starts a read goroutine that listens for `{"type":"set_source","source":"..."}` messages and calls `setActiveAgg()`. Source switch is visible on the next 500ms broadcast tick.
+* **`dashboard.go` (TUI):** `ActiveSource string` and `Sources []string` replaced by `ActiveAgg *aggregator.Aggregator`, `AggMap map[string]*aggregator.Aggregator`, and `AggKeys []string`. Tab key cycles through `AggKeys` by index, swaps `ActiveAgg`, and resets the log buffer so mixed history doesn't bleed across. Stats panel shows `Source: app.log (Tab: next file)` when multiple files are active.
+* **`index.html` (Web):** `sendMessage` exposed directly from `useLosuWS` hook using `wsRef.current` — the previous `_wsRef` module-level variable approach was broken because it was never actually assigned the live WebSocket. Source switcher uses a native `<select>` dropdown (compact, responsive, never wraps) instead of pill buttons. Selecting a source calls `sendMessage({type: 'set_source', source})` immediately.
+ 
+#### Phase 4: Per-Source Incident Filtering
+ 
+* **`aggregator.go`:** `Source string` field added to `Aggregator` struct. `NewAggregatorForSource(path)` constructor sets it. `TriggerIncidentReport` writes `"source": "..."` as the second field in every incident JSON — old incidents without this field return empty string and appear only in the "All Files" view.
+* **`server.go`:** `handleIncidentList` reads `?source=` query param. Any incident whose `partial.Source` doesn't match is skipped. No source param returns all incidents as before.
+* **`index.html`:** `IncidentModal` accepts `activeSource` prop. `useEffect` re-runs on `activeSource` change — resets list, resets selected incident, re-fetches with `?source=` filter. The 🚨 incident count badge also re-polls with source filter so it only counts incidents for the active file.
+ 
+#### Phase 5: Generator Reorganization
+ 
+* **`bin/generators/normal/main.go`:** New logfmt generator with 33 healthy templates, 18 warn templates, and 18 error templates. Covers auth, HTTP, database, cache, S3 storage, job queues, payments, and system events. 94%/5%/1% healthy/warn/error ratio. Writes to `logs/test.log`.
+* **`bin/generators/json/json_gen.go`:** Existing JSON generator moved to dedicated subdirectory. Reads `LOSU_TEST_LOG_PATH` env var, defaults to `logs/test2.log`.
+* Both generators run simultaneously for multi-file testing: `go run bin/generators/normal/main.go` + `go run bin/generators/json/json_gen.go`.
+ 
+</details>
 
 <details>
 <summary><b>April 5, 2026: Incident Viewer, Report Intelligence & Fingerprint Hardening</b> 🚨🔬🧬 (Click to expand)</summary>

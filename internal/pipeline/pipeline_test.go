@@ -14,7 +14,11 @@ import (
 type MockParser struct{}
 
 func (m *MockParser) Parse(raw model.RawLog) model.LogEvent {
-	return model.LogEvent{Message: raw.Line, Level: "INFO"}
+	return model.LogEvent{
+		Message: raw.Line,
+		Level:   "INFO",
+		Source:  raw.Source, // preserve source for multi-file support
+	}
 }
 
 /*
@@ -94,5 +98,54 @@ func TestProcess_ContextCancel(t *testing.T) {
 
 	if len(output) > 0 {
 		t.Error("Worker processed data after context was canceled")
+	}
+}
+
+func TestProcess_OutputContent(t *testing.T) {
+	input := make(chan model.RawLog, 1)
+	output := make(chan model.LogEvent, 1)
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	Process(ctx, &wg, 1, &MockParser{}, input, output)
+
+	input <- model.RawLog{Line: "hello world", Source: "/var/log/app.log"}
+	close(input)
+	wg.Wait()
+
+	select {
+	case event := <-output:
+		if event.Message != "hello world" {
+			t.Errorf("message: got %q want %q", event.Message, "hello world")
+		}
+		if event.Level != "INFO" {
+			t.Errorf("level: got %q want INFO", event.Level)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("no output received")
+	}
+}
+
+func TestProcess_SourcePreserved(t *testing.T) {
+	input := make(chan model.RawLog, 1)
+	output := make(chan model.LogEvent, 1)
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	Process(ctx, &wg, 1, &MockParser{}, input, output)
+
+	input <- model.RawLog{Line: "test", Source: "/logs/auth.log"}
+	close(input)
+	wg.Wait()
+
+	select {
+	case event := <-output:
+		if event.Source != "/logs/auth.log" {
+			t.Errorf("source: got %q want /logs/auth.log", event.Source)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("no output received")
 	}
 }

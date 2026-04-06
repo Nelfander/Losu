@@ -2,6 +2,7 @@ package alerts
 
 import (
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -81,5 +82,76 @@ func TestAlerts_LevelIsolation(t *testing.T) {
 
 	if len(alerter.LastSent) != 2 {
 		t.Errorf("Expected 2 distinct cooldown keys, got %d", len(alerter.LastSent))
+	}
+}
+
+func TestAlerts_LogFileWritten(t *testing.T) {
+	tmpLog := "test_written.log"
+	defer os.Remove(tmpLog)
+
+	alerter := NewAlerter(tmpLog)
+	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "disk failure"})
+
+	// Give writeToLog time to complete
+	time.Sleep(50 * time.Millisecond)
+
+	data, err := os.ReadFile(tmpLog)
+	if err != nil {
+		t.Fatalf("log file was not created: %v", err)
+	}
+	if len(data) == 0 {
+		t.Error("log file is empty — writeToLog did not write anything")
+	}
+	content := string(data)
+	if !strings.Contains(content, "disk failure") {
+		t.Errorf("log file missing message, got: %q", content)
+	}
+	if !strings.Contains(content, "NOTIFIED") {
+		t.Errorf("first trigger should write NOTIFIED status, got: %q", content)
+	}
+}
+
+func TestAlerts_CooldownResetAfterExpiry(t *testing.T) {
+	tmpLog := "test_reset.log"
+	defer os.Remove(tmpLog)
+
+	alerter := NewAlerter(tmpLog)
+	alerter.Cooldown = 50 * time.Millisecond
+
+	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "first"})
+	firstSent := alerter.LastSent["GLOBAL_ERROR_COOLDOWN"]
+
+	// Wait for cooldown to expire
+	time.Sleep(100 * time.Millisecond)
+
+	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "second"})
+	secondSent := alerter.LastSent["GLOBAL_ERROR_COOLDOWN"]
+
+	if !secondSent.After(firstSent) {
+		t.Error("LastSent was not updated after cooldown expired")
+	}
+}
+
+func TestAlerts_EmptyNtfyTopicSkipsPhone(t *testing.T) {
+	tmpLog := "test_ntfy.log"
+	defer os.Remove(tmpLog)
+
+	alerter := NewAlerter(tmpLog)
+	alerter.NtfyTopic = "" // explicitly empty
+
+	// Should return immediately without making any HTTP call
+	// If it tries to call ntfy.sh with empty topic it would hit
+	// "https://ntfy.sh/" which would either error or post to wrong topic
+	done := make(chan struct{})
+	go func() {
+		alerter.SendToPhone("should not be sent")
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Returned immediately as expected
+	case <-time.After(100 * time.Millisecond):
+		t.Error("SendToPhone did not return immediately for empty NtfyTopic")
 	}
 }

@@ -39,13 +39,13 @@ func NewExplainer() *Explainer {
 }
 
 // AnalyzeSystem sends telemetry and pattern data to an LLM to generate a concise SRE-style incident report
-func (e *Explainer) AnalyzeSystem(errorPatterns string, warnPatterns string, avgEps float64, peakEps float64) (string, error) {
+func (e *Explainer) AnalyzeSystem(errorPatterns string, warnPatterns string, avgEps float64, peakEps float64, avgWps float64, peakWps float64) (string, error) {
 	// Sharp, context-aware prompt for a Senior SRE
 	prompt := fmt.Sprintf(`Act as a Senior SRE. Analyze these live telemetry signals:
 
 [TELEMETRY]
-- Current Throughput: %.2f Errors+Warns/sec (Avg over 50s)
-- Peak Intensity: %.1f E+W/sec (High Water Mark)
+- Errors/sec: %.2f avg | %.1f peak
+- Warns/sec:  %.2f avg | %.1f peak
 
 [ERROR PATTERNS]
 %s
@@ -60,7 +60,7 @@ Provide a concise "Situation Report":
 3. **Mitigation**: Specific technical action (e.g., 'Flush Redis', 'Check DB connection pool').
 4. **Health Trend**: Is this a burst (Peak >> Avg) or sustained saturation?
 
-Use Markdown. No intro/outro fluff. Technical brevity is mandatory.`, avgEps, peakEps, errorPatterns, warnPatterns)
+Use Markdown. No intro/outro fluff. Technical brevity is mandatory.`, avgEps, peakEps, avgWps, peakWps, errorPatterns, warnPatterns)
 
 	payload := map[string]interface{}{
 		"model":  e.Model,

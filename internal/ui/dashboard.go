@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/nelfander/losu/internal/aggregator"
 	"github.com/nelfander/losu/internal/model"
 	"github.com/rivo/tview"
 )
@@ -32,6 +33,11 @@ type Dashboard struct {
 	isDragging       bool
 	isAutoScroll     bool
 	renderBuf        strings.Builder
+	// Multi-file support — one aggregator per file.
+	// ActiveAgg is the one currently displayed. Tab cycles through AggKeys.
+	ActiveAgg *aggregator.Aggregator
+	AggMap    map[string]*aggregator.Aggregator
+	AggKeys   []string // insertion-ordered list of paths for Tab cycling
 }
 
 func NewDashboard() *Dashboard {
@@ -220,6 +226,29 @@ func NewDashboard() *Dashboard {
 			searchInput.SetText("")
 			dashboard.SearchFilter = ""
 		}
+	})
+
+	// Tab on stats view cycles through aggregators (one per log file).
+	// Wraps around: file1 → file2 → ... → file1
+	stats.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab && len(dashboard.AggKeys) > 1 {
+			// Find current index
+			currentIdx := 0
+			for i, key := range dashboard.AggKeys {
+				if dashboard.AggMap[key] == dashboard.ActiveAgg {
+					currentIdx = i
+					break
+				}
+			}
+			// Advance to next, wrap around
+			nextIdx := (currentIdx + 1) % len(dashboard.AggKeys)
+			dashboard.ActiveAgg = dashboard.AggMap[dashboard.AggKeys[nextIdx]]
+			// Reset log buffer so we don't show mixed history
+			dashboard.FilteredLogs = dashboard.FilteredLogs[:0]
+			dashboard.LastHistoryLen = 0
+			return nil
+		}
+		return event
 	})
 
 	// --- Level 1 inspector: Enter on a top error/warn row ---
@@ -455,6 +484,22 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 		snap.ErrorCounts["ERROR"], snap.ErrorCounts["WARN"]))
 	statsStr.WriteString(fmt.Sprintf(" [green]INFO  : [white]%-6d    [cyan]DEBUG : [white]%-6d\n",
 		snap.ErrorCounts["INFO"], snap.ErrorCounts["DEBUG"]))
+
+	// Source indicator — only shown when multiple files are being watched
+	if len(d.AggKeys) > 1 && d.ActiveAgg != nil {
+		// Find which key matches the active aggregator
+		activeName := ""
+		for _, key := range d.AggKeys {
+			if d.AggMap[key] == d.ActiveAgg {
+				// Show just the filename, not the full path
+				parts := strings.Split(strings.ReplaceAll(key, "\\", "/"), "/")
+				activeName = parts[len(parts)-1]
+				break
+			}
+		}
+		statsStr.WriteString(fmt.Sprintf("\n [gray]Source: [cyan]%s", activeName))
+		statsStr.WriteString(" [gray](Tab: next file)")
+	}
 	d.StatsView.SetText(statsStr.String())
 
 	// --- Graph ---
@@ -531,6 +576,7 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 
 		for i := d.LastHistoryLen; i < len(snap.History); i++ {
 			event := snap.History[i]
+
 			match := filterLower == "" ||
 				strings.Contains(strings.ToLower(event.Message), filterLower) ||
 				strings.Contains(strings.ToLower(event.Level), filterLower)

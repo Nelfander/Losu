@@ -123,3 +123,147 @@ func TestTailer_Shutdown(t *testing.T) {
 		t.Error("Tailer did not shutdown gracefully")
 	}
 }
+
+func TestTailer_EmptyLinesFiltered(t *testing.T) {
+	tmpFile, _ := os.CreateTemp("", "tailer_empty_*.log")
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	results := make(chan model.RawLog, 10)
+	changes := make(chan struct{}, 1)
+	tail := NewTailer(tmpFile.Name(), results)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	go func() { _ = tail.Run(ctx, changes) }()
+	time.Sleep(50 * time.Millisecond)
+
+	// Write 3 empty lines and 1 real line
+	_, _ = tmpFile.WriteString("\n\n\nHello LOSU\n")
+	changes <- struct{}{}
+
+	// Should only get 1 result — the empty lines must be filtered
+	select {
+	case res := <-results:
+		if res.Line != "Hello LOSU" {
+			t.Errorf("Expected 'Hello LOSU', got %q", res.Line)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("Tailer failed to pick up line")
+	}
+
+	// Drain channel — should be empty now
+	time.Sleep(150 * time.Millisecond)
+	if len(results) != 0 {
+		t.Errorf("Expected 0 remaining results, got %d — empty lines were not filtered", len(results))
+	}
+}
+
+func TestTailer_WhitespaceTrimming(t *testing.T) {
+	tmpFile, _ := os.CreateTemp("", "tailer_trim_*.log")
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	results := make(chan model.RawLog, 10)
+	changes := make(chan struct{}, 1)
+	tail := NewTailer(tmpFile.Name(), results)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	go func() { _ = tail.Run(ctx, changes) }()
+	time.Sleep(50 * time.Millisecond)
+
+	_, _ = tmpFile.WriteString("  Hello LOSU  \n")
+	changes <- struct{}{}
+
+	select {
+	case res := <-results:
+		if res.Line != "Hello LOSU" {
+			t.Errorf("Expected trimmed 'Hello LOSU', got %q", res.Line)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("Tailer failed to pick up line")
+	}
+}
+
+func TestTailer_SourceField(t *testing.T) {
+	tmpFile, _ := os.CreateTemp("", "tailer_source_*.log")
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	results := make(chan model.RawLog, 10)
+	changes := make(chan struct{}, 1)
+	tail := NewTailer(tmpFile.Name(), results)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	go func() { _ = tail.Run(ctx, changes) }()
+	time.Sleep(50 * time.Millisecond)
+
+	_, _ = tmpFile.WriteString("test line\n")
+	changes <- struct{}{}
+
+	select {
+	case res := <-results:
+		if res.Source != tmpFile.Name() {
+			t.Errorf("Expected source %q, got %q", tmpFile.Name(), res.Source)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("Tailer failed to pick up line")
+	}
+}
+
+func TestTailer_MultipleLines(t *testing.T) {
+	tmpFile, _ := os.CreateTemp("", "tailer_multi_*.log")
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	results := make(chan model.RawLog, 10)
+	changes := make(chan struct{}, 1)
+	tail := NewTailer(tmpFile.Name(), results)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	go func() { _ = tail.Run(ctx, changes) }()
+	time.Sleep(50 * time.Millisecond)
+
+	_, _ = tmpFile.WriteString("Line1\nLine2\nLine3\n")
+	changes <- struct{}{}
+
+	received := make([]string, 0, 3)
+	timeout := time.After(500 * time.Millisecond)
+	for len(received) < 3 {
+		select {
+		case res := <-results:
+			received = append(received, res.Line)
+		case <-timeout:
+			t.Errorf("Only received %d/3 lines before timeout: %v", len(received), received)
+			return
+		}
+	}
+
+	expected := []string{"Line1", "Line2", "Line3"}
+	for i, exp := range expected {
+		if received[i] != exp {
+			t.Errorf("Line %d: expected %q, got %q", i+1, exp, received[i])
+		}
+	}
+}
+
+func TestTailer_NonExistentFile(t *testing.T) {
+	results := make(chan model.RawLog, 10)
+	changes := make(chan struct{}, 1)
+	tail := NewTailer("/tmp/this-file-does-not-exist-losu-test.log", results)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err := tail.Run(ctx, changes)
+	if err == nil {
+		t.Error("Expected error for non-existent file, got nil")
+	}
+}
