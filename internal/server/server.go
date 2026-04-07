@@ -184,8 +184,6 @@ func (s *Server) handleWebSocket(c echo.Context) error {
 
 			if payload.Type == "set_source" {
 				if payload.Source == "" || payload.Source == "all" {
-					// "all" — pick the first aggregator (combined view not supported in Option B)
-					// For now just pick first; future: could add a combined aggregator
 					for _, agg := range s.aggMap {
 						s.setActiveAgg(agg)
 						break

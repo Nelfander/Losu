@@ -38,7 +38,7 @@ func TestAggregatorConcurrency(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < 100; j++ {
 				_ = agg.Snapshot()
-				_ = agg.getTopMessages(5)
+				_ = agg.getTopMessages()
 			}
 		}()
 	}

@@ -499,6 +499,47 @@ TUI logic tests operate on pure Go state — no terminal or tview application re
 <details><summary>(Click to expand)</summary>
 
 <details>
+<summary><b>April 7, 2026: Errors-First Sorting, No-Cap Top Errors, Stable Tiebreaker, Source Switching Fixes & TUI/Web Expand</b> 🔴📊⤢ (Click to expand)</summary>
+ 
+#### Phase 1: Errors Always First — No Cap on Top Errors
+ 
+* **`aggregator.go` — `getTopMessages()` rewritten:** The function no longer accepts an `n int` cap parameter — it returns all clustered patterns. Sort order is now: (1) ERROR always before WARN regardless of count, (2) count descending within each level, (3) pattern key alphabetically as a stable tiebreaker. The tiebreaker is critical — without it, two patterns with identical level and count would swap positions on every 1-second `PushTrend()` tick, causing visible flickering in both TUI and web. The sort now collects `(stat, patternKey)` pairs so the fingerprint string is available as a deterministic tiebreaker. `PushTrend()` updated from `getTopMessages(10)` to `getTopMessages()`.
+* **`dashboard.go` — TUI panel title and rendering:** Panel title updated from `Top 10 Error/Warn Messages` to `Top Errors / Warns`. The fixed 2-column 5-row grid (showing exactly 10) replaced with a single scrollable column rendering all patterns. Message truncation increased from 35 to 70 chars (later to 90). The `StatLookup` slice is now indexed sequentially — no more two-column index math.
+ 
+#### Phase 2: Web Source Switching & "All Files" Removal
+ 
+* **`index.html` — "All Files" option removed:** The source dropdown previously had an "All Files" `<option value="">` entry that showed combined data — which doesn't exist in the architecture (each file has its own isolated aggregator). Removed entirely. The dropdown now only shows actual file sources.
+* **`index.html` — `sendMessage` fix:** The previous `_wsRef` module-level variable approach was broken — it was never actually assigned the live WebSocket. `sendMessage` is now returned directly from `useLosuWS()` using `wsRef.current`, which is always the live connection. Source switching now correctly sends `{"type":"set_source","source":"..."}` to the server.
+* **`index.html` — Auto-select first source:** `sourcesInitialized` ref prevents repeated auto-selection. On first data load, `sources[0]` is selected and `set_source` is sent to the server so the dashboard immediately shows correct data.
+ 
+#### Phase 3: TopErrorsPanel Expand Button (Web)
+ 
+* **`index.html` — `⤢` expand button:** Added to the `TopErrorsPanel` card header. Shows pattern count `(N)` next to the title. Clicking opens an 860px wide, 85vh modal overlay with the same rows and click-to-inspect functionality — `TopErrorsList` extracted as a shared sub-component used in both the compact card and the expanded overlay. Clicking a row in the expanded overlay opens the Level 1 inspector and closes the overlay automatically. Click outside or `✕` to close.
+ 
+#### Phase 4: TUI Mouse Wheel & Fullscreen (dashboard.go)
+ 
+* **Mouse wheel with acceleration on Top Errors panel:** The existing drag handler only caught `Button1` clicks — scroll events fell through to tview's default single-step scroll. Added `MouseScrollUp`/`MouseScrollDown` handling with the same acceleration logic already used in the variant list inspector: slow scroll = 3 rows, rapid consecutive scrolls (< 120ms apart) build up to 15 rows per tick. `lastTopScrollTime` and `topScrollAccel` track state.
+* **`f` key fullscreen:** Pressing `f` while the Top Errors panel has focus opens a full-terminal `TextView` overlay. Content is re-rendered at 150-char truncation (vs 90 in the normal panel) to take advantage of the full terminal width. The fullscreen view has its own accelerated mouse wheel and drag-to-scroll. Pressing `f`, `Esc`, or `q` closes it and returns focus to the Top Errors panel.
+* **Enter works in fullscreen:** Highlighting a row and pressing Enter in fullscreen syncs the highlight to `topErrors`, closes the fullscreen, refocuses `topErrors`, then queues an Enter event via `app.QueueEvent` — the Level 1 inspector opens immediately. `SetHighlightedFunc` keeps the highlight in sync as you navigate.
+* **Title hint:** Top Errors panel border now shows `[gray](f: fullscreen)` so the shortcut is always discoverable.
+* **Truncation:** Normal panel 70 → 90 chars. Fullscreen 150 chars.
+ 
+#### Phase 5: Incident Filtering Per Source
+ 
+* **`aggregator.go` — `Source` field + `NewAggregatorForSource`:** Each aggregator is tagged with the log file path it watches. `TriggerIncidentReport` writes `"source": "..."` as the second JSON field in every incident file.
+* **`server.go` — `?source=` filter:** `handleIncidentList` reads the query param and skips incidents whose `partial.Source` doesn't match. No param = all incidents returned.
+* **`index.html` — `IncidentModal` re-fetches on source change:** `useEffect` dependency on `activeSource` resets list, resets selection, and re-fetches with `?source=` filter. Incident count badge also re-polls with source filter.
+ 
+#### Phase 6: Generator Reorganization
+ 
+* **`bin/generators/normal/main.go`** — logfmt format, 33 healthy / 18 warn / 18 error templates covering auth, HTTP, DB, cache, S3, workers, payments, system. Writes to `logs/test.log`.
+* **`bin/generators/json/json_gen.go`** — JSON format. Writes to `logs/test2.log`.
+* Both run simultaneously for multi-file testing.
+ 
+</details>
+ 
+
+<details>
 <summary><b>April 6, 2026: Full Test Suite, Multi-File Support & Per-Source Incident Filtering</b> (Click to expand)</summary>
  
 #### Phase 1: Full Test Suite (All Packages, Race Detector)

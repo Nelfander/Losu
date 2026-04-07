@@ -671,7 +671,6 @@
         return () => { if (wsRef.current) wsRef.current.close(); };
       }, []);
 
-      // sendMessage sends a JSON payload to the server over the active WebSocket.
       function sendMessage(payload) {
         const ws = wsRef.current;
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -745,7 +744,6 @@
             maxWidth: '160px',
           }}
             >
-              <option value="">All Files</option>
               ${sources.map((src, i) => html`
                 <option key=${String(i)} value=${src}>${basename(src)}</option>
               `)}
@@ -787,22 +785,17 @@
     // ── TopErrorsPanel ────────────────────────────────────────────────────────────
     function TopErrorsPanel({ data, onSelect }) {
       const errors = (data && data.top_errors) || [];
+      const [expanded, setExpanded] = useState(false);
 
-      return html`
-    <div className="card panel-top">
-      <div className="card-header">
-        <div className="dot" style=${{ background: 'var(--red)' }} />
-        Top Errors / Warns
-      </div>
-      <div className="card-body" style=${{ padding: '3px 6px' }}>
-        <div className="top-list">
+      function ErrorRows({ onRowSelect }) {
+        return html`
           ${errors.length === 0 && html`
             <div style=${{ color: 'var(--muted)', fontSize: '10px', padding: '6px 0' }}>
               No errors or warnings yet
             </div>
           `}
           ${errors.map((e, i) => html`
-            <div key=${String(i)} className="top-row" onClick=${() => onSelect(e)}>
+            <div key=${String(i)} className="top-row" onClick=${() => onRowSelect(e)}>
               <span className=${'top-count ' + (e.level === 'ERROR' ? 'c-error' : 'c-warn')}>
                 ${fmt(e.count)}
               </span>
@@ -812,9 +805,54 @@
               <span className="top-msg">${e.pattern}</span>
             </div>
           `)}
+        `;
+      }
+
+      return html`
+    <div className="card panel-top">
+      <div className="card-header">
+        <div className="dot" style=${{ background: 'var(--red)' }} />
+        Top Errors / Warns
+        <span style=${{ color: 'var(--muted)', fontSize: '9px', marginLeft: '4px' }}>(${errors.length})</span>
+        <button
+          onClick=${() => setExpanded(true)}
+          title="Expand"
+          style=${{
+          marginLeft: 'auto', background: 'none',
+          border: '1px solid var(--border)', borderRadius: '3px',
+          color: 'var(--muted)', cursor: 'pointer',
+          fontSize: '11px', padding: '1px 5px', lineHeight: 1,
+        }}
+        >⤢</button>
+      </div>
+      <div className="card-body" style=${{ padding: '3px 6px' }}>
+        <div className="top-list">
+          <${ErrorRows} onRowSelect=${onSelect} />
         </div>
       </div>
     </div>
+
+    ${expanded && html`
+      <div className="backdrop" onClick=${e => e.target === e.currentTarget && setExpanded(false)}>
+        <div style=${{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: '8px', width: '860px', maxHeight: '85vh',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          }}>
+          <div className="modal-hdr">
+            <div style=${{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div className="dot" style=${{ background: 'var(--red)' }} />
+              <span>Top Errors / Warns</span>
+              <span style=${{ color: 'var(--muted)', fontSize: '10px' }}>(${errors.length} patterns)</span>
+            </div>
+            <button className="modal-close" onClick=${() => setExpanded(false)}>✕</button>
+          </div>
+          <div style=${{ flex: 1, overflowY: 'auto', padding: '6px 10px' }}>
+            <${ErrorRows} onRowSelect=${e => { onSelect(e); setExpanded(false); }} />
+          </div>
+        </div>
+      </div>
+    `}
   `;
     }
 
@@ -1562,10 +1600,21 @@
       const [selected, setSelected] = useState(null);
       const [showIncidents, setShowIncidents] = useState(false);
       const [incidentCount, setIncidentCount] = useState(0);
-      const [activeSource, setActiveSource] = useState(''); // '' = all files
+      const [activeSource, setActiveSource] = useState('');
+      const sourcesInitialized = useRef(false);
 
-      // Poll incident count every 10s so the button appears as soon as
-      // the first incident file is written — without a page reload.
+      // Auto-select the first source as soon as sources are available
+      useEffect(() => {
+        if (sourcesInitialized.current) return;
+        const sources = data && data.sources;
+        if (sources && sources.length > 0) {
+          sourcesInitialized.current = true;
+          setActiveSource(sources[0]);
+          sendMessage({ type: 'set_source', source: sources[0] });
+        }
+      }, [data]);
+
+      // Poll incident count every 10s, filtered by active source
       useEffect(() => {
         function checkIncidents() {
           const url = activeSource

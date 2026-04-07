@@ -57,7 +57,7 @@ func NewDashboard() *Dashboard {
 	topErrors.SetDynamicColors(true).
 		SetRegions(true).
 		SetBorder(true).
-		SetTitle(" [red]Top 10 Error/Warn Messages ")
+		SetTitle(" [red]Top Errors / Warns [gray](f: fullscreen) ")
 
 	topErrors.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyTab {
@@ -144,14 +144,46 @@ func NewDashboard() *Dashboard {
 		return action, event
 	})
 
-	// --- DRAGGABLE LOGIC: Top 10 Errors/Warns ---
+	// --- DRAGGABLE LOGIC: Top Errors/Warns ---
 	var isDraggingTop bool
+	var lastTopScrollTime time.Time
+	var topScrollAccel int
 
 	topErrors.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
 		x, y := event.Position()
 		rectX, rectY, rectWidth, rectHeight := topErrors.GetInnerRect()
 		scrollbarX := rectX + rectWidth - 1
 		leftPressed := event.Buttons()&tcell.Button1 != 0
+
+		// Mouse wheel scroll with acceleration — same pattern as variant list
+		if action == tview.MouseScrollUp || action == tview.MouseScrollDown {
+			now := time.Now()
+			since := now.Sub(lastTopScrollTime).Milliseconds()
+			lastTopScrollTime = now
+
+			if since < 120 {
+				topScrollAccel++
+				if topScrollAccel > 4 {
+					topScrollAccel = 4
+				}
+			} else {
+				topScrollAccel = 0
+			}
+
+			jump := 3 + topScrollAccel*3
+			offset, _ := topErrors.GetScrollOffset()
+
+			if action == tview.MouseScrollDown {
+				topErrors.ScrollTo(offset+jump, 0)
+			} else {
+				next := offset - jump
+				if next < 0 {
+					next = 0
+				}
+				topErrors.ScrollTo(next, 0)
+			}
+			return action, nil
+		}
 
 		if leftPressed {
 			if x >= scrollbarX-1 || isDraggingTop {
@@ -256,6 +288,123 @@ func NewDashboard() *Dashboard {
 	// Each row: "HH:MM:SS.mmm  N  message" sorted by count descending.
 	// Pressing Enter on a variant opens the Level 2 timeline inspector.
 	topErrors.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// f → fullscreen overlay showing all error/warn patterns at wider truncation
+		if event.Rune() == 'f' {
+			// Re-render at 150 chars for fullscreen — more room to read
+			var fsContent strings.Builder
+			fsContent.WriteString("")
+			for i, item := range dashboard.StatLookup {
+				bestMsg := ""
+				maxSubCount := -1
+				for msg, count := range item.VariantCounts {
+					if count > maxSubCount {
+						maxSubCount = count
+						bestMsg = msg
+					} else if count == maxSubCount && msg < bestMsg {
+						bestMsg = msg
+					}
+				}
+				color := "red"
+				if item.Level == "WARN" {
+					color = "yellow"
+				}
+				fsContent.WriteString(fmt.Sprintf(" [\"top_%d\"][%s]%5d [white]| %-150s[\"\"]\n",
+					i, color, item.Count, truncate(bestMsg, 150)))
+			}
+			fsView := tview.NewTextView().
+				SetDynamicColors(true).
+				SetRegions(true).
+				SetScrollable(true).
+				SetText(fsContent.String())
+			fsView.SetBorder(true).
+				SetTitle(" [red]Top Errors / Warns [gray]— fullscreen  |  f or Esc: close  |  scroll: mouse wheel or drag ")
+
+			var fsLastScroll time.Time
+			var fsAccel int
+			fsView.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+				x, y := event.Position()
+				rectX, rectY, rectWidth, rectHeight := fsView.GetInnerRect()
+				scrollbarX := rectX + rectWidth - 1
+				leftPressed := event.Buttons()&tcell.Button1 != 0
+
+				if action == tview.MouseScrollUp || action == tview.MouseScrollDown {
+					now := time.Now()
+					since := now.Sub(fsLastScroll).Milliseconds()
+					fsLastScroll = now
+					if since < 120 {
+						fsAccel++
+						if fsAccel > 4 {
+							fsAccel = 4
+						}
+					} else {
+						fsAccel = 0
+					}
+					jump := 3 + fsAccel*3
+					offset, _ := fsView.GetScrollOffset()
+					if action == tview.MouseScrollDown {
+						fsView.ScrollTo(offset+jump, 0)
+					} else {
+						next := offset - jump
+						if next < 0 {
+							next = 0
+						}
+						fsView.ScrollTo(next, 0)
+					}
+					return action, nil
+				}
+
+				if leftPressed && (x >= scrollbarX-1) {
+					relativeY := float64(y - rectY)
+					percentage := relativeY / float64(rectHeight)
+					if percentage < 0 {
+						percentage = 0
+					}
+					if percentage > 1 {
+						percentage = 1
+					}
+					totalLines := strings.Count(fsView.GetText(false), "")
+					targetLine := int(percentage * float64(totalLines))
+					fsView.ScrollTo(targetLine, 0)
+					return action, nil
+				}
+				return action, event
+			})
+
+			fsView.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
+				if ev.Key() == tcell.KeyEsc || ev.Rune() == 'f' || ev.Rune() == 'q' {
+					pages.RemovePage("top-fullscreen")
+					app.SetFocus(topErrors)
+					return nil
+				}
+				// Enter on a highlighted row opens the Level 1 inspector
+				if ev.Key() == tcell.KeyEnter {
+					highlights := fsView.GetHighlights()
+					if len(highlights) > 0 {
+						// Delegate to topErrors — highlight the same region there
+						// and fire the same inspector logic by temporarily focusing topErrors
+						topErrors.Highlight(highlights[0])
+						pages.RemovePage("top-fullscreen")
+						app.SetFocus(topErrors)
+						// Simulate Enter on topErrors to open inspector
+						app.QueueEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+					}
+					return nil
+				}
+				return ev
+			})
+
+			// Sync highlight from fsView back to topErrors so Enter works correctly
+			fsView.SetHighlightedFunc(func(added, removed, remaining []string) {
+				if len(added) > 0 {
+					topErrors.Highlight(added[0])
+				}
+			})
+
+			pages.AddPage("top-fullscreen", fsView, true, true)
+			app.SetFocus(fsView)
+			return nil
+		}
+
 		if event.Key() == tcell.KeyEnter {
 			highlights := topErrors.GetHighlights()
 			if len(highlights) == 0 {
@@ -521,38 +670,31 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 	graphBody.WriteString(" [white]" + strings.Repeat("▔", 25))
 	d.GraphView.SetText(graphBody.String())
 
-	// --- Top 10 Errors/Warns ---
+	// --- Top Errors/Warns ---
+	// Single scrollable column — all patterns, errors first then warns,
+	// count descending within each level. No cap — scroll to see everything.
 	var topStr strings.Builder
 	topStr.WriteString("\n")
 	d.StatLookup = nil
-	sortedTop := snap.TopMessages
 
-	for i := 0; i < 5; i++ {
-		getRow := func(idx int) string {
-			if idx >= len(sortedTop) {
-				return strings.Repeat(" ", 45)
+	for i, item := range snap.TopMessages {
+		bestMsg := ""
+		maxSubCount := -1
+		for msg, count := range item.VariantCounts {
+			if count > maxSubCount {
+				maxSubCount = count
+				bestMsg = msg
+			} else if count == maxSubCount && msg < bestMsg {
+				bestMsg = msg
 			}
-			item := sortedTop[idx]
-			bestMsg := ""
-			maxSubCount := -1
-			for msg, count := range item.VariantCounts {
-				if count > maxSubCount {
-					maxSubCount = count
-					bestMsg = msg
-				} else if count == maxSubCount && msg < bestMsg {
-					bestMsg = msg
-				}
-			}
-			d.StatLookup = append(d.StatLookup, item)
-			lookupIdx := len(d.StatLookup) - 1
-			color := "red"
-			if item.Level == "WARN" {
-				color = "yellow"
-			}
-			return fmt.Sprintf(`["top_%d"][%s]%5d [white]| %-35s[""]`,
-				lookupIdx, color, item.Count, truncate(bestMsg, 35))
 		}
-		topStr.WriteString(fmt.Sprintf(" %s   %s\n", getRow(i), getRow(i+5)))
+		d.StatLookup = append(d.StatLookup, item)
+		color := "red"
+		if item.Level == "WARN" {
+			color = "yellow"
+		}
+		topStr.WriteString(fmt.Sprintf(" [\"top_%d\"][%s]%5d [white]| %-90s[\"\"]\n",
+			i, color, item.Count, truncate(bestMsg, 90)))
 	}
 	d.TopErrorsView.SetText(topStr.String())
 

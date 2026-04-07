@@ -530,19 +530,40 @@ func (a *Aggregator) Load(filepath string) error {
 	return json.Unmarshal(file, a)
 }
 
-func (a *Aggregator) getTopMessages(n int) []model.MessageStat {
-	ss := make([]model.MessageStat, 0, len(a.MessageCounts))
-	for _, v := range a.MessageCounts {
-		ss = append(ss, v)
+// getTopMessages returns all clustered error/warn patterns sorted by:
+//  1. Level priority — ERROR always before WARN regardless of count
+//  2. Count descending within each level — most frequent first
+//
+// No cap — all patterns are returned. The 10,000-pattern guard in Update()
+// is the only memory limit. Both TUI and web scroll to show everything.
+func (a *Aggregator) getTopMessages() []model.MessageStat {
+	var ss []model.MessageStat
+	// Collect pattern keys so we have a stable tiebreaker
+	type statWithKey struct {
+		stat model.MessageStat
+		key  string
 	}
-	sort.Slice(ss, func(i, j int) bool {
-		if ss[i].Count != ss[j].Count {
-			return ss[i].Count > ss[j].Count
+	keyed := make([]statWithKey, 0, len(a.MessageCounts))
+	for k, v := range a.MessageCounts {
+		keyed = append(keyed, statWithKey{stat: v, key: k})
+	}
+	sort.Slice(keyed, func(i, j int) bool {
+		si, sj := keyed[i].stat, keyed[j].stat
+		// 1. ERROR always before WARN regardless of count
+		if si.Level != sj.Level {
+			return si.Level == "ERROR"
 		}
-		return ss[i].Level < ss[j].Level
+		// 2. Higher count first
+		if si.Count != sj.Count {
+			return si.Count > sj.Count
+		}
+		// 3. Stable tiebreaker — alphabetical by pattern key
+		// Prevents flickering when two patterns have identical level + count
+		return keyed[i].key < keyed[j].key
 	})
-	if len(ss) > n {
-		return ss[:n]
+	ss = make([]model.MessageStat, len(keyed))
+	for i, k := range keyed {
+		ss[i] = k.stat
 	}
 	return ss
 }
@@ -601,7 +622,7 @@ func (a *Aggregator) PushTrend() {
 		a.LastReportTime = time.Time{}
 	}
 
-	a.cachedTopMsgs = a.getTopMessages(10)
+	a.cachedTopMsgs = a.getTopMessages()
 
 	a.lastPush = now
 	a.ErrorSecCount = 0
