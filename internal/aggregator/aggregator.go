@@ -352,12 +352,18 @@ func (a *Aggregator) Update(event model.LogEvent, minWeight int, weights map[str
 			stat.Count++
 			stat.VariantCounts[event.Message]++
 
+			// Cap timestamp tracking at 50 variants per pattern.
+			// Counts still accumulate for all variants — full observability.
+			// Only the timestamp ring (used for hit timeline in inspector) is capped
+			// to prevent unbounded heap growth at high throughput.
 			vt, ok := stat.VariantTimestamps[event.Message]
-			if !ok {
+			if !ok && len(stat.VariantTimestamps) < 50 {
 				vt = &model.VariantTimestamps{}
 				stat.VariantTimestamps[event.Message] = vt
 			}
-			vt.Push(event.Timestamp)
+			if vt != nil {
+				vt.Push(event.Timestamp)
+			}
 
 			stat.Timestamps[stat.Cursor%100] = event.Timestamp
 			stat.Cursor++

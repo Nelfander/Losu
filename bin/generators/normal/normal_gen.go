@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	normalLogsPerSecond = 2000
+	normalLogsPerSecond = 20000
 	normalBatchSize     = 250
 	normalChannelSize   = 50
 )

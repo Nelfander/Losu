@@ -499,6 +499,56 @@ TUI logic tests operate on pure Go state — no terminal or tview application re
 <details><summary>(Click to expand)</summary>
 
 <details>
+<summary><b>April 10, 2026: dashboard.go Split into 5 Files & VariantTimestamps Memory Fix</b> 🏗️🧠 (Click to expand)</summary>
+ 
+#### Phase 1: dashboard.go Refactor — 5-File Split
+ 
+The monolithic `internal/ui/dashboard.go` (~1000 lines) was split into 5 focused files, all in `package ui`. No logic was changed — pure reorganization for readability and maintainability.
+ 
+* **`dashboard.go`** — `Dashboard` struct definition and `NewDashboard()` constructor. Wires together all tview primitives (stats, topErrors, logs, graph, ai, searchInput), builds the flex layout, initializes pages, and delegates all input handling to `input.go` via a single `setupInput()` call. 164 lines.
+ 
+* **`input.go`** — All keyboard and mouse capture handlers. Contains `setupInput()` (called once from `NewDashboard()`), `setupMouseHandlers()` for drag-to-scroll and accelerated mouse wheel on logs and top errors panels, `openTopErrorsFullscreen()` for the `f` key fullscreen overlay, and `openLevel1Inspector()` for the Enter key Level 1 variant list. Also contains Left/Right arrow file cycling on the stats panel (groundwork for keyboard navigation). 466 lines.
+ 
+* **`update.go`** — The `Update()` method called every 500ms with a fresh `model.Snapshot`. Renders stats panel, graph sparklines, top errors list, incremental log stream append, scroll feedback title, and AI insights title. The high-performance double-buffer design (incremental append + single `SetText`) is preserved exactly. 190 lines.
+ 
+* **`inspector.go`** — Forensic drill-down popup logic. Contains `openLevel2Inspector()` which builds the per-variant timestamp timeline content, `ShowVariantInspector()` which renders the Level 2 popup with drag-to-scroll, and `ShowInspector()` kept for backward compatibility. 234 lines.
+ 
+* **`sparkline.go`** — Pure stateless helper functions: `truncate()`, `getSparkline()`, `getSparklineLog()` (log-scale compression), `getStatusLabel()` (EPS/WPS health label with env var thresholds), `getColor()`, and `GetSummaryForAI()`. 208 lines.
+ 
+Each file has a header comment explaining its role and how it fits into the overall architecture.
+ 
+#### Phase 2: VariantTimestamps Memory Fix
+ 
+pprof profiling revealed `&model.VariantTimestamps{}` at `aggregator.go:357` was consuming **30MB** — allocating a heap timestamp ring for every single unique message variant. At 20k logs/sec with high message variety this caused RAM to balloon to 3x the expected baseline.
+ 
+**Fix:** cap `VariantTimestamps` allocation at 50 variants per pattern. `VariantCounts` still increments for all variants (full observability, accurate counts) — only the timestamp ring used by the Level 2 inspector hit timeline is capped. Variants beyond 50 show count but no timestamp history in the inspector.
+ 
+```go
+// Before — unbounded allocation:
+vt, ok := stat.VariantTimestamps[event.Message]
+if !ok {
+    vt = &model.VariantTimestamps{}
+    stat.VariantTimestamps[event.Message] = vt
+}
+vt.Push(event.Timestamp)
+ 
+// After — capped at 50:
+vt, ok := stat.VariantTimestamps[event.Message]
+if !ok && len(stat.VariantTimestamps) < 50 {
+    vt = &model.VariantTimestamps{}
+    stat.VariantTimestamps[event.Message] = vt
+}
+if vt != nil {
+    vt.Push(event.Timestamp)
+}
+```
+ 
+RAM dropped back toward the original ~40MB baseline at 20k logs/sec.
+ 
+</details>
+ 
+
+<details>
 <summary><b>April 7, 2026: Errors-First Sorting, No-Cap Top Errors, Stable Tiebreaker, Source Switching Fixes & TUI/Web Expand</b> 🔴📊⤢ (Click to expand)</summary>
  
 #### Phase 1: Errors Always First — No Cap on Top Errors
