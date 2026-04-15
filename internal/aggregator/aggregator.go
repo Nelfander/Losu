@@ -27,7 +27,7 @@ var builderPool = sync.Pool{
 }
 
 // fingerprint replaces dynamic numeric values with * for clustering.
-// Only digits that follow a separator (=, :, ", space, [, ], /, -)
+// Only digits that follow a separator (=, :, ", space, [, ], /, -).
 // are replaced — digits embedded in names like S3, md5, HTTP2, v2 are preserved.
 // This prevents product names and version strings from being mangled.
 //
