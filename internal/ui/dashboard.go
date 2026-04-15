@@ -63,7 +63,7 @@ func NewDashboard() *Dashboard {
 	topErrors.SetDynamicColors(true).
 		SetRegions(true).
 		SetBorder(true).
-		SetTitle(" [red]Top Errors / Warns [gray](f: fullscreen) ")
+		SetTitle(" [red]Top Errors / Warns [gray](↑↓: navigate  Enter: inspect  f: fullscreen) ")
 
 	topErrors.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyTab {
@@ -96,7 +96,7 @@ func NewDashboard() *Dashboard {
 		SetFieldTextColor(tcell.ColorWhite)
 
 	searchInput.SetBorder(true).
-		SetTitle(" [white][ Filter Panel ] ").
+		SetTitle(" [white][ Filter Panel ] [gray](/ to focus) ").
 		SetTitleAlign(tview.AlignLeft)
 
 	dashboard := &Dashboard{
@@ -121,7 +121,7 @@ func NewDashboard() *Dashboard {
 	dashboard.SearchInput = searchInput
 
 	// Wire up all keyboard and mouse handlers (defined in input.go)
-	dashboard.setupInput(app, stats, topErrors, logs, searchInput)
+	dashboard.setupInput(app, stats, topErrors, logs, searchInput, ai, graph)
 
 	logs.SetMaxLines(2000)
 	logs.SetChangedFunc(func() {
@@ -159,7 +159,8 @@ func NewDashboard() *Dashboard {
 	dashboard.MainLayout = flex
 	dashboard.Pages = pages
 
-	app.SetFocus(flex)
+	app.SetFocus(stats)
+	app.ForceDraw()
 
 	return dashboard
 }

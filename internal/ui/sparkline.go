@@ -4,14 +4,14 @@
 // They are used by update.go (sparklines, status label) and
 // input.go / inspector.go (truncate, getColor).
 //
-//	truncate       — shorten a string to N chars with "..." suffix
-//	getSparkline   — linear-scale bar chart (kept for reference)
-//	getSparklineLog — log-scale bar chart (used in production)
-//	getStatusLabel — health status string based on EPS and WPS
-//	getColor       — map log level to tview color string
+//	truncate        — shorten a string to N chars with "..." suffix
+//	getSparklineLog — log-scale bar chart with Braille chars + Y-axis labels
+//	getStatusLabel  — health status string based on EPS and WPS
+//	getColor        — map log level to tview color string
 package ui
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"strconv"
@@ -26,76 +26,108 @@ func truncate(s string, l int) string {
 	return s
 }
 
-// getSparkline renders a fixed-height linear-scale bar chart from a slice of ints.
-// Uses cyan blocks by default — caller recolors via strings.ReplaceAll.
-// Kept for reference; getSparklineLog is preferred for production use.
-func getSparkline(data []int, height int) string {
-	if len(data) == 0 {
-		return ""
-	}
-	max := 0
-	for _, v := range data {
-		if v > max {
-			max = v
-		}
-	}
-	if max == 0 {
-		max = 1
-	}
-	var lines []string
-	for h := height; h > 0; h-- {
-		var line strings.Builder
-		threshold := (float64(h) / float64(height)) * float64(max)
-		for _, v := range data {
-			if float64(v) >= threshold {
-				line.WriteString("[cyan]█")
-			} else if float64(v) >= threshold-(float64(max)/float64(height*2)) {
-				line.WriteString("[cyan]▄")
-			} else {
-				line.WriteString(" ")
-			}
-		}
-		lines = append(lines, line.String())
-	}
-	return strings.Join(lines, "\n")
-}
+// brailleChar maps an intensity level (0–4) to a Braille block character.
+// Each Braille cell gives smooth sub-row resolution:
+//
+//	0 → " "  (empty)
+//	1 → "⣀"  (bottom quarter)
+//	2 → "⣤"  (bottom half)
+//	3 → "⣶"  (three quarters)
+//	4 → "⣿"  (full)
+var brailleChar = [5]string{" ", "⣀", "⣤", "⣶", "⣿"}
 
-// getSparklineLog applies math.Log1p to compress the dynamic range before
-// rendering. This prevents the graph becoming a solid wall at high throughput —
-// a 10x spike still looks like a noticeable bump rather than maxing everything.
-// math.Log1p(x) = log(1+x) maps 0→0 cleanly with no -Inf edge case.
-func getSparklineLog(data []int, height int) string {
+// getSparklineLog renders a log-scale area chart using Braille characters.
+//
+// Uses range normalization: values are spread relative to (min, max) in the
+// window rather than (0, max). This means even at high sustained throughput
+// the chart shows variation instead of a solid wall.
+// Y-axis shows real peak and min values so nothing is misleading.
+func getSparklineLog(data []int, height int, color string) string {
 	if len(data) == 0 {
 		return ""
 	}
-	scaled := make([]float64, len(data))
+
+	// Scale into fixed array — maxTrend is 60, no heap allocation needed
+	var scaled [60]float64
+	n := len(data)
+	if n > 60 {
+		n = 60
+	}
+
+	// Log-transform first
 	maxVal := 0.0
-	for i, v := range data {
-		s := math.Log1p(float64(v))
+	minVal := math.MaxFloat64
+	for i := 0; i < n; i++ {
+		s := math.Log1p(float64(data[i]))
 		scaled[i] = s
 		if s > maxVal {
 			maxVal = s
 		}
+		if s < minVal {
+			minVal = s
+		}
 	}
-	if maxVal == 0 {
-		maxVal = 1
+
+	// Range-normalize: spread values relative to (min, max) in window.
+	// Falls back to absolute if range is zero (perfectly flat signal).
+	rangeVal := maxVal - minVal
+	if rangeVal < 0.01 {
+		// Flat signal — use absolute scale so we don't amplify noise
+		minVal = 0
+		rangeVal = maxVal
+		if rangeVal == 0 {
+			rangeVal = 1
+		}
 	}
-	var lines []string
-	for h := height; h > 0; h-- {
-		var line strings.Builder
-		threshold := (float64(h) / float64(height)) * maxVal
-		for _, v := range scaled {
-			if v >= threshold {
-				line.WriteString("[cyan]█")
-			} else if v >= threshold-(maxVal/float64(height*2)) {
-				line.WriteString("[cyan]▄")
+	for i := 0; i < n; i++ {
+		scaled[i] = (scaled[i] - minVal) / rangeVal
+	}
+
+	// Y-axis: show real (un-logged) peak and min values
+	peakReal := int(math.Round(math.Expm1(maxVal)))
+	minReal := int(math.Round(math.Expm1(minVal)))
+	yLabel := fmt.Sprintf("%d", peakReal)
+	yWidth := len(yLabel)
+
+	var b strings.Builder
+	b.Grow(height * (yWidth + 2 + n*10))
+
+	for row := height; row >= 1; row-- {
+		switch row {
+		case height:
+			b.WriteString(fmt.Sprintf("[white]%*d ", yWidth, peakReal))
+		case 1:
+			b.WriteString(fmt.Sprintf("[white]%*d ", yWidth, minReal))
+		default:
+			b.WriteString(strings.Repeat(" ", yWidth+1))
+		}
+
+		rowTop := float64(row) / float64(height)
+		rowBot := float64(row-1) / float64(height)
+		bandH := rowTop - rowBot
+
+		b.WriteString("[" + color + "]")
+		for i := 0; i < n; i++ {
+			v := scaled[i]
+			if v <= rowBot {
+				b.WriteString(" ")
+			} else if v >= rowTop {
+				b.WriteString("⣿")
 			} else {
-				line.WriteString(" ")
+				frac := (v - rowBot) / bandH
+				level := int(frac * 4)
+				if level > 3 {
+					level = 3
+				}
+				b.WriteString(brailleChar[level+1])
 			}
 		}
-		lines = append(lines, line.String())
+		if row > 1 {
+			b.WriteByte('\n')
+		}
 	}
-	return strings.Join(lines, "\n")
+
+	return b.String()
 }
 
 // getStatusLabel returns a health status string based on EPS and WPS independently.

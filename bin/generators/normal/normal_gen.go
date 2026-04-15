@@ -190,10 +190,10 @@ func main() {
 			chance := rng.Intn(1000)
 
 			var line string
-			if chance < 940 {
+			if chance < 998 {
 				tmpl := healthy[rng.Intn(len(healthy))]
 				line = fmt.Sprintf(tmpl, ts, a, b)
-			} else if chance < 990 {
+			} else if chance < 999 {
 				tmpl := warn[rng.Intn(len(warn))]
 				line = fmt.Sprintf(tmpl, ts, a, b)
 			} else {

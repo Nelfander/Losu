@@ -26,11 +26,18 @@ func (d *Dashboard) setupInput(
 	topErrors *tview.TextView,
 	logs *tview.TextView,
 	searchInput *tview.InputField,
+	ai *tview.TextView,
+	graph *tview.TextView,
 ) {
-	// ── Global: Ctrl+C quits ─────────────────────────────────────────────────
+	// ── Global: Ctrl+C quits, / jumps to search ────────────────────────────
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlC {
 			app.Stop()
+			return nil
+		}
+		// '/' from anywhere focuses the search box
+		if event.Rune() == '/' {
+			app.SetFocus(searchInput)
 			return nil
 		}
 		return event
@@ -44,9 +51,17 @@ func (d *Dashboard) setupInput(
 		}
 	})
 
-	// ── Stats panel: Tab cycles log files ────────────────────────────────────
+	// ── Stats panel: Tab → Top Errors, Left/Right cycles log files ──────────
 	stats.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyTab && len(d.AggKeys) > 1 {
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(topErrors)
+			return nil
+		}
+		if event.Key() == tcell.KeyBacktab {
+			app.SetFocus(searchInput)
+			return nil
+		}
+		if len(d.AggKeys) > 1 {
 			currentIdx := 0
 			for i, key := range d.AggKeys {
 				if d.AggMap[key] == d.ActiveAgg {
@@ -54,11 +69,20 @@ func (d *Dashboard) setupInput(
 					break
 				}
 			}
-			nextIdx := (currentIdx + 1) % len(d.AggKeys)
-			d.ActiveAgg = d.AggMap[d.AggKeys[nextIdx]]
-			d.FilteredLogs = d.FilteredLogs[:0]
-			d.LastHistoryLen = 0
-			return nil
+			if event.Key() == tcell.KeyRight {
+				nextIdx := (currentIdx + 1) % len(d.AggKeys)
+				d.ActiveAgg = d.AggMap[d.AggKeys[nextIdx]]
+				d.FilteredLogs = d.FilteredLogs[:0]
+				d.LastHistoryLen = 0
+				return nil
+			}
+			if event.Key() == tcell.KeyLeft {
+				prevIdx := (currentIdx - 1 + len(d.AggKeys)) % len(d.AggKeys)
+				d.ActiveAgg = d.AggMap[d.AggKeys[prevIdx]]
+				d.FilteredLogs = d.FilteredLogs[:0]
+				d.LastHistoryLen = 0
+				return nil
+			}
 		}
 		return event
 	})
@@ -152,7 +176,7 @@ func (d *Dashboard) setupInput(
 		return action, event
 	})
 
-	// ── Keyboard: Top Errors — f fullscreen, Enter inspector ─────────────────
+	// ── Keyboard: Top Errors — navigation + fullscreen + inspector ───────────
 	topErrors.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Rune() == 'f' {
 			d.openTopErrorsFullscreen(app, topErrors)
@@ -162,8 +186,114 @@ func (d *Dashboard) setupInput(
 			d.openInspectorL1(app, topErrors)
 			return nil
 		}
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(logs)
+			return nil
+		}
+		if event.Key() == tcell.KeyBacktab {
+			app.SetFocus(stats)
+			return nil
+		}
+		// Up/Down — move highlight between rows
+		if event.Key() == tcell.KeyUp || event.Key() == tcell.KeyDown {
+			total := len(d.StatLookup)
+			if total == 0 {
+				return nil
+			}
+			highlights := topErrors.GetHighlights()
+			current := 0
+			if len(highlights) > 0 {
+				fmt.Sscanf(highlights[0], "top_%d", &current)
+			}
+			if event.Key() == tcell.KeyDown {
+				current++
+				if current >= total {
+					current = total - 1
+				}
+			} else {
+				current--
+				if current < 0 {
+					current = 0
+				}
+			}
+			topErrors.Highlight(fmt.Sprintf("top_%d", current))
+			topErrors.ScrollToHighlight()
+			return nil
+		}
+		// Page Down/Up — fast scroll
+		if event.Key() == tcell.KeyPgDn {
+			offset, _ := topErrors.GetScrollOffset()
+			topErrors.ScrollTo(offset+10, 0)
+			return nil
+		}
+		if event.Key() == tcell.KeyPgUp {
+			offset, _ := topErrors.GetScrollOffset()
+			next := offset - 10
+			if next < 0 {
+				next = 0
+			}
+			topErrors.ScrollTo(next, 0)
+			return nil
+		}
 		return event
 	})
+
+	// ── Keyboard: Logs — Tab → Search, Shift+Tab → Top Errors, PgUp/Dn ──────
+	logs.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(searchInput)
+			return nil
+		}
+		if event.Key() == tcell.KeyBacktab {
+			app.SetFocus(topErrors)
+			return nil
+		}
+		if event.Key() == tcell.KeyPgDn {
+			offset, _ := logs.GetScrollOffset()
+			logs.ScrollTo(offset+20, 0)
+			return nil
+		}
+		if event.Key() == tcell.KeyPgUp {
+			offset, _ := logs.GetScrollOffset()
+			next := offset - 20
+			if next < 0 {
+				next = 0
+			}
+			logs.ScrollTo(next, 0)
+			return nil
+		}
+		return event
+	})
+
+	// ── Keyboard: Search — Tab → Stats, Shift+Tab → Logs ─────────────────────
+	searchInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(stats)
+			return nil
+		}
+		if event.Key() == tcell.KeyBacktab {
+			app.SetFocus(logs)
+			return nil
+		}
+		return event
+	})
+
+	// ── Keyboard: AI + Graph — pass Tab through so focus always cycles ────────
+	// These panels are read-only. Tab moves to Stats, Shift+Tab to Search.
+	for _, panel := range []*tview.TextView{ai, graph} {
+		p := panel
+		p.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+			if event.Key() == tcell.KeyTab {
+				app.SetFocus(stats)
+				return nil
+			}
+			if event.Key() == tcell.KeyBacktab {
+				app.SetFocus(searchInput)
+				return nil
+			}
+			return event
+		})
+	}
 }
 
 // openTopErrorsFullscreen renders a full-terminal overlay of all error/warn
@@ -199,7 +329,7 @@ func (d *Dashboard) openTopErrorsFullscreen(app *tview.Application, topErrors *t
 		SetScrollable(true).
 		SetText(fsContent.String())
 	fsView.SetBorder(true).
-		SetTitle(" [red]Top Errors / Warns [gray]— fullscreen  |  f or Esc: close  |  Enter: inspect  |  scroll: mouse wheel or drag ")
+		SetTitle(" [red]Top Errors / Warns [gray]— fullscreen  |  f/Esc: close  |  ↑↓: navigate  |  Enter: inspect  |  PgUp/Dn: scroll ")
 
 	var fsLastScroll time.Time
 	var fsAccel int
@@ -266,6 +396,47 @@ func (d *Dashboard) openTopErrorsFullscreen(app *tview.Application, topErrors *t
 				app.SetFocus(topErrors)
 				app.QueueEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
 			}
+			return nil
+		}
+		// Up/Down — navigate rows in fullscreen view
+		if ev.Key() == tcell.KeyUp || ev.Key() == tcell.KeyDown {
+			total := len(d.StatLookup)
+			if total == 0 {
+				return nil
+			}
+			highlights := fsView.GetHighlights()
+			current := 0
+			if len(highlights) > 0 {
+				fmt.Sscanf(highlights[0], "top_%d", &current)
+			}
+			if ev.Key() == tcell.KeyDown {
+				current++
+				if current >= total {
+					current = total - 1
+				}
+			} else {
+				current--
+				if current < 0 {
+					current = 0
+				}
+			}
+			fsView.Highlight(fmt.Sprintf("top_%d", current))
+			fsView.ScrollToHighlight()
+			return nil
+		}
+		// Page Down/Up — fast scroll
+		if ev.Key() == tcell.KeyPgDn {
+			offset, _ := fsView.GetScrollOffset()
+			fsView.ScrollTo(offset+10, 0)
+			return nil
+		}
+		if ev.Key() == tcell.KeyPgUp {
+			offset, _ := fsView.GetScrollOffset()
+			next := offset - 10
+			if next < 0 {
+				next = 0
+			}
+			fsView.ScrollTo(next, 0)
 			return nil
 		}
 		return ev

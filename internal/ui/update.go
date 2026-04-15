@@ -18,7 +18,7 @@ import (
 func (d *Dashboard) Update(snap model.Snapshot) {
 	// --- Stats ---
 	var statsStr strings.Builder
-	statsStr.WriteString(fmt.Sprintf("\n[white]Total Logs Processed: [blue]%d\n\n", snap.TotalLines))
+	statsStr.WriteString(fmt.Sprintf("[white]Total Logs Processed: [blue]%d\n\n", snap.TotalLines))
 	statsStr.WriteString(fmt.Sprintf(" [red]ERROR : [white]%-6d    [yellow]WARN  : [white]%-6d\n",
 		snap.ErrorCounts["ERROR"], snap.ErrorCounts["WARN"]))
 	statsStr.WriteString(fmt.Sprintf(" [green]INFO  : [white]%-6d    [cyan]DEBUG : [white]%-6d\n",
@@ -35,15 +35,13 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 			}
 		}
 		statsStr.WriteString(fmt.Sprintf("\n [gray]Source: [cyan]%s", activeName))
-		statsStr.WriteString(" [gray](Tab: next file)")
+		statsStr.WriteString(" [gray](←/→: switch file)")
 	}
 	d.StatsView.SetText(statsStr.String())
 
 	// --- Graph ---
-	sparkErrors := getSparklineLog(snap.TrendError, 5)
-	sparkWarns := getSparklineLog(snap.TrendWarn, 5)
-	sparkErrors = strings.ReplaceAll(sparkErrors, "[cyan]", "[red]")
-	sparkWarns = strings.ReplaceAll(sparkWarns, "[cyan]", "[yellow]")
+	sparkErrors := getSparklineLog(snap.TrendError, 5, "red")
+	sparkWarns := getSparklineLog(snap.TrendWarn, 5, "yellow")
 
 	var graphBody strings.Builder
 	graphBody.WriteString(fmt.Sprintf("\n [white]Status: %s\n\n", getStatusLabel(snap.AverageEPS, snap.AverageWPS)))

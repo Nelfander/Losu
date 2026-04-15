@@ -499,6 +499,40 @@ TUI logic tests operate on pure Go state — no terminal or tview application re
 <details><summary>(Click to expand)</summary>
 
 <details>
+<summary><b>April 15, 2026: Keyboard Navigation, Graph Improvements & Performance Fixes</b> ⌨️📊⚡ (Click to expand)</summary>
+#### Phase 1: Full Keyboard Navigation (input.go)
+ 
+LOSU is now fully usable over SSH without a mouse — every panel is reachable and navigable via keyboard alone.
+ 
+* **Tab / Shift+Tab — panel focus cycling:** Stats → Top Errors → Logs → Search → Stats. Any panel can be reached with Tab alone. Shift+Tab reverses the cycle. AI and Graph panels also participate — clicking into them no longer traps focus.
+* **`/` — jump to search from anywhere:** Global handler in `app.SetInputCapture`. Standard log tool convention — press `/` from any panel to immediately focus the search box.
+* **Left / Right arrows on Stats panel — file switching:** Replaces the old Tab-for-files behavior. Left = previous file, Right = next file, wraps around. Frees Tab for panel cycling.
+* **Up / Down arrows on Top Errors panel — row navigation:** Moves the highlight between error/warn rows without a mouse. `ScrollToHighlight()` keeps the selected row visible. Works in both the normal panel and the fullscreen overlay.
+* **Page Up / Page Down — fast scroll:** 10 rows per press on Top Errors, 20 rows on Logs.
+* **Fullscreen overlay keyboard nav:** The `f` fullscreen view now has identical Up/Down row navigation and Page Up/Down — previously only mouse-clickable. Title updated to show `↑↓: navigate | Enter: inspect | PgUp/Dn: scroll`.
+* **Initial focus on Stats:** `app.SetFocus(stats)` + `app.ForceDraw()` so keyboard works immediately on launch without requiring a click. Windows Terminal still needs a click (OS limitation) but Linux/SSH works immediately.
+* **AI + Graph Tab passthrough:** Both read-only panels now have `SetInputCapture` wired up. Tab moves to Stats, Shift+Tab moves to Search. Clicking AI insights no longer traps the user.
+* **Filter panel title hint:** `[ Filter Panel ] (/ to focus)` — self-documenting.
+* **Top Errors title hint updated:** `(↑↓: navigate  Enter: inspect  f: fullscreen)`.
+* **Source indicator updated:** `(←/→: switch file)` replaces old `(Tab: next file)`.
+#### Phase 2: Graph Improvements (sparkline.go)
+ 
+* **Braille characters:** Replaced `█`/`▄` (2 intensity levels per row) with Braille block chars `⣀⣤⣶⣿` (4 intensity levels per row). Curves are visibly smoother on terminals with proper Unicode monospace font support. On Linux/SSH with JetBrains Mono or Fira Code the improvement is significant.
+* **Y-axis labels:** Peak value shown top-left, min value bottom-left of each chart. You can now read the actual scale instead of just the shape.
+* **Range normalization:** Switched from absolute `(0, max)` normalization to relative `(min, max)` normalization. At high sustained throughput where all values are near the peak, the chart now shows variation within the window rather than a solid wall. Fallback to absolute scale when range < 0.01 (genuinely flat signal) prevents noise amplification.
+* **Color parameter:** `color string` passed directly to `getSparklineLog()` — eliminates the post-hoc `strings.ReplaceAll` pass that was rewriting the entire output string on every render tick.
+* **Zero heap allocations:** `var scaled [60]float64` is stack-allocated (maxTrend is always 60). Single `strings.Builder` for the whole chart replaces `[]string` + `strings.Join`. Two fewer allocations per 500ms render tick.
+#### Phase 3: VariantTimestamps Memory Fix (aggregator.go)
+ 
+* **pprof confirmed root cause:** `&model.VariantTimestamps{}` at aggregator.go:357 was consuming 30MB — a heap allocation for every unique message variant. At 20k logs/sec with high message variety this caused RAM to balloon to 3x baseline.
+* **Fix:** Cap `VariantTimestamps` at 50 variants per pattern. `VariantCounts` still increments for all variants (full observability, accurate counts). Only the timestamp ring used by the Level 2 inspector hit timeline is capped. RAM stabilized at ~58MB at 80M+ logs.
+#### Phase 4: Stats Panel Polish (update.go)
+ 
+* Removed leading `\n` from stats string — all content visible without scrolling, source line no longer hidden below the fold.
+</details>
+
+
+<details>
 <summary><b>April 10, 2026: dashboard.go Split into 5 Files & VariantTimestamps Memory Fix</b> 🏗️🧠 (Click to expand)</summary>
  
 #### Phase 1: dashboard.go Refactor — 5-File Split
