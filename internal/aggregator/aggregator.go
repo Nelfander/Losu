@@ -457,18 +457,6 @@ func (a *Aggregator) WebSnapshot() model.WebSnapshot {
 	}
 }
 
-func (a *Aggregator) getTopVariant(m model.MessageStat) string {
-	best := ""
-	bestCount := 0
-	for msg, count := range m.VariantCounts {
-		if count > bestCount {
-			bestCount = count
-			best = msg
-		}
-	}
-	return best
-}
-
 func (a *Aggregator) getPatternKey(m model.MessageStat) string {
 	for msg := range m.VariantCounts {
 		fp := fingerprint(msg)

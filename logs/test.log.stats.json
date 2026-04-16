@@ -1,0 +1,20 @@
+{
+  "total_lines": 0,
+  "error_counts": {},
+  "message_counts": {},
+  "AverageEPS": 0,
+  "PeakEPS": 0,
+  "AverageWPS": 0,
+  "PeakWPS": 0,
+  "ErrorSecCount": 0,
+  "WarnSecCount": 0,
+  "IncidentSecCount": 0,
+  "StartTime": "2026-04-16T13:27:59.013569064Z",
+  "LastErrorTime": "0001-01-01T00:00:00Z",
+  "LastWarnTime": "0001-01-01T00:00:00Z",
+  "LastReportTime": "0001-01-01T00:00:00Z",
+  "HourlyStartTime": "2026-04-16T13:27:59.013569121Z",
+  "HourlyCounts": {},
+  "TopMessages": {},
+  "Source": "./logs/test.log"
+}

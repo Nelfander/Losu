@@ -1,37 +1,34 @@
-# Step 1: Build Stage
+# ── Stage 1: Build ───────────────────────────────────────────────────────────
+# Use the official Go Alpine image for a minimal build environment.
 FROM golang:alpine AS builder
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy go.mod and go.sum and download dependencies
+# Download dependencies first — cached layer, only re-runs on go.mod changes.
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the source code
+# Copy source and build the single LOSU binary.
+# CGO_ENABLED=0 produces a fully static binary — no libc dependency.
+# This means it runs on any Linux image including scratch/alpine.
 COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /losu cmd/logsum/main.go
 
-# Build the binary specifically from the logsum directory
-RUN CGO_ENABLED=0 GOOS=linux go build -o /losu cmd/logsum/main.go
-
-# Build the generators
-RUN CGO_ENABLED=0 GOOS=linux go build -o /normal_gen bin/normal/normal_gen.go
-RUN CGO_ENABLED=0 GOOS=linux go build -o /stress_gen bin/stress/stress_gen.go
-
-# Step 2: Final Stage
+# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+# Minimal Alpine runtime — ca-certificates needed for HTTPS (ntfy, Ollama).
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 
-
 WORKDIR /app
 
-# Copy all binaries into /app
+# Copy only the binary — no .env, no generators, no source.
+# All configuration is injected via environment variables at runtime.
 COPY --from=builder /losu .
-COPY --from=builder /normal_gen .
-COPY --from=builder /stress_gen .
 
-# Copy the .env file so godotenv can find it!
-COPY .env .
+# Expose web dashboard port.
+# Only active when running with --ui=web or --ui=both.
+EXPOSE 8080
 
-# Run the app
-ENTRYPOINT ["./losu"]
+# Default: run with both TUI and web dashboard.
+# Override with: docker run ... losu --ui=tui
+ENTRYPOINT ["./losu", "--ui=both"]

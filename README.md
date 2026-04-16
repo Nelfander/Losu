@@ -166,135 +166,148 @@ To achieve "Zero-Overload" on host servers, LOSU utilizes several advanced Go-sp
 > **The "Constant-Space" Guarantee**: LOSU's memory profile is **State-Independent**. Whether it has processed 1,000 logs or 100,000,000 logs, the heap remains stabilized (typically under 50MB). This makes it the safest choice for low-spec production nodes, sidecar containers, and mission-critical infrastructure monitoring.
  
 ## 📦 Installation, Setup and Testing!
-<details><summary><b>The Docker Way!</b>(Click to expand)</summary>
- 
-Follow these steps to get the monitor, the AI, and the log generator running in sync.
- 
+
+<details><summary><b>The Docker Way!</b> (Click to expand)</summary>
+
+Follow these steps to get the monitor and the AI engine running.
+
 ### 1. Clone the repository
-git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
-& cd losu
- 
-### 2. Spin up the Infrastructure
-This starts the UI container and the AI engine in the background.
+```bash
+git clone https://github.com/nelfander/losu.git
+cd losu
+```
+
+### 2. Configure your environment
+```bash
+cp .env.example .env
+```
+Open `.env` and set:
+- `LOG_PATH_HOST` — the folder on your machine containing your log files (e.g. `./logs`)
+- `LOSU_LOG_PATH` — path(s) inside the container, comma-separated for multi-file (e.g. `./logs/app.log,./logs/worker.log`)
+- `LOSU_NTFY_TOPIC` — your unique ntfy.sh topic for phone alerts
+
+### 3. Spin up the infrastructure
 ```bash
 docker-compose up -d
 ```
- 
-### 3. Prepare the AI (One-Time Setup)
-Run this to download the Llama3 model into your local Docker volume. You only need to do this once:
+This starts LOSU and the Ollama AI engine in the background.
+The web dashboard is immediately available at **http://localhost:8080**
+
+### 4. Prepare the AI (One-Time Setup)
+Download the Llama3 model into your local Docker volume. Only needed once:
 ```bash
-docker-compose exec ollama ollama run llama3
+docker-compose exec ollama ollama pull llama3
 ```
- 
-### 4. Launch the Monitor
+
+### 4b. Mobile Alerts Setup
+1. Download the **ntfy** app (iOS/Android)
+2. Click **"Subscribe to topic"** and enter a unique private name (e.g. `losu-monitor-5437`)
+3. In `.env`, set:
+```env
+LOSU_NTFY_TOPIC=losu-monitor-5437
+LOSU_ALERT_EPS_THRESHOLD=1.0
+```
+4. Phone alerts fire when EPS is at or above `LOSU_ALERT_EPS_THRESHOLD` — prevents spam from occasional single errors.
+
+
+### 5. Launch the TUI
+In a terminal window:
 ```bash
-# Terminal dashboard (default)
-docker exec -it losu-losu-1 ./losu
- 
-# Web dashboard — open http://localhost:8080
-docker exec -it losu-losu-1 ./losu --ui=web
- 
-# Both simultaneously
-docker exec -it losu-losu-1 ./losu --ui=both
+# Full dashboard (TUI + web)
+docker exec -it losu ./losu --ui=tui
+
+# TUI only
+docker exec -it losu ./losu --ui=tui
+
+# Web only (dashboard already running at :8080)
+docker exec -it losu ./losu --ui=web
 ```
- 
-### 5. Start the Log Generator
-In a new <b>terminal window</b>, start the stream of simulated logs:
-```bash
-# For Stress test (1k logs/sec)
-docker-compose exec -d losu ./stress_gen ./logs/test.log
-```
-```bash
-# For Normal test (Warn: 10% chance | Error: 3% chance)
-docker-compose exec -d losu ./normal_gen ./logs/test.log
-```
- 
- 
+To detach from TUI without stopping: `Ctrl+P` then `Ctrl+Q`
+
 ### 🛠️ Useful Commands
- 
+
 | Action | Command |
 | :--- | :--- |
-| **Stop Logs** | `docker-compose exec losu pkill stress_gen` |
-| **View Raw Logs** | `tail -f ./logs/test.log` |
-| **Shutdown All** | `docker-compose down` |
-| **Reset Stats** | `docker exec -it losu-losu-1 ./losu -reset` |
- 
- 
+| **View logs** | `docker logs losu --tail=50` |
+| **Shutdown all** | `docker-compose down` |
+| **Restart LOSU** | `docker-compose restart losu` |
+| **Reset stats** | `docker exec -it losu ./losu --reset` |
+| **Check Ollama models** | `docker exec -it losu-ollama ollama list` |
+
 </details>
- 
+
 ---
- 
-<details><summary><b>The GO Way!</b>(Click to expand)</summary>
- 
+
+<details><summary><b>The Go Way!</b> (Click to expand)</summary>
+
 ### 1. Clone the repository
-git clone [https://github.com/nelfander/losu.git](https://github.com/nelfander/losu.git)
-& cd losu
- 
+```bash
+git clone https://github.com/nelfander/losu.git
+cd losu
+```
+
 ### 2. Prerequisites
-Install [Ollama](https://ollama.com) and pull the high-performance Llama 3 model:
+Install [Ollama](https://ollama.com) and pull the Llama 3 model:
 ```bash
 ollama pull llama3
 ```
- 
+
 ### 3. Configuration
-Create a `.env` file in the root directory(Check .env.example):
+Copy `.env.example` to `.env` and fill in your values:
+
 | Environment Variable | Description | Default |
 | :--- | :--- | :--- |
-| `LOSU_LOG_PATH` | Comma-separated log file paths to monitor. | `logs/test.log` |
-| `LOSU_MIN_LEVEL` | Minimum severity (DEBUG/INFO/WARN/ERROR). | `INFO` |
-| `LOSU_NTFY_TOPIC` | Unique ntfy.sh topic for phone alerts. | `losu-monitor-default` |
-| `LOSU_AI_MODEL` | The Ollama model for analysis. | `llama3` |
-| `LOSU_WEB_ADDR` | Web dashboard listen address. | `:8080` |
-| `LOSU_EPS_CRITICAL` | EPS threshold for CRITICAL SPIKE status. | `20.0` |
-| `LOSU_EPS_SUSTAINED` | EPS threshold for Sustained Errors status. | `5.0` |
-| `LOSU_EPS_UNSTABLE` | EPS threshold for Unstable status. | `1.0` |
-| `LOSU_EPS_MINOR` | EPS threshold for Minor Issues status. | `0.1` |
-| `LOSU_WPS_PREINCIDENT` | WPS threshold for Pre-Incident Warning. | `200.0` |
-| `LOSU_WPS_SUSPICIOUS` | WPS threshold for Suspicious Activity. | `100.0` |
-| `LOSU_WPS_PRESSURE` | WPS threshold for Pressure Building. | `50.0` |
- 
+| `LOSU_LOG_PATH` | Comma-separated log file paths to monitor | `./logs/app.log` |
+| `LOSU_MIN_LEVEL` | Minimum severity (DEBUG/INFO/WARN/ERROR) | `INFO` |
+| `LOSU_NTFY_TOPIC` | Unique ntfy.sh topic for phone alerts | `losu-monitor-default` |
+| `LOSU_ALERT_EPS_THRESHOLD` | EPS threshold to trigger phone alerts | `1.0` |
+| `LOSU_AI_MODEL` | Ollama model for analysis | `llama3` |
+| `LOSU_WEB_ADDR` | Web dashboard listen address | `:8080` |
+| `LOSU_EPS_MINOR` | EPS threshold → Minor Issues status | `0.1` |
+| `LOSU_EPS_WARN` | EPS threshold → Unstable status | `1.0` |
+| `LOSU_EPS_CRITICAL` | EPS threshold → Critical Spike status | `5.0` |
+| `LOSU_WPS_PRESSURE` | WPS threshold → Pressure Building status | `50` |
+| `LOSU_WPS_SUSPICIOUS` | WPS threshold → Suspicious Activity status | `100` |
+| `LOSU_WPS_PREINCIDENT` | WPS threshold → Pre-Incident Warning status | `200` |
+| `LOSU_REPORT_WINDOW` | Heartbeat report interval in minutes | `60` |
+
 ### 4. Mobile Alerts Setup
-1. Download the **ntfy** app (iOS/Android).
-2. Click **"Subscribe to topic"** and enter a unique, private name (e.g., `losu-monitor-5437`).
-3. In `.env`, ensure the `LOSU_NTFY_TOPIC` matches your chosen name:
-   ```go
-   NTFY_TOPIC=losu-monitor-5437
-4. Instant push notifications will now bypass your desktop and hit your pocket for all ERROR level events.
- 
- 
-### 5. ▹Run the app 
-<details><summary><b>Windows way!</b>(Click to expand)</summary>
- 
--Run with default INFO filter (TUI only)
+1. Download the **ntfy** app (iOS/Android)
+2. Click **"Subscribe to topic"** and enter a unique private name (e.g. `losu-monitor-5437`)
+3. In `.env`, set `LOSU_NTFY_TOPIC` to match:
+```env
+LOSU_NTFY_TOPIC=losu-monitor-5437
+```
+4. Set `LOSU_ALERT_EPS_THRESHOLD` to control when your phone rings — default `1.0` means phone alerts only fire when errors are sustained, not for a single occasional error.
+
+### 5. Run the app
+
 ```bash
+# TUI only (default)
 go run cmd/logsum/main.go
-```
- 
--Run with web dashboard
-```bash
+
+# Web dashboard only — open http://localhost:8080
 go run cmd/logsum/main.go --ui=web
-```
- 
--Run with both TUI and web dashboard
-```bash
+
+# Both TUI and web simultaneously
 go run cmd/logsum/main.go --ui=both
+
+# Wipe previous session stats and start fresh
+go run cmd/logsum/main.go --reset
 ```
- 
--Run and wipe previous session stats
-```bash
-go run cmd/logsum/main.go -reset
-```
- 
+
 ### 6. 🧪 Testing with generators
+Run these in separate terminals to simulate real log traffic:
 ```bash
 # Terminal 1 — logfmt traffic → logs/test.log
-go run bin/generators/normal/normal_gen.go
+go run bin/generators/normal/main.go
 
 # Terminal 2 — JSON traffic → logs/test2.log
 go run bin/generators/json/json_gen.go
 ```
+
 </details>
- 
+
 <details><summary><b>Makefile way!</b>(Click to expand)</summary>
 You can use the provided **Makefile** for easy execution:
  
@@ -323,6 +336,25 @@ make test-stress
 </details>
  
 </details>
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+LOSU is fully usable over SSH without a mouse.
+
+| Key | Action |
+| :--- | :--- |
+| `Tab` | Cycle focus: Stats → Top Errors → Logs → Search → Stats |
+| `Shift+Tab` | Reverse cycle |
+| `←` / `→` | Switch log file (Stats panel, multi-file only) |
+| `↑` / `↓` | Navigate rows in Top Errors panel |
+| `PgDn` / `PgUp` | Fast scroll (10 rows Top Errors, 20 rows Logs) |
+| `Enter` | Open forensic drill-down for highlighted error |
+| `f` | Fullscreen Top Errors panel |
+| `/` | Jump to search from anywhere |
+| `Esc` / `q` | Close any popup |
+| `Ctrl+C` | Quit |
  
 ---
  
@@ -497,6 +529,36 @@ TUI logic tests operate on pure Go state — no terminal or tview application re
 
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
+
+<details>
+<summary><b>April 16, 2026: Docker Support, Alert EPS Threshold, AI Fix & README Update</b> 🐳🚨🤖📖 (Click to expand)</summary>
+#### Phase 1: Docker Support
+ 
+* **`Dockerfile`** — clean two-stage build. Stage 1: `golang:alpine` builds a fully static binary with `-ldflags="-s -w"` (strips debug symbols, smaller image). Stage 2: minimal `alpine:latest` runtime with only `ca-certificates`. No generators, no `.env`, no source — just the binary. Default entrypoint is `./losu --ui=both` so web dashboard is always available at `:8080`.
+* **`docker-compose.yml`** — complete rewrite against current architecture. All env vars documented with defaults (`LOSU_EPS_MINOR`, `LOSU_EPS_WARN`, `LOSU_EPS_CRITICAL`, `LOSU_WPS_*`, `LOSU_REPORT_WINDOW`, `LOSU_ALERT_EPS_THRESHOLD`). Port 8080 exposed. `LOG_PATH_HOST` mounts host log folder into container. `depends_on: ollama` removed — LOSU starts fine without AI. Ollama marked as optional.
+* **`.env.example`** — new file users copy to `.env`. All variables documented with explanations. Docker Compose reads it from the host — secrets never baked into the image.
+* **Correct workflow:**
+  ```bash
+  cp .env.example .env   # configure
+  docker-compose up -d   # start LOSU + Ollama
+  docker exec -it losu ./losu --ui=tui  # attach TUI
+  # web dashboard always at http://localhost:8080
+  ```
+ 
+#### Phase 2: Alert EPS Threshold (alerts.go + main.go)
+ 
+* **`alerts.go`** — `Trigger()` signature extended with `currentEPS float64`. Phone alert (ntfy) only fires when `currentEPS >= LOSU_ALERT_EPS_THRESHOLD`. Desktop popup (`beeep`) still fires regardless — it's local and not annoying. `alertEPSThreshold()` reads from env, defaults to `1.0`. This prevents phone spam from occasional single errors while still alerting on real sustained spikes.
+* **`main.go`** — fixed a long-standing bug: `notifier.Trigger()` was never actually being called. The old code only updated `lastAlertTime` but never triggered any alert. Now correctly calls `notifier.Trigger(event, fileAgg.AverageEPS)`. Also extended to WARN level. Mutex now unlocked before calling `Trigger` to avoid holding lock during network calls.
+#### Phase 3: AI Ollama Fix (explainer.go)
+ 
+* **Root cause found:** `NewExplainer()` was unconditionally overriding `LOSU_OLLAMA_HOST=http://ollama:11434` with `http://localhost:11434`. In Docker, `localhost` means the LOSU container itself — not the Ollama container. So AI was always trying to connect to the wrong address.
+* **Fix:** Only fall back to `localhost:11434` when `LOSU_OLLAMA_HOST` is completely empty. When the env var is set (as it always is in Docker via `docker-compose.yml`), use it as-is. AI now works correctly in Docker — verified with `llama3:latest`.
+#### Phase 4: README Update
+ 
+* Docker Way section fully rewritten — `.env` setup step added, container name fixed (`losu-losu-1` → `losu`), generators removed, mobile alerts setup added, `--reset` flag fixed (was `-reset`).
+* Go Way section updated — generator paths fixed, all new env vars added to table, `NTFY_TOPIC` → `LOSU_NTFY_TOPIC`.
+* New **Keyboard Shortcuts** table added — Tab cycling, arrow navigation, `f` fullscreen, `/` search, `PgUp/Dn`, `Enter` inspector, `Esc`/`q` close.
+</details>
 
 <details>
 <summary><b>April 15, 2026: Keyboard Navigation, Graph Improvements & Performance Fixes</b> ⌨️📊⚡ (Click to expand)</summary>

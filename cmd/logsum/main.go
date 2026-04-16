@@ -184,13 +184,16 @@ func main() {
 						count = 0
 					}
 
-					if event.Level == "ERROR" {
+					if event.Level == "ERROR" || event.Level == "WARN" {
 						alertMu.Lock()
-						// Only notify if it's been more than 10 seconds since the last one
 						if time.Since(lastAlertTime) > 10*time.Second {
 							lastAlertTime = time.Now()
+							alertMu.Unlock()
+							// Pass current EPS so phone alert only fires above threshold
+							notifier.Trigger(event, fileAgg.AverageEPS)
+						} else {
+							alertMu.Unlock()
 						}
-						alertMu.Unlock()
 					}
 				}
 			}

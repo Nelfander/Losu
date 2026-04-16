@@ -17,13 +17,16 @@ type Explainer struct {
 }
 
 func NewExplainer() *Explainer {
-	// Get values from .env or use defaults
 	_ = godotenv.Load()
-	//  If we are running locally (go run),
-	// ollama won't resolve. We override it to localhost.
+
 	endpoint := os.Getenv("LOSU_OLLAMA_HOST")
-	if endpoint == "http://ollama:11434" || endpoint == "" {
-		// We try to see if we can reach localhost instead
+
+	// Only fall back to localhost if the env var is not set at all.
+	// When running in Docker, LOSU_OLLAMA_HOST=http://ollama:11434 is set
+	// via docker-compose and resolves correctly — do NOT override it.
+	// When running locally with `go run`, LOSU_OLLAMA_HOST is typically
+	// empty or points to localhost already.
+	if endpoint == "" {
 		endpoint = "http://localhost:11434"
 	}
 
@@ -40,7 +43,6 @@ func NewExplainer() *Explainer {
 
 // AnalyzeSystem sends telemetry and pattern data to an LLM to generate a concise SRE-style incident report
 func (e *Explainer) AnalyzeSystem(errorPatterns string, warnPatterns string, avgEps float64, peakEps float64, avgWps float64, peakWps float64) (string, error) {
-	// Sharp, context-aware prompt for a Senior SRE
 	prompt := fmt.Sprintf(`Act as a Senior SRE. Analyze these live telemetry signals:
 
 [TELEMETRY]
@@ -69,7 +71,7 @@ Use Markdown. No intro/outro fluff. Technical brevity is mandatory.`, avgEps, pe
 	}
 
 	body, _ := json.Marshal(payload)
-	client := http.Client{Timeout: 30 * time.Second} // AI can be slow on first load
+	client := http.Client{Timeout: 30 * time.Second}
 
 	resp, err := client.Post(e.Endpoint, "application/json", bytes.NewBuffer(body))
 	if err != nil {

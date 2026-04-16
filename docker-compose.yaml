@@ -1,30 +1,79 @@
 version: '3.8'
 
+# ── LOSU — Log Observer & Summary Unit ───────────────────────────────────────
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in your values
+#   2. docker-compose up -d
+#   3. docker-compose exec losu ./losu          # TUI only
+#      OR open http://localhost:8080            # Web dashboard (always running)
+#
+# To point LOSU at your real app logs:
+#   Set LOG_PATH_HOST in .env to the folder containing your log files.
+#   Set LOSU_LOG_PATH to the path(s) inside the container (comma-separated for multi-file).
+
 services:
-  # The Observer (Losu)
+
+  # ── LOSU Observer ───────────────────────────────────────────────────────────
   losu:
     build: .
+    container_name: losu
+    restart: unless-stopped
     stop_signal: SIGINT
     tty: true
     stdin_open: true
+    ports:
+      - "8080:8080" # Web dashboard — open http://localhost:8080
     volumes:
-      # Mounts the host folder to the container
-      - ${LOG_PATH_HOST}:/app/logs
+      # Mount your host log folder into the container.
+      # Set LOG_PATH_HOST in .env to the folder containing your log files.
+      - ${LOG_PATH_HOST:-./logs}:/app/logs
     environment:
-      # Change these at .env
+      # Terminal type — required for TUI rendering over SSH/Docker
       - TERM=xterm-256color
-      - LOSU_LOG_PATH=./logs/test.log
-      - LOSU_OLLAMA_HOST=http://ollama:11434
-      - LOSU_NTFY_TOPIC=${LOSU_NTFY_TOPIC}
-      - LOSU_MIN_LEVEL=${LOSU_MIN_LEVEL}
-      - LOSU_AI_MODEL=${LOSU_AI_MODEL}
-      - LOSU_AI_INTERVAL_SECONDS=${LOSU_AI_INTERVAL_SECONDS}
-    depends_on:
-      - ollama
 
-  # The AI Engine
+      # ── Log source ──────────────────────────────────────────────────────────
+      # Comma-separated paths for multi-file monitoring.
+      # Paths are relative to /app inside the container.
+      - LOSU_LOG_PATH=${LOSU_LOG_PATH:-./logs/app.log}
+
+      # ── Log filtering ───────────────────────────────────────────────────────
+      - LOSU_MIN_LEVEL=${LOSU_MIN_LEVEL:-INFO}
+
+      # ── EPS alert thresholds ────────────────────────────────────────────────
+      - LOSU_EPS_MINOR=${LOSU_EPS_MINOR:-0.1}
+      - LOSU_EPS_WARN=${LOSU_EPS_WARN:-1.0}
+      - LOSU_EPS_CRITICAL=${LOSU_EPS_CRITICAL:-5.0}
+
+      # ── WPS alert thresholds ────────────────────────────────────────────────
+      - LOSU_WPS_PRESSURE=${LOSU_WPS_PRESSURE:-50}
+      - LOSU_WPS_SUSPICIOUS=${LOSU_WPS_SUSPICIOUS:-100}
+      - LOSU_WPS_PREINCIDENT=${LOSU_WPS_PREINCIDENT:-200}
+
+      # ── Incident reporting ──────────────────────────────────────────────────
+      - LOSU_REPORT_WINDOW=${LOSU_REPORT_WINDOW:-60}
+
+      # ── Mobile alerts (ntfy.sh) ─────────────────────────────────────────────
+      # Get the ntfy app, subscribe to a unique topic, set it here.
+      - LOSU_NTFY_TOPIC=${LOSU_NTFY_TOPIC:-losu-monitor-default}
+      # Only send phone alerts when EPS is at or above this value.
+      # Default 1.0 — prevents spam from occasional single errors.
+      - LOSU_ALERT_EPS_THRESHOLD=${LOSU_ALERT_EPS_THRESHOLD:-1.0}
+
+      # ── AI (Ollama) ─────────────────────────────────────────────────────────
+      - LOSU_OLLAMA_HOST=http://ollama:11434
+      - LOSU_AI_MODEL=${LOSU_AI_MODEL:-llama3}
+
+      # ── Web dashboard ───────────────────────────────────────────────────────
+      - LOSU_WEB_ADDR=${LOSU_WEB_ADDR:-:8080}
+
+  # ── Ollama — Local AI Engine ────────────────────────────────────────────────
+  # Optional — LOSU works without it, AI panel will show "Waiting for AI..."
+  # First run: docker-compose exec ollama ollama pull llama3
   ollama:
     image: ollama/ollama:latest
+    container_name: losu-ollama
+    restart: unless-stopped
     ports:
       - "11434:11434"
     volumes:

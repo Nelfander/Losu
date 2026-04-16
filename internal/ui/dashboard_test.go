@@ -326,26 +326,28 @@ func TestDashboard_AISummary_Top3Only(t *testing.T) {
 }
 
 // ── Sparkline ─────────────────────────────────────────────────────────────────
-
 func TestHelper_SparklineLog_Empty(t *testing.T) {
-	result := getSparklineLog([]int{}, 5)
+	result := getSparklineLog([]int{}, 5, "red")
 	if result != "" {
 		t.Errorf("Expected empty string for empty data, got %q", result)
 	}
 }
 
 func TestHelper_SparklineLog_AllZeros(t *testing.T) {
-	result := getSparklineLog([]int{0, 0, 0, 0}, 5)
-	// All zeros should produce a valid (mostly blank) sparkline without panicking
+	result := getSparklineLog([]int{0, 0, 0, 0}, 5, "red")
 	if result == "" {
 		t.Error("Expected non-empty sparkline even for zero data")
 	}
 }
 
 func TestHelper_SparklineLog_SingleSpike(t *testing.T) {
-	// A spike should produce non-blank characters somewhere in the output
-	result := getSparklineLog([]int{0, 0, 100, 0, 0}, 5)
-	if !strings.Contains(result, "█") && !strings.Contains(result, "▄") {
-		t.Error("Expected spike to produce block characters in sparkline")
+	result := getSparklineLog([]int{0, 0, 100, 0, 0}, 5, "red")
+	// Braille chars used for rendering — check for any non-space content
+	hasContent := strings.Contains(result, "⣿") ||
+		strings.Contains(result, "⣶") ||
+		strings.Contains(result, "⣤") ||
+		strings.Contains(result, "⣀")
+	if !hasContent {
+		t.Error("Expected spike to produce Braille block characters in sparkline")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,39 +29,50 @@ func NewAlerter(path string) *Alerter {
 	}
 }
 
-// Trigger executes all alert actions
-func (a *Alerter) Trigger(event model.LogEvent) {
+// alertEPSThreshold reads LOSU_ALERT_EPS_THRESHOLD from env.
+// Phone alerts are only sent when current EPS is at or above this value.
+// Default: 1.0 — avoids spamming your phone for occasional single errors.
+func alertEPSThreshold() float64 {
+	if v := os.Getenv("LOSU_ALERT_EPS_THRESHOLD"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
+	}
+	return 1.0
+}
+
+// Trigger executes all alert actions for an event.
+// currentEPS is the rolling average EPS at the time of the alert —
+// phone notifications are suppressed below LOSU_ALERT_EPS_THRESHOLD.
+func (a *Alerter) Trigger(event model.LogEvent, currentEPS float64) {
 	a.mu.Lock()
 
-	// Use a global cooldown key OR the Level as a key
 	alertKey := "GLOBAL_ERROR_COOLDOWN"
 	if event.Level == "WARN" {
 		alertKey = "GLOBAL_WARN_COOLDOWN"
 	}
 
 	last, exists := a.LastSent[alertKey]
-
 	if exists && time.Since(last) < a.Cooldown {
 		a.mu.Unlock()
 		a.writeToLog(event, false)
 		return
 	}
 
-	// Update the timestamp for this key
 	a.LastSent[alertKey] = time.Now()
 	a.mu.Unlock()
 
-	// Log it
 	a.writeToLog(event, true)
 
-	// Visual/Phone Notifications
 	title := fmt.Sprintf("🚨 %s: System Alert", event.Level)
 	go func() {
-		// Native popup
+		// Native desktop popup — always fires regardless of EPS
 		_ = beeep.Alert(title, event.Message, "")
-		// Phone alert
+		// Phone alert — only fires when EPS is at or above threshold
 		if event.Level == "ERROR" && a.NtfyTopic != "" {
-			a.SendToPhone(event.Message)
+			if currentEPS >= alertEPSThreshold() {
+				a.SendToPhone(event.Message)
+			}
 		}
 	}()
 }
@@ -87,31 +99,26 @@ func (a *Alerter) writeToLog(event model.LogEvent, notified bool) {
 }
 
 func (a *Alerter) SendToPhone(message string) {
-
 	if a.NtfyTopic == "" {
 		return
 	}
 
 	url := "https://ntfy.sh/" + a.NtfyTopic
-	//  send the message
 	req, _ := http.NewRequest("POST", url, strings.NewReader(message))
-
-	// Add some sexy text for the mobile app
 	req.Header.Set("Title", "🚨 LOSU Critical Alert")
-	req.Header.Set("Priority", "high") // Makes it bypass some do not disturb settings
+	req.Header.Set("Priority", "high")
 	req.Header.Set("Tags", "warning,skull")
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return // dont crash the app if the internet is down
+		return
 	}
 	defer resp.Body.Close()
 }
 
 // PushNotification sends a plain text alert (used for Heartbeats/Summaries)
 func (a *Alerter) PushNotification(title, message string) {
-	// Log it to local alerts.log file
 	f, _ := os.OpenFile(a.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if f != nil {
 		defer f.Close()
@@ -119,13 +126,10 @@ func (a *Alerter) PushNotification(title, message string) {
 		fmt.Fprintf(f, "[%s] %s: %s\n", timestamp, title, message)
 	}
 
-	// Send to ntfy.sh if a topic is set
 	if a.NtfyTopic != "" {
 		url := "https://ntfy.sh/" + a.NtfyTopic
 		req, _ := http.NewRequest("POST", url, strings.NewReader(message))
 		req.Header.Set("Title", title)
-
-		// Use an emoji tag for the Heartbeat
 		req.Header.Set("Tags", "bar_chart,heartbeat")
 
 		client := &http.Client{Timeout: 5 * time.Second}

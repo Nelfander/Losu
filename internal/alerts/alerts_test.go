@@ -10,28 +10,19 @@ import (
 	"github.com/nelfander/losu/internal/model"
 )
 
-/*
-	TestAlerts_Cooldown verifies that the throttling logic works.
-
-If two alerts of the same level are triggered within the cooldown period,
-the second one should be logged but NOT update the 'LastSent' timestamp
-or trigger a new notification.
-*/
 func TestAlerts_Cooldown(t *testing.T) {
 	tmpLog := "test_alerts.log"
 	defer os.Remove(tmpLog)
 
 	alerter := NewAlerter(tmpLog)
-	alerter.Cooldown = 500 * time.Millisecond // Short cooldown for testing
+	alerter.Cooldown = 500 * time.Millisecond
 
 	event := model.LogEvent{Level: "ERROR", Message: "First Error"}
 
-	// First trigger
-	alerter.Trigger(event)
+	alerter.Trigger(event, 5.0) // EPS above threshold — ensures phone path is exercised
 	firstSent := alerter.LastSent["GLOBAL_ERROR_COOLDOWN"]
 
-	// Immediate second trigger (should be ignored by cooldown)
-	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "Second Error"})
+	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "Second Error"}, 5.0)
 	secondSent := alerter.LastSent["GLOBAL_ERROR_COOLDOWN"]
 
 	if !firstSent.Equal(secondSent) {
@@ -39,12 +30,6 @@ func TestAlerts_Cooldown(t *testing.T) {
 	}
 }
 
-/*
-	TestAlerts_RaceCondition runs multiple triggers in parallel.
-
-When run with 'go test -race', this ensures the Mutex is correctly
-protecting the LastSent map from concurrent write access.
-*/
 func TestAlerts_RaceCondition(t *testing.T) {
 	tmpLog := "test_race.log"
 	defer os.Remove(tmpLog)
@@ -57,28 +42,20 @@ func TestAlerts_RaceCondition(t *testing.T) {
 		wg.Add(1)
 		go func(val int) {
 			defer wg.Done()
-			alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "Race test"})
+			alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "Race test"}, 0.0)
 		}(i)
 	}
 	wg.Wait()
 }
 
-/*
-	TestAlerts_LevelIsolation ensures that a WARN alert
-
-does not trigger the cooldown for an ERROR alert.
-They should be tracked independently.
-*/
 func TestAlerts_LevelIsolation(t *testing.T) {
 	tmpLog := "test_iso.log"
 	defer os.Remove(tmpLog)
 
 	alerter := NewAlerter(tmpLog)
 
-	// Trigger ERROR
-	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "Err"})
-	// Trigger WARN
-	alerter.Trigger(model.LogEvent{Level: "WARN", Message: "Wrn"})
+	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "Err"}, 0.0)
+	alerter.Trigger(model.LogEvent{Level: "WARN", Message: "Wrn"}, 0.0)
 
 	if len(alerter.LastSent) != 2 {
 		t.Errorf("Expected 2 distinct cooldown keys, got %d", len(alerter.LastSent))
@@ -90,9 +67,8 @@ func TestAlerts_LogFileWritten(t *testing.T) {
 	defer os.Remove(tmpLog)
 
 	alerter := NewAlerter(tmpLog)
-	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "disk failure"})
+	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "disk failure"}, 0.0)
 
-	// Give writeToLog time to complete
 	time.Sleep(50 * time.Millisecond)
 
 	data, err := os.ReadFile(tmpLog)
@@ -118,13 +94,12 @@ func TestAlerts_CooldownResetAfterExpiry(t *testing.T) {
 	alerter := NewAlerter(tmpLog)
 	alerter.Cooldown = 50 * time.Millisecond
 
-	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "first"})
+	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "first"}, 0.0)
 	firstSent := alerter.LastSent["GLOBAL_ERROR_COOLDOWN"]
 
-	// Wait for cooldown to expire
 	time.Sleep(100 * time.Millisecond)
 
-	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "second"})
+	alerter.Trigger(model.LogEvent{Level: "ERROR", Message: "second"}, 0.0)
 	secondSent := alerter.LastSent["GLOBAL_ERROR_COOLDOWN"]
 
 	if !secondSent.After(firstSent) {
@@ -137,11 +112,8 @@ func TestAlerts_EmptyNtfyTopicSkipsPhone(t *testing.T) {
 	defer os.Remove(tmpLog)
 
 	alerter := NewAlerter(tmpLog)
-	alerter.NtfyTopic = "" // explicitly empty
+	alerter.NtfyTopic = ""
 
-	// Should return immediately without making any HTTP call
-	// If it tries to call ntfy.sh with empty topic it would hit
-	// "https://ntfy.sh/" which would either error or post to wrong topic
 	done := make(chan struct{})
 	go func() {
 		alerter.SendToPhone("should not be sent")
@@ -150,7 +122,6 @@ func TestAlerts_EmptyNtfyTopicSkipsPhone(t *testing.T) {
 
 	select {
 	case <-done:
-		// Returned immediately as expected
 	case <-time.After(100 * time.Millisecond):
 		t.Error("SendToPhone did not return immediately for empty NtfyTopic")
 	}
