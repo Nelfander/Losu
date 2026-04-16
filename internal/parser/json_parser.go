@@ -53,6 +53,23 @@ func (p *JSONParser) Parse(raw model.RawLog) model.LogEvent {
 		}
 	}
 
+	// Docker container log wrapper detection.
+	// Docker wraps every log line as: {"log":"<actual line>\n","stream":"stdout","time":"..."}
+	// If we see both "log" and "stream" fields, extract the inner "log" value
+	// and re-parse it so we get the real level/message from the app's own log format.
+	if _, hasStream := fields["stream"]; hasStream {
+		if logRaw, hasLog := fields["log"]; hasLog {
+			var innerLine string
+			if err := json.Unmarshal(logRaw, &innerLine); err == nil {
+				innerLine = strings.TrimSpace(innerLine)
+				if innerLine != "" && innerLine != line {
+					// Re-parse the inner log line using the same parser
+					return p.Parse(model.RawLog{Line: innerLine, Source: raw.Source})
+				}
+			}
+		}
+	}
+
 	level := extractString(fields, "level", "severity", "lvl")
 	message := extractString(fields, "msg", "message", "error", "err")
 	timeStr := extractString(fields, "time", "timestamp", "ts", "@timestamp")
