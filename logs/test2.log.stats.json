@@ -9,11 +9,11 @@
   "ErrorSecCount": 0,
   "WarnSecCount": 0,
   "IncidentSecCount": 0,
-  "StartTime": "2026-04-15T20:00:36.2492155+02:00",
+  "StartTime": "2026-04-17T17:03:08.1472253+02:00",
   "LastErrorTime": "0001-01-01T00:00:00Z",
   "LastWarnTime": "0001-01-01T00:00:00Z",
   "LastReportTime": "0001-01-01T00:00:00Z",
-  "HourlyStartTime": "2026-04-15T20:00:36.2492155+02:00",
+  "HourlyStartTime": "2026-04-17T17:03:08.1472253+02:00",
   "HourlyCounts": {},
   "TopMessages": {},
   "Source": "./logs/test2.log"

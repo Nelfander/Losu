@@ -273,7 +273,13 @@ func main() {
 		// Wait for data to populate before first analysis
 		time.Sleep(5 * time.Second)
 
-		ticker := time.NewTicker(30 * time.Second)
+		aiInterval := 60
+		if v := os.Getenv("LOSU_AI_INTERVAL_SECONDS"); v != "" {
+			if i, err := strconv.Atoi(v); err == nil && i > 0 {
+				aiInterval = i
+			}
+		}
+		ticker := time.NewTicker(time.Duration(aiInterval) * time.Second)
 		defer ticker.Stop()
 
 		for {
@@ -327,6 +333,13 @@ func main() {
 				}
 
 				timestamp := time.Now().Format("15:04:05")
+
+				// Strip markdown formatting before storing — tview's tag parser
+				// chokes on ** and ### which corrupts rendering of other panels.
+				analysis = strings.ReplaceAll(analysis, "**", "")
+				analysis = strings.ReplaceAll(analysis, "### ", "")
+				analysis = strings.ReplaceAll(analysis, "## ", "")
+				analysis = strings.ReplaceAll(analysis, "# ", "")
 
 				// Store plain text for web UI
 				webText := fmt.Sprintf("Last Analysis @ %s | Avg EPS: %.2f | Avg WPS: %.2f\n\n%s",
@@ -383,7 +396,11 @@ func main() {
 					}
 					lastText = text
 					dash.App.QueueUpdateDraw(func() {
-						dash.AIView.SetText("[white]" + text)
+						// tview.Escape prevents any remaining brackets from
+						// being interpreted as color tags and corrupting render
+						safe := strings.ReplaceAll(text, "[", "(")
+						safe = strings.ReplaceAll(safe, "]", ")")
+						dash.AIView.SetText("[white]" + safe)
 					})
 				}
 			}

@@ -40,17 +40,49 @@ func (d *Dashboard) Update(snap model.Snapshot) {
 	d.StatsView.SetText(statsStr.String())
 
 	// --- Graph ---
-	sparkErrors := getSparklineLog(snap.TrendError, 5, "red")
-	sparkWarns := getSparklineLog(snap.TrendWarn, 5, "yellow")
+	// Get actual panel width to prevent overflow at the right border.
+	// Each Braille char is 1 cell wide — rendering more chars than the panel
+	// width causes tview to wrap/corrupt the line after ~55-60 seconds.
+	_, _, graphWidth, _ := d.GraphView.GetInnerRect()
+	if graphWidth <= 0 {
+		graphWidth = 40 // safe fallback before first draw
+	}
+	// Reserve space for Y-axis label (up to 4 chars + space)
+	chartWidth := graphWidth - 6
+	if chartWidth < 10 {
+		chartWidth = 10
+	}
+
+	sparkErrors := getSparklineLog(snap.TrendError, 5, "red", chartWidth)
+	sparkWarns := getSparklineLog(snap.TrendWarn, 5, "yellow", chartWidth)
+
+	// Time axis — -60s left, -30s middle, now right
+	// axisWidth = chartWidth - 3 (for "now") so total with prefix fits in panel
+	axisWidth := chartWidth - 3
+	if axisWidth < 8 {
+		axisWidth = 8
+	}
+	mid := axisWidth / 2
+	leftPad := mid - 4
+	rightPad := axisWidth - mid - 4
+	if leftPad < 1 {
+		leftPad = 1
+	}
+	if rightPad < 1 {
+		rightPad = 1
+	}
+	timeAxis := "[gray]-60s" + strings.Repeat(" ", leftPad) + "-30s" + strings.Repeat(" ", rightPad) + "now"
 
 	var graphBody strings.Builder
 	graphBody.WriteString(fmt.Sprintf("\n [white]Status: %s\n\n", getStatusLabel(snap.AverageEPS, snap.AverageWPS)))
 	graphBody.WriteString(fmt.Sprintf(" [red]EPS [white]| Peak: [red]%.1f [white]Avg: [red]%.2f\n", snap.PeakEPS, snap.AverageEPS))
 	graphBody.WriteString("\n" + sparkErrors + "\n")
-	graphBody.WriteString(" [white]" + strings.Repeat("▔", 25) + "\n\n")
+	graphBody.WriteString(" [white]" + strings.Repeat("▔", chartWidth) + "\n")
+	graphBody.WriteString(" " + timeAxis + "\n\n")
 	graphBody.WriteString(fmt.Sprintf(" [yellow]WPS [white]| Peak: [yellow]%.1f [white]Avg: [yellow]%.2f\n", snap.PeakWPS, snap.AverageWPS))
 	graphBody.WriteString("\n" + sparkWarns + "\n")
-	graphBody.WriteString(" [white]" + strings.Repeat("▔", 25))
+	graphBody.WriteString(" [white]" + strings.Repeat("▔", chartWidth) + "\n")
+	graphBody.WriteString(" " + timeAxis)
 	d.GraphView.SetText(graphBody.String())
 
 	// --- Top Errors/Warns ---

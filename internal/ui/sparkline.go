@@ -26,23 +26,13 @@ func truncate(s string, l int) string {
 	return s
 }
 
-// brailleChar maps an intensity level (0–4) to a Braille block character.
-// Each Braille cell gives smooth sub-row resolution:
-//
-//	0 → " "  (empty)
-//	1 → "⣀"  (bottom quarter)
-//	2 → "⣤"  (bottom half)
-//	3 → "⣶"  (three quarters)
-//	4 → "⣿"  (full)
-var brailleChar = [5]string{" ", "⣀", "⣤", "⣶", "⣿"}
-
-// getSparklineLog renders a log-scale area chart using Braille characters.
+// getSparklineLog renders a log-scale area chart using block characters.
 //
 // Uses range normalization: values are spread relative to (min, max) in the
 // window rather than (0, max). This means even at high sustained throughput
 // the chart shows variation instead of a solid wall.
 // Y-axis shows real peak and min values so nothing is misleading.
-func getSparklineLog(data []int, height int, color string) string {
+func getSparklineLog(data []int, height int, color string, maxWidth int) string {
 	if len(data) == 0 {
 		return ""
 	}
@@ -52,6 +42,11 @@ func getSparklineLog(data []int, height int, color string) string {
 	n := len(data)
 	if n > 60 {
 		n = 60
+	}
+	// Clamp to panel width to prevent right-border overflow corruption
+	if maxWidth > 0 && n > maxWidth {
+		n = maxWidth
+		data = data[len(data)-n:]
 	}
 
 	// Log-transform first
@@ -112,14 +107,14 @@ func getSparklineLog(data []int, height int, color string) string {
 			if v <= rowBot {
 				b.WriteString(" ")
 			} else if v >= rowTop {
-				b.WriteString("⣿")
+				b.WriteString("█")
 			} else {
 				frac := (v - rowBot) / bandH
-				level := int(frac * 4)
-				if level > 3 {
-					level = 3
+				if frac >= 0.5 {
+					b.WriteString("▄")
+				} else {
+					b.WriteString("░")
 				}
-				b.WriteString(brailleChar[level+1])
 			}
 		}
 		if row > 1 {

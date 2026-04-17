@@ -71,7 +71,7 @@ Use Markdown. No intro/outro fluff. Technical brevity is mandatory.`, avgEps, pe
 	}
 
 	body, _ := json.Marshal(payload)
-	client := http.Client{Timeout: 30 * time.Second}
+	client := http.Client{Timeout: 120 * time.Second}
 
 	resp, err := client.Post(e.Endpoint, "application/json", bytes.NewBuffer(body))
 	if err != nil {
@@ -111,7 +111,7 @@ Keep the entire response under 100 words. Prioritize errors. No intro/outro fluf
 	}
 
 	body, _ := json.Marshal(payload)
-	client := http.Client{Timeout: 20 * time.Second}
+	client := http.Client{Timeout: 60 * time.Second}
 
 	resp, err := client.Post(e.Endpoint, "application/json", bytes.NewBuffer(body))
 	if err != nil {

@@ -14,6 +14,18 @@ LOSU monitors application logs in real time and:
 - serves a live web dashboard at `localhost:8080`
  
 It helps developers debug production systems faster
+
+## Preview!
+
+<div align="center">
+  <img src="assets/Demo-tui.gif" alt="LOSU TUI" width="900"/>
+  <p><em>TUI Dashboard — fully keyboard navigable, works over SSH(tested on Playingfield)</em></p>
+  
+  <br/>
+  
+  <img src="assets/Demo-web.gif" alt="LOSU Web" width="900"/>
+  <p><em>Web Dashboard — real-time WebSocket, accessible at :8080</em></p>
+</div>
  
 ## ✨ Highlights
  
@@ -529,6 +541,47 @@ TUI logic tests operate on pure Go state — no terminal or tview application re
 
 ## 🛠 <b>Development History</b>
 <details><summary>(Click to expand)</summary>
+
+<details>
+<summary><b>April 17, 2026: Graph Bug Fix, Time Axis, AI Fixes, Docker Log Parser & Launch Prep</b> (Click to expand)</summary>
+#### Phase 1: Graph Corruption Fix (sparkline.go + update.go)
+ 
+The most important fix of the day. After ~55-60 seconds of runtime the graph panel would corrupt — Braille/block characters would render as scattered dots and the layout would break. Root cause identified: the sparkline was rendering exactly 60 characters wide regardless of the actual panel width. When the 60th data point arrived it overflowed the right border, causing tview to wrap the line and corrupt the internal render state.
+ 
+**Fix:** `GetInnerRect()` is now called every render tick to get the actual panel width. The sparkline is clamped to `chartWidth = graphWidth - 6` (reserving space for the Y-axis label). `getSparklineLog()` accepts a `maxWidth int` parameter and slices the data to fit. The chart now scrolls as new data arrives instead of overflowing.
+ 
+#### Phase 2: Time Axis (update.go)
+ 
+Added a time axis below each chart showing `-60s` on the left, `-30s` in the middle, and `now` on the right in gray. Both EPS and WPS charts have their own axis. The separator line (`▔`) also now scales to `chartWidth` instead of the hardcoded `25` — it was previously too short.
+ 
+#### Phase 3: AI Text Corruption Fix (main.go)
+ 
+tview interprets `[` and `]` as color tag delimiters. The LLM response frequently contains brackets like `[ERROR]`, `[STATS]`, `[TASK]` which tview tried to parse as color tags, corrupting the render state of the entire application including the graph panel. Fix: replace `[` with `(` and `]` with `)` before passing AI text to `SetText`. Also strip markdown (`**`, `###`) from the AI response before storing — tview doesn't render markdown.
+ 
+#### Phase 4: Docker Log Wrapper Parser Fix (json_parser.go)
+ 
+The Docker container log format wraps every line as `{"log":"<actual line>","stream":"stdout","time":"..."}`. The inner `log` field from the real app was logfmt format (`time=... level=WARN msg=...`), but the JSON parser was re-parsing it as JSON and returning UNKNOWN level. Fix: after extracting the inner line, check if it starts with `{` — if yes re-parse as JSON, if no route through `RegexParser` for correct logfmt level extraction. WARN and ERROR levels now show correctly from Docker container logs.
+ 
+#### Phase 5: AI Interval + Timeout (main.go + explainer.go)
+ 
+* `LOSU_AI_INTERVAL_SECONDS` env var added — controls how often AI analysis runs. Default changed from 30s to 60s to accommodate slow CPU inference.
+* `AnalyzeSystem` HTTP timeout bumped from 30s to 120s — llama3 on CPU without GPU can take 60-90 seconds to respond. Previously timed out and showed "offline" incorrectly.
+* `AnalyzeHeartbeat` timeout bumped from 20s to 60s.
+#### Phase 6: Demo Generator (normal_gen.go)
+ 
+Rebuilt the generator specifically for showcasing LOSU's fingerprinting engine:
+- 2 error patterns: `Failed login attempt` and `Connection refused` — both with varying IPs from a fixed pool of 5
+- 2 warn patterns: `Rate limit approaching` and `Slow query detected`
+- 3 healthy patterns
+- Ratios: 98% healthy, 1% warn, 1% error — graph stays sparse and readable
+- Fixed IP pool (5 IPs) means Top Errors clusters aggressively — perfect for inspector demo
+#### Phase 7: Launch Prep
+ 
+* Recorded `Demo-tui.gif` and `Demo-web.gif` for README
+* README Preview section planned: GIFs at top, before feature list
+* Repo made public on GitHub
+* Tested end-to-end on AWS EC2 with real production Docker container logs
+</details>
 
 <details>
 <summary><b>April 16, 2026: Docker Support, Alert EPS Threshold, AI Fix & README Update</b> 🐳🚨🤖📖 (Click to expand)</summary>
