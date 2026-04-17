@@ -1,0 +1,151 @@
+<svg width="100%" viewBox="0 0 680 580" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>LOSU pipeline architecture</title>
+<desc>Data flow from log source through watcher, tailer, parser, aggregator, and out to alerts, AI observer, and TUI/web UI</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <style>
+    text { font-family: system-ui, -apple-system, sans-serif; }
+    .th { font-size: 14px; font-weight: 500; fill: #2C2C2A; }
+    .ts { font-size: 12px; font-weight: 400; fill: #5F5E5A; }
+    .node { cursor: pointer; }
+
+    /* Gray */
+    .c-gray rect  { fill: #F1EFE8; stroke: #5F5E5A; }
+    .c-gray .th   { fill: #2C2C2A; }
+    .c-gray .ts   { fill: #5F5E5A; }
+
+    /* Teal */
+    .c-teal rect  { fill: #E1F5EE; stroke: #0F6E56; }
+    .c-teal .th   { fill: #085041; }
+    .c-teal .ts   { fill: #0F6E56; }
+
+    /* Purple */
+    .c-purple rect { fill: #EEEDFE; stroke: #534AB7; }
+    .c-purple .th  { fill: #26215C; }
+    .c-purple .ts  { fill: #534AB7; }
+
+    /* Coral */
+    .c-coral rect  { fill: #FAECE7; stroke: #993C1D; }
+    .c-coral .th   { fill: #4A1B0C; }
+    .c-coral .ts   { fill: #993C1D; }
+
+    /* Blue */
+    .c-blue rect  { fill: #E6F1FB; stroke: #185FA5; }
+    .c-blue .th   { fill: #042C53; }
+    .c-blue .ts   { fill: #185FA5; }
+
+    /* Green */
+    .c-green rect  { fill: #EAF3DE; stroke: #3B6D11; }
+    .c-green .th   { fill: #173404; }
+    .c-green .ts   { fill: #3B6D11; }
+
+    line.arr { stroke: #888780; stroke-width: 1.5; fill: none; }
+    @media (prefers-color-scheme: dark) {
+      .th { fill: #D3D1C7; }
+      .ts { fill: #888780; }
+      .c-gray rect   { fill: #444441; stroke: #B4B2A9; }
+      .c-gray .th    { fill: #F1EFE8; }
+      .c-gray .ts    { fill: #B4B2A9; }
+      .c-teal rect   { fill: #085041; stroke: #5DCAA5; }
+      .c-teal .th    { fill: #E1F5EE; }
+      .c-teal .ts    { fill: #9FE1CB; }
+      .c-purple rect { fill: #26215C; stroke: #AFA9EC; }
+      .c-purple .th  { fill: #EEEDFE; }
+      .c-purple .ts  { fill: #AFA9EC; }
+      .c-coral rect  { fill: #4A1B0C; stroke: #F0997B; }
+      .c-coral .th   { fill: #FAECE7; }
+      .c-coral .ts   { fill: #F0997B; }
+      .c-blue rect   { fill: #042C53; stroke: #85B7EB; }
+      .c-blue .th    { fill: #E6F1FB; }
+      .c-blue .ts    { fill: #85B7EB; }
+      .c-green rect  { fill: #173404; stroke: #97C459; }
+      .c-green .th   { fill: #EAF3DE; }
+      .c-green .ts   { fill: #97C459; }
+      line.arr { stroke: #888780; }
+    }
+  </style>
+</defs>
+
+<!-- Log Source -->
+<g class="c-gray">
+  <rect x="220" y="20" width="240" height="44" rx="8" stroke-width="0.5"/>
+  <text class="th" x="340" y="42" text-anchor="middle" dominant-baseline="central">External log source</text>
+</g>
+<text class="ts" x="340" y="76" text-anchor="middle">Application / Docker / System</text>
+
+<!-- Arrow -->
+<line x1="340" y1="64" x2="340" y2="95" class="arr" marker-end="url(#arrow)"/>
+<text class="ts" x="358" y="83">fsnotify / poll</text>
+
+<!-- Watcher + Tailer -->
+<g class="c-teal">
+  <rect x="200" y="100" width="280" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="340" y="122" text-anchor="middle" dominant-baseline="central">Watcher + Tailer</text>
+  <text class="ts" x="340" y="142" text-anchor="middle" dominant-baseline="central">Non-blocking · context-aware shutdown</text>
+</g>
+
+<!-- Arrow -->
+<line x1="340" y1="156" x2="340" y2="185" class="arr" marker-end="url(#arrow)"/>
+<text class="ts" x="358" y="174">RawLog channel</text>
+
+<!-- Parser -->
+<g class="c-teal">
+  <rect x="200" y="190" width="280" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="340" y="212" text-anchor="middle" dominant-baseline="central">Worker pool / Parser</text>
+  <text class="ts" x="340" y="232" text-anchor="middle" dominant-baseline="central">Concurrent · auto-detects JSON or logfmt</text>
+</g>
+
+<!-- Arrow -->
+<line x1="340" y1="246" x2="340" y2="275" class="arr" marker-end="url(#arrow)"/>
+<text class="ts" x="358" y="264">LogEvent channel</text>
+
+<!-- Aggregator -->
+<g class="c-purple">
+  <rect x="180" y="280" width="320" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="340" y="302" text-anchor="middle" dominant-baseline="central">State Aggregator</text>
+  <text class="ts" x="340" y="322" text-anchor="middle" dominant-baseline="central">Ring buffers · fingerprinting · EPS / WPS</text>
+</g>
+
+<!-- Left branch to Alerts -->
+<path d="M240 336 L240 380 L100 380 L100 420" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<!-- Center branch to AI -->
+<line x1="340" y1="336" x2="340" y2="420" class="arr" marker-end="url(#arrow)"/>
+
+<!-- Right branch to UI -->
+<path d="M440 336 L440 380 L580 380 L580 420" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<!-- Alert Service -->
+<g class="c-coral">
+  <rect x="24" y="420" width="152" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="100" y="442" text-anchor="middle" dominant-baseline="central">Alert service</text>
+  <text class="ts" x="100" y="462" text-anchor="middle" dominant-baseline="central">ntfy · beeep · EPS gate</text>
+</g>
+
+<!-- AI Observer -->
+<g class="c-blue">
+  <rect x="232" y="420" width="216" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="340" y="442" text-anchor="middle" dominant-baseline="central">AI Observer</text>
+  <text class="ts" x="340" y="462" text-anchor="middle" dominant-baseline="central">Ollama · every 60s · async</text>
+</g>
+
+<!-- TUI + Web UI -->
+<g class="c-green">
+  <rect x="504" y="420" width="152" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="580" y="442" text-anchor="middle" dominant-baseline="central">TUI + Web UI</text>
+  <text class="ts" x="580" y="462" text-anchor="middle" dominant-baseline="central">tview · WebSocket hub</text>
+</g>
+
+<!-- Output arrows -->
+<line x1="100" y1="476" x2="100" y2="516" class="arr" marker-end="url(#arrow)"/>
+<line x1="340" y1="476" x2="340" y2="516" class="arr" marker-end="url(#arrow)"/>
+<line x1="580" y1="476" x2="580" y2="516" class="arr" marker-end="url(#arrow)"/>
+
+<!-- Output labels -->
+<text class="ts" x="100" y="536" text-anchor="middle">Mobile alert</text>
+<text class="ts" x="340" y="536" text-anchor="middle">SRE analysis</text>
+<text class="ts" x="580" y="536" text-anchor="middle">Live dashboard</text>
+
+</svg>

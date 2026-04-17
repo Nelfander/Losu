@@ -466,29 +466,7 @@ Result: a single 25KB HTML file baked into the binary.
 
 ## Pipeline Flow
 
-```text
-     External Log Source (Application / Docker / System)
-                          │
-               (fsnotify / poll events)
-                          ▼
-                Watcher & Tailer
-           (non-blocking, context-aware)
-                          │
-                (RawLog channel)
-                          ▼
-              Worker Pool / Parser
-          (concurrent, format-agnostic)
-                          │
-               (LogEvent channel)
-                          ▼
-                State Aggregator
-     (ring buffers, fingerprinting, EPS/WPS)
-                │         │         │
-         ┌──────┘         │         └──────┐
-         ▼                ▼                ▼
-   Alert Service     AI Observer      TUI + Web UI
- (ntfy, beeep, EPS) (Ollama, 60s)  (tview + WebSocket)
-```
+![LOSU Pipeline](assets/pipeline.svg)
 
 ---
 
