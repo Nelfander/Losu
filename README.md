@@ -1168,17 +1168,6 @@ RAM dropped back toward the original ~40MB baseline at 20k logs/sec.
 
 ---
 
-## 🏗 Development Roadmap
-- [x] **Phase 1**: High-Concurrency Pipeline & FS-Watcher
-- [x] **Phase 2**: Pattern Recognition & Fuzzy Message Grouping
-- [x] **Phase 3**: AI Observer Integration (Ollama/Llama 3)
-- [x] **Phase 4**: Multi-Channel Alerting (Desktop & Mobile)
-- [ ] **Phase 5**: Support for JSON-structured logs & Custom Regex
-- [ ] **Phase 6**: Prometheus Metrics Export & Grafana Integration
-- [ ] **Phase 7**: Historical Log Searching & Persistence
-
----
-
 ## Problems & How I Solved Them
 
 <details><summary>Challenge: Web UI Without Breaking the Single Binary Philosophy(Click to expand)</summary>

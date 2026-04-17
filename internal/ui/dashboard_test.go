@@ -28,7 +28,6 @@ TestDashboard_Filtering verifies that the SearchFilter logic
 correctly includes or excludes logs based on user input.
 */
 func TestDashboard_Filtering(t *testing.T) {
-
 	history := []model.LogEvent{
 		{Level: "ERROR", Message: "Database down", Timestamp: time.Now()},
 		{Level: "INFO", Message: "User logged in", Timestamp: time.Now()},
@@ -326,28 +325,26 @@ func TestDashboard_AISummary_Top3Only(t *testing.T) {
 }
 
 // ── Sparkline ─────────────────────────────────────────────────────────────────
+
 func TestHelper_SparklineLog_Empty(t *testing.T) {
-	result := getSparklineLog([]int{}, 5, "red")
+	result := getSparklineLog([]int{}, 5, "red", 60)
 	if result != "" {
 		t.Errorf("Expected empty string for empty data, got %q", result)
 	}
 }
 
 func TestHelper_SparklineLog_AllZeros(t *testing.T) {
-	result := getSparklineLog([]int{0, 0, 0, 0}, 5, "red")
+	result := getSparklineLog([]int{0, 0, 0, 0}, 5, "red", 60)
+	// All zeros should produce a valid (mostly blank) sparkline without panicking
 	if result == "" {
 		t.Error("Expected non-empty sparkline even for zero data")
 	}
 }
 
 func TestHelper_SparklineLog_SingleSpike(t *testing.T) {
-	result := getSparklineLog([]int{0, 0, 100, 0, 0}, 5, "red")
-	// Braille chars used for rendering — check for any non-space content
-	hasContent := strings.Contains(result, "⣿") ||
-		strings.Contains(result, "⣶") ||
-		strings.Contains(result, "⣤") ||
-		strings.Contains(result, "⣀")
-	if !hasContent {
-		t.Error("Expected spike to produce Braille block characters in sparkline")
+	// A spike should produce non-blank characters somewhere in the output
+	result := getSparklineLog([]int{0, 0, 100, 0, 0}, 5, "red", 60)
+	if !strings.Contains(result, "█") && !strings.Contains(result, "▄") {
+		t.Error("Expected spike to produce block characters in sparkline")
 	}
 }
