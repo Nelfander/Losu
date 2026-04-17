@@ -322,31 +322,36 @@ go run bin/generators/json/json_gen.go
 
 <details><summary><b>Makefile way!</b>(Click to expand)</summary>
 You can use the provided **Makefile** for easy execution:
- 
+
 ```bash
-# Run the monitor (TUI)
+# Run the monitor (TUI only)
 make run
- 
-# Run with web dashboard
+
+# Run with web dashboard only
 make run-web
- 
-# Run with both TUI and web
+
+# Run with both TUI and web dashboard
 make run-both
+
+# Wipe stats and start fresh
+make run-reset
 ```
- 
-### 6. 🧪 Testing 
--<b>Normal steady traffic</b>
+
+### 6. 🧪 Testing
+- <b>Normal logfmt traffic</b>
 ```bash
-# Run the steady test
 make test-normal
 ```
--<b>High-velocity "Chaos" mode</b>
+- <b>JSON / Docker format traffic</b>
 ```bash
-# Run the stress test
-make test-stress
+make test-json
+```
+- <b>Full test suite with race detector</b>
+```bash
+make test
 ```
 </details>
- 
+
 </details>
 
 ---

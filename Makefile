@@ -1,32 +1,43 @@
-# Variables
 BINARY_NAME=losu
 GO_FILES=cmd/logsum/main.go
-NORMAL_GEN=bin/normal/normal_gen.go
-STRESS_GEN=bin/stress/stress_gen.go
+NORMAL_GEN=bin/generators/normal/main.go
+JSON_GEN=bin/generators/json/json_gen.go
 
-.PHONY: build run clean test build-all test-normal test-stress
+.PHONY: build run run-web run-both run-reset clean test test-normal test-json
 
 # Compile the main binary
 build:
 	go build -o $(BINARY_NAME) $(GO_FILES)
 
-# Build everything (Main app + both generators)
-build-all: build
-	go build -o normal_gen $(NORMAL_GEN)
-	go build -o stress_gen $(STRESS_GEN)
+# Run the app (TUI only)
+run: build
+	./$(BINARY_NAME) --ui=tui
 
-# Run the normal generator (Simulates steady traffic)
+# Run with web dashboard only
+run-web: build
+	./$(BINARY_NAME) --ui=web
+
+# Run with both TUI and web dashboard
+run-both: build
+	./$(BINARY_NAME) --ui=both
+
+# Wipe stats and start fresh
+run-reset: build
+	./$(BINARY_NAME) --reset
+
+# Run tests
+test:
+	go test ./... -race
+
+# Run the normal logfmt generator (simulates steady production traffic)
 test-normal:
 	go run $(NORMAL_GEN)
 
-# Run the stress generator (Simulates high-velocity spikes)
-test-stress:
-	go run $(STRESS_GEN)
+# Run the JSON generator (simulates Docker container log format)
+test-json:
+	go run $(JSON_GEN)
 
-# Run the app locally
-run: build
-	./$(BINARY_NAME)
-
-# Clean up all binaries and logs
+# Clean up binaries and logs
 clean:
-	rm -f $(BINARY_NAME) $(BINARY_NAME)-linux normal_gen stress_gen alerts.log test.log
+	rm -f $(BINARY_NAME) alerts.log
+	rm -f logs/test.log logs/test2.log
